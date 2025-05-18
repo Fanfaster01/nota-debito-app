@@ -1,5 +1,4 @@
 // src/types/index.ts
-
 export interface Factura {
     numero: string;
     numeroControl: string;
@@ -54,4 +53,6 @@ export interface Factura {
     diferencialCambiario: number;
     ivaDisferencialCambiario: number;
     totalNotaDebito: number;
+    retencionIVADiferencial?: number; // Monto de retención de IVA sobre el diferencial cambiario
+    montoNetoPagarNotaDebito?: number; // Monto neto a pagar por la nota de débito después de retención
   }

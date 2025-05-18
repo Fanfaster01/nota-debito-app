@@ -8,7 +8,14 @@ import { calcularNotaDebito, calcularMontoFinalPagar } from '@/lib/calculations'
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
+
+// Función auxiliar para formatear fechas correctamente
+const formatearFecha = (fecha: Date): string => {
+  // Añadimos un día para corregir el desfase de zona horaria
+  const fechaCorregida = addDays(fecha, 1);
+  return format(fechaCorregida, 'dd/MM/yyyy');
+};
 
 interface NotaDebitoFormProps {
   factura: Factura | null;
@@ -117,44 +124,67 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
             <div>
               <h4 className="font-medium mb-2">Factura Original</h4>
               <p><span className="font-medium">Número:</span> {factura.numero}</p>
-              <p><span className="font-medium">Fecha:</span> {factura.fecha instanceof Date ? format(factura.fecha, 'dd/MM/yyyy') : '-'}</p>
+              <p><span className="font-medium">Fecha:</span> {factura.fecha instanceof Date ? formatearFecha(factura.fecha) : '-'}</p>
               <p><span className="font-medium">Total:</span> Bs. {factura.total.toFixed(2)}</p>
               <p><span className="font-medium">Monto en USD:</span> $ {factura.montoUSD.toFixed(2)}</p>
               <p><span className="font-medium">Tasa de Cambio:</span> Bs. {factura.tasaCambio.toFixed(2)}</p>
               <p><span className="font-medium">Retención IVA:</span> Bs. {factura.retencionIVA.toFixed(2)}</p>
+              <p><span className="font-medium">Monto a pagar después de retención:</span> Bs. {(factura.total - factura.retencionIVA).toFixed(2)}</p>
             </div>
 
             {notaCredito && (
               <div>
                 <h4 className="font-medium mb-2">Nota de Crédito</h4>
                 <p><span className="font-medium">Número:</span> {notaCredito.numero}</p>
-                <p><span className="font-medium">Fecha:</span> {notaCredito.fecha instanceof Date ? format(notaCredito.fecha, 'dd/MM/yyyy') : '-'}</p>
+                <p><span className="font-medium">Fecha:</span> {notaCredito.fecha instanceof Date ? formatearFecha(notaCredito.fecha) : '-'}</p>
                 <p><span className="font-medium">Total:</span> Bs. {notaCredito.total.toFixed(2)}</p>
                 <p><span className="font-medium">Monto en USD:</span> $ {notaCredito.montoUSD.toFixed(2)}</p>
                 <p><span className="font-medium">Retención IVA:</span> Bs. {notaCredito.retencionIVA.toFixed(2)}</p>
+                <p><span className="font-medium">Monto a restar después de retención:</span> Bs. {(notaCredito.total - notaCredito.retencionIVA).toFixed(2)}</p>
               </div>
             )}
           </div>
 
           {notaDebito && (
             <div className="mt-6 border-t border-gray-200 pt-6">
-              <h4 className="font-medium mb-2">Cálculo del Diferencial Cambiario</h4>
+              <h4 className="font-medium mb-2">Detalles del Diferencial Cambiario</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <p><span className="font-medium">Monto Neto en USD:</span> $ {notaDebito.montoUSDNeto.toFixed(2)}</p>
-                  <p><span className="font-medium">Tasa de Cambio Original:</span> Bs. {notaDebito.tasaCambioOriginal.toFixed(2)}</p>
-                  <p><span className="font-medium">Tasa de Cambio al Pago:</span> Bs. {notaDebito.tasaCambioPago.toFixed(2)}</p>
+                  <p><span className="font-medium">Valor en Bs. con tasa original ({notaDebito.tasaCambioOriginal.toFixed(2)}):</span> Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)}</p>
+                  <p><span className="font-medium">Valor en Bs. con tasa de pago ({notaDebito.tasaCambioPago.toFixed(2)}):</span> Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)}</p>
                 </div>
                 <div>
-                  <p><span className="font-medium">Diferencial Cambiario:</span> Bs. {notaDebito.diferencialCambiario.toFixed(2)}</p>
-                  <p><span className="font-medium">IVA sobre Diferencial:</span> Bs. {notaDebito.ivaDisferencialCambiario.toFixed(2)}</p>
-                  <p className="font-medium text-lg mt-2">Total Nota de Débito: Bs. {notaDebito.totalNotaDebito.toFixed(2)}</p>
+                  <p><span className="font-medium">Diferencial Cambiario (Base Imponible):</span> Bs. {notaDebito.diferencialCambiario.toFixed(2)}</p>
+                  <p><span className="font-medium">IVA ({factura.alicuotaIVA}%) sobre diferencial:</span> Bs. {notaDebito.ivaDisferencialCambiario.toFixed(2)}</p>
+                  <p><span className="font-medium">Total Nota de Débito:</span> Bs. {notaDebito.totalNotaDebito.toFixed(2)}</p>
+                  {notaDebito.retencionIVADiferencial !== undefined && (
+                    <p><span className="font-medium">Retención IVA ({factura.porcentajeRetencion}%):</span> Bs. {notaDebito.retencionIVADiferencial.toFixed(2)}</p>
+                  )}
+                  {notaDebito.montoNetoPagarNotaDebito !== undefined && (
+                    <p className="font-medium text-lg mt-2">Nota de Débito después de retención: Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
+                  )}
                 </div>
               </div>
 
               <div className="mt-6 border-t border-gray-200 pt-6">
-                <h4 className="font-medium text-xl text-center mb-4">Monto Final a Pagar</h4>
-                <p className="text-center text-2xl font-bold">Bs. {montoFinalPagar.toFixed(2)}</p>
+                <h4 className="font-medium text-xl text-center mb-4">Resumen Final de la Operación</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <p><span className="font-medium">Factura original (después de retención):</span> Bs. {(factura.total - factura.retencionIVA).toFixed(2)}</p>
+                    {notaCredito && (
+                      <p><span className="font-medium">Menos: Nota de Crédito (después de retención):</span> Bs. {(notaCredito.total - notaCredito.retencionIVA).toFixed(2)}</p>
+                    )}
+                    {notaDebito.montoNetoPagarNotaDebito !== undefined ? (
+                      <p><span className="font-medium">Más: Nota de Débito (después de retención):</span> Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
+                    ) : (
+                      <p><span className="font-medium">Más: Nota de Débito:</span> Bs. {notaDebito.totalNotaDebito.toFixed(2)}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-center">
+                    <p className="text-center text-2xl font-bold">MONTO FINAL A PAGAR: Bs. {montoFinalPagar.toFixed(2)}</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

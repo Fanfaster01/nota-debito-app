@@ -1,4 +1,4 @@
-// src/lib/calculations.ts
+// src/lib/calculations.ts (modificado)
 import { Factura, NotaCredito, NotaDebito } from '../types';
 
 export const calcularSubTotal = (baseImponible: number, montoExento: number): number => {
@@ -47,7 +47,7 @@ export const calcularNotaDebito = (
   const montoBolivaresOriginal = montoUSDNeto * factura.tasaCambio;
   const montoBolivaresPago = montoUSDNeto * tasaCambioPago;
 
-  // Calcular diferencial cambiario
+  // Calcular diferencial cambiario (base imponible)
   const diferencialCambiario = montoBolivaresPago - montoBolivaresOriginal;
   
   // Calcular IVA sobre diferencial (usando la misma alícuota de la factura)
@@ -55,6 +55,9 @@ export const calcularNotaDebito = (
   
   // Calcular total nota de débito
   const totalNotaDebito = diferencialCambiario + ivaDisferencialCambiario;
+
+  // Calcular retención de IVA sobre el diferencial cambiario
+  const retencionIVADiferencial = calcularRetencionIVA(ivaDisferencialCambiario, factura.porcentajeRetencion);
 
   return {
     numero: '',
@@ -67,6 +70,8 @@ export const calcularNotaDebito = (
     diferencialCambiario,
     ivaDisferencialCambiario,
     totalNotaDebito,
+    retencionIVADiferencial,
+    montoNetoPagarNotaDebito: totalNotaDebito - retencionIVADiferencial
   };
 };
 
@@ -83,8 +88,9 @@ export const calcularMontoFinalPagar = (
     ? notaCredito.total - notaCredito.retencionIVA 
     : 0;
   
-  // Monto adicional por diferencial cambiario
-  const montoAdicionalDiferencial = notaDebito.totalNotaDebito;
+  // Monto adicional por diferencial cambiario después de retención
+  const montoAdicionalDiferencial = notaDebito.montoNetoPagarNotaDebito || 
+    (notaDebito.totalNotaDebito - (notaDebito.retencionIVADiferencial || 0));
   
   // Monto total final a pagar
   return montoPagarFactura - montoRestarNotaCredito + montoAdicionalDiferencial;
