@@ -1,4 +1,4 @@
-// src/lib/calculations.ts (corregido)
+// src/lib/calculations.ts
 import { Factura, NotaCredito, NotaDebito } from '../types';
 
 export const calcularSubTotal = (baseImponible: number, montoExento: number): number => {
@@ -43,17 +43,36 @@ export const extraerIVA = (montoConIVA: number, alicuotaIVA: number = 16): numbe
   return montoConIVA - baseImponible;
 };
 
+// Calcular el total de todas las notas de crédito
+export const calcularTotalNotasCredito = (notasCredito: NotaCredito[]): {
+  totalUSD: number;
+  totalRetencionIVA: number;
+  totalPagar: number;
+} => {
+  return notasCredito.reduce((acum, nota) => {
+    const montoUSD = nota.montoUSD || nota.total / nota.tasaCambio;
+    return {
+      totalUSD: acum.totalUSD + montoUSD,
+      totalRetencionIVA: acum.totalRetencionIVA + nota.retencionIVA,
+      totalPagar: acum.totalPagar + (nota.total - nota.retencionIVA),
+    };
+  }, { totalUSD: 0, totalRetencionIVA: 0, totalPagar: 0 });
+};
+
 export const calcularNotaDebito = (
   factura: Factura,
-  notaCredito: NotaCredito | null,
+  notasCredito: NotaCredito[],
   tasaCambioPago: number
 ): NotaDebito => {
-  // Calcular monto neto en USD después de la nota de crédito (ya incluye IVA)
+  // Calcular monto neto en USD después de restar todas las notas de crédito
   const montoUSDFactura = factura.montoUSD || factura.total / factura.tasaCambio;
-  const montoUSDNotaCredito = notaCredito 
-    ? (notaCredito.montoUSD || notaCredito.total / notaCredito.tasaCambio) 
-    : 0;
-  const montoUSDNeto = montoUSDFactura - montoUSDNotaCredito;
+  
+  // Sumar todos los montos en USD de las notas de crédito
+  const totalNotasCredito = calcularTotalNotasCredito(notasCredito);
+  const montoUSDTotalNotasCredito = totalNotasCredito.totalUSD;
+  
+  // Asegurarse de que las notas de crédito no excedan el monto de la factura
+  const montoUSDNeto = Math.max(0, montoUSDFactura - montoUSDTotalNotasCredito);
 
   // Calcular montos en bolívares a las diferentes tasas (ya incluyen IVA)
   const montoBolivaresOriginal = montoUSDNeto * factura.tasaCambio;
@@ -76,7 +95,7 @@ export const calcularNotaDebito = (
     numero: '',
     fecha: new Date(),
     factura,
-    notaCredito: notaCredito || undefined,
+    notasCredito: notasCredito.length > 0 ? notasCredito : undefined,
     tasaCambioOriginal: factura.tasaCambio,
     tasaCambioPago,
     montoUSDNeto,
@@ -90,22 +109,22 @@ export const calcularNotaDebito = (
 
 export const calcularMontoFinalPagar = (
   factura: Factura,
-  notaCredito: NotaCredito | null,
+  notasCredito: NotaCredito[],
   notaDebito: NotaDebito
 ): number => {
   // Monto a pagar de la factura después de retención
   const montoPagarFactura = factura.total - factura.retencionIVA;
   
-  // Monto a restar por nota de crédito después de retención
-  const montoRestarNotaCredito = notaCredito 
-    ? notaCredito.total - notaCredito.retencionIVA 
-    : 0;
+  // Monto a restar por todas las notas de crédito después de retención
+  const montoRestarNotasCredito = notasCredito.reduce((total, nc) => {
+    return total + (nc.total - nc.retencionIVA);
+  }, 0);
   
   // Monto adicional por diferencial cambiario después de retención
   const montoAdicionalDiferencial = notaDebito.montoNetoPagarNotaDebito;
   
   // Monto total final a pagar
-  return montoPagarFactura - montoRestarNotaCredito + montoAdicionalDiferencial;
+  return montoPagarFactura - montoRestarNotasCredito + montoAdicionalDiferencial;
 };
 
 // Funciones auxiliares para formularios
@@ -157,5 +176,23 @@ export const recalcularNotaCredito = (values: Partial<NotaCredito>): Partial<Not
     total,
     retencionIVA,
     montoUSD
+  };
+};
+
+// Verifica si el total de las notas de crédito excede el monto de la factura
+export const verificarLimiteNotasCredito = (
+  factura: Factura,
+  notasCredito: NotaCredito[]
+): { excedeLimite: boolean; montoDisponibleUSD: number } => {
+  const montoUSDFactura = factura.montoUSD || factura.total / factura.tasaCambio;
+  const totalUSDNotasCredito = notasCredito.reduce((total, nc) => {
+    return total + (nc.montoUSD || nc.total / nc.tasaCambio);
+  }, 0);
+  
+  const montoDisponibleUSD = montoUSDFactura - totalUSDNotasCredito;
+  
+  return {
+    excedeLimite: totalUSDNotasCredito > montoUSDFactura,
+    montoDisponibleUSD: Math.max(0, montoDisponibleUSD)
   };
 };

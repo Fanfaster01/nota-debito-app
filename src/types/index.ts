@@ -46,7 +46,7 @@ export interface Factura {
     numero: string;
     fecha: Date;
     factura: Factura;
-    notaCredito?: NotaCredito;
+    notasCredito?: NotaCredito[]; // Cambiado de notaCredito a notasCredito (array)
     tasaCambioOriginal: number;
     tasaCambioPago: number;
     montoUSDNeto: number;

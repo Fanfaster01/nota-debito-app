@@ -4,7 +4,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Factura, NotaCredito, NotaDebito } from '@/types';
 import { notaDebitoSchema } from '@/lib/validators';
-import { calcularNotaDebito, calcularMontoFinalPagar } from '@/lib/calculations';
+import { calcularNotaDebito, calcularMontoFinalPagar, calcularTotalNotasCredito } from '@/lib/calculations';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -19,19 +19,20 @@ const formatearFecha = (fecha: Date): string => {
 
 interface NotaDebitoFormProps {
   factura: Factura | null;
-  notaCredito: NotaCredito | null;
+  notasCredito: NotaCredito[];
   onSubmit: (data: NotaDebito) => void;
   defaultValues?: Partial<NotaDebito>;
 }
 
 export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({ 
   factura, 
-  notaCredito, 
+  notasCredito, 
   onSubmit, 
   defaultValues 
 }) => {
   const [notaDebito, setNotaDebito] = useState<NotaDebito | null>(null);
   const [montoFinalPagar, setMontoFinalPagar] = useState<number>(0);
+  const [totalNotasCredito, setTotalNotasCredito] = useState({ totalUSD: 0, totalRetencionIVA: 0, totalPagar: 0 });
 
   const {
     register,
@@ -55,17 +56,25 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
   const tasaCambioPago = watch('tasaCambioPago');
   const fecha = watch('fecha');
 
+  // Calcular el total de las notas de crédito cuando cambian
+  useEffect(() => {
+    if (notasCredito.length > 0) {
+      const total = calcularTotalNotasCredito(notasCredito);
+      setTotalNotasCredito(total);
+    }
+  }, [notasCredito]);
+
   // Calculate nota de débito when tasaCambioPago changes
   useEffect(() => {
     if (factura && tasaCambioPago > 0) {
-      const calculatedNotaDebito = calcularNotaDebito(factura, notaCredito, tasaCambioPago);
+      const calculatedNotaDebito = calcularNotaDebito(factura, notasCredito, tasaCambioPago);
       setNotaDebito(calculatedNotaDebito);
       
       // Calculate monto final a pagar
-      const montoFinal = calcularMontoFinalPagar(factura, notaCredito, calculatedNotaDebito);
+      const montoFinal = calcularMontoFinalPagar(factura, notasCredito, calculatedNotaDebito);
       setMontoFinalPagar(montoFinal);
     }
-  }, [factura, notaCredito, tasaCambioPago]);
+  }, [factura, notasCredito, tasaCambioPago]);
 
   const onFormSubmit = (data: { tasaCambioPago: number; fecha: Date }) => {
     if (factura && notaDebito) {
@@ -132,15 +141,24 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
               <p><span className="font-medium">Monto a pagar después de retención:</span> Bs. {(factura.total - factura.retencionIVA).toFixed(2)}</p>
             </div>
 
-            {notaCredito && (
+            {notasCredito.length > 0 && (
               <div>
-                <h4 className="font-medium mb-2">Nota de Crédito</h4>
-                <p><span className="font-medium">Número:</span> {notaCredito.numero}</p>
-                <p><span className="font-medium">Fecha:</span> {notaCredito.fecha instanceof Date ? formatearFecha(notaCredito.fecha) : '-'}</p>
-                <p><span className="font-medium">Total:</span> Bs. {notaCredito.total.toFixed(2)}</p>
-                <p><span className="font-medium">Monto en USD:</span> $ {notaCredito.montoUSD.toFixed(2)}</p>
-                <p><span className="font-medium">Retención IVA:</span> Bs. {notaCredito.retencionIVA.toFixed(2)}</p>
-                <p><span className="font-medium">Monto a restar después de retención:</span> Bs. {(notaCredito.total - notaCredito.retencionIVA).toFixed(2)}</p>
+                <h4 className="font-medium mb-2">Notas de Crédito ({notasCredito.length})</h4>
+                <p><span className="font-medium">Total en USD:</span> $ {totalNotasCredito.totalUSD.toFixed(2)}</p>
+                <p><span className="font-medium">Total Retención IVA:</span> Bs. {totalNotasCredito.totalRetencionIVA.toFixed(2)}</p>
+                <p><span className="font-medium">Total a restar después de retención:</span> Bs. {totalNotasCredito.totalPagar.toFixed(2)}</p>
+                
+                {/* Listado de notas de crédito individuales */}
+                <div className="mt-4 overflow-hidden bg-gray-50 rounded-md">
+                  <div className="px-4 py-3 bg-gray-100 text-xs font-medium text-gray-600">Detalle de Notas de Crédito</div>
+                  <div className="p-4 max-h-40 overflow-y-auto">
+                    {notasCredito.map((nc, index) => (
+                      <div key={index} className="mb-2 pb-2 border-b border-gray-200 last:border-b-0 last:mb-0 last:pb-0">
+                        <p><span className="text-xs font-medium">#{index+1} {nc.numero}:</span> $ {nc.montoUSD.toFixed(2)} (Bs. {(nc.total - nc.retencionIVA).toFixed(2)} después de retención)</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -150,7 +168,7 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
               <h4 className="font-medium mb-2">Cálculo del Diferencial Cambiario</h4>
               <div className="p-4 bg-gray-50 rounded mb-4">
                 <p className="font-medium mb-2">Datos del cálculo:</p>
-                <p>• Monto neto en USD: $ {notaDebito.montoUSDNeto.toFixed(2)}</p>
+                <p>• Monto neto en USD (después de restar notas de crédito): $ {notaDebito.montoUSDNeto.toFixed(2)}</p>
                 <p>• Valor en Bs. con tasa original: $ {notaDebito.montoUSDNeto.toFixed(2)} × {notaDebito.tasaCambioOriginal.toFixed(2)} = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)}</p>
                 <p>• Valor en Bs. con tasa de pago: $ {notaDebito.montoUSDNeto.toFixed(2)} × {notaDebito.tasaCambioPago.toFixed(2)} = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)}</p>
                 <p>• Diferencial cambiario (con IVA): Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)}</p>
@@ -183,8 +201,8 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <p><span className="font-medium">Factura original (después de retención):</span> Bs. {(factura.total - factura.retencionIVA).toFixed(2)}</p>
-                    {notaCredito && (
-                      <p><span className="font-medium">Menos: Nota de Crédito (después de retención):</span> Bs. {(notaCredito.total - notaCredito.retencionIVA).toFixed(2)}</p>
+                    {notasCredito.length > 0 && (
+                      <p><span className="font-medium">Menos: Notas de Crédito (después de retención):</span> Bs. {totalNotasCredito.totalPagar.toFixed(2)}</p>
                     )}
                     <p><span className="font-medium">Más: Nota de Débito (después de retención):</span> Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
                   </div>

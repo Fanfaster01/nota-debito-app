@@ -10,7 +10,7 @@ import {
   PDFDownloadLink
 } from '@react-pdf/renderer';
 import { format, addDays } from 'date-fns';
-import { NotaDebito } from '@/types';
+import { NotaDebito, NotaCredito } from '@/types';
 
 // Función auxiliar para corregir fechas
 const formatearFecha = (fecha: Date | string | undefined): string => {
@@ -28,6 +28,33 @@ const formatearFecha = (fecha: Date | string | undefined): string => {
   fechaObj = addDays(fechaObj, 1);
   
   return format(fechaObj, 'dd/MM/yyyy');
+};
+
+// Cálculo del total de las notas de crédito
+const calcularTotalNotasCredito = (notasCredito: NotaCredito[] | undefined): {
+  totalUSD: number;
+  totalBs: number;
+  totalRetencion: number;
+  totalPagar: number;
+} => {
+  if (!notasCredito || notasCredito.length === 0) {
+    return {
+      totalUSD: 0,
+      totalBs: 0,
+      totalRetencion: 0,
+      totalPagar: 0
+    };
+  }
+  
+  return notasCredito.reduce((acum, nota) => {
+    const montoUSD = nota.montoUSD || nota.total / nota.tasaCambio;
+    return {
+      totalUSD: acum.totalUSD + montoUSD,
+      totalBs: acum.totalBs + nota.total,
+      totalRetencion: acum.totalRetencion + nota.retencionIVA,
+      totalPagar: acum.totalPagar + (nota.total - nota.retencionIVA),
+    };
+  }, { totalUSD: 0, totalBs: 0, totalRetencion: 0, totalPagar: 0 });
 };
 
 // Definir estilos para el PDF
@@ -139,6 +166,17 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     fontSize: 7,
   },
+  notaCreditoItem: {
+    marginBottom: 3,
+    fontSize: 7,
+  },
+  notasCreditoContainer: {
+    backgroundColor: '#f5f5f5',
+    padding: 5,
+    marginTop: 5,
+    borderRadius: 3,
+    maxHeight: 50,
+  },
 });
 
 interface NotaDebitoPDFProps {
@@ -172,7 +210,9 @@ export const NotaDebitoPDFDownloadLink: React.FC<NotaDebitoPDFProps> = ({ notaDe
 
 // Documento PDF
 const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, montoFinalPagar }) => {
-  const { factura, notaCredito } = notaDebito;
+  const { factura, notasCredito } = notaDebito;
+  const totalesNotasCredito = calcularTotalNotasCredito(notasCredito);
+  const hasNotasCredito = notasCredito && notasCredito.length > 0;
   
   return (
     <Document>
@@ -237,10 +277,25 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                 <Text style={styles.label}>Factura Original:</Text>
                 <Text style={styles.value}>{factura.numero} del {formatearFecha(factura.fecha)}</Text>
               </View>
-              {notaCredito && (
-                <View style={styles.row}>
-                  <Text style={styles.label}>Nota de Crédito:</Text>
-                  <Text style={styles.value}>{notaCredito.numero} del {formatearFecha(notaCredito.fecha)}</Text>
+              
+              {/* Mostrar notas de crédito si existen */}
+              {hasNotasCredito && (
+                <View>
+                  <View style={styles.row}>
+                    <Text style={styles.label}>Notas de Crédito:</Text>
+                    <Text style={styles.value}>{notasCredito.length} nota{notasCredito.length > 1 ? 's' : ''} asociada{notasCredito.length > 1 ? 's' : ''}</Text>
+                  </View>
+                  
+                  {/* Lista de notas de crédito */}
+                  <View style={[styles.row, { marginLeft: 20 }]}>
+                    <View style={styles.notasCreditoContainer}>
+                      {notasCredito.map((nc, idx) => (
+                        <Text key={idx} style={styles.notaCreditoItem}>
+                          • {nc.numero} del {formatearFecha(nc.fecha)} - Bs. {nc.total.toFixed(2)} ($ {nc.montoUSD.toFixed(2)})
+                        </Text>
+                      ))}
+                    </View>
+                  </View>
                 </View>
               )}
             </View>
@@ -252,10 +307,10 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                 <Text style={styles.label}>Factura Original en USD:</Text>
                 <Text style={styles.value}>$ {factura.montoUSD.toFixed(2)}</Text>
               </View>
-              {notaCredito && (
+              {hasNotasCredito && (
                 <View style={styles.row}>
-                  <Text style={styles.label}>Nota de Crédito en USD:</Text>
-                  <Text style={styles.value}>$ {notaCredito.montoUSD.toFixed(2)}</Text>
+                  <Text style={styles.label}>Total Notas de Crédito en USD:</Text>
+                  <Text style={styles.value}>$ {totalesNotasCredito.totalUSD.toFixed(2)}</Text>
                 </View>
               )}
               <View style={styles.row}>
@@ -294,6 +349,8 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                 <Text>Valor en Bs. con tasa original: $ {notaDebito.montoUSDNeto.toFixed(2)} × Bs. {notaDebito.tasaCambioOriginal.toFixed(2)}/USD = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)}</Text>
                 <Text>Valor en Bs. con tasa de pago: $ {notaDebito.montoUSDNeto.toFixed(2)} × Bs. {notaDebito.tasaCambioPago.toFixed(2)}/USD = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)}</Text>
                 <Text>Diferencial cambiario (con IVA): Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)} - Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)} = Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)}</Text>
+                <Text>Base imponible (sin IVA): Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)} ÷ {(1 + factura.alicuotaIVA / 100).toFixed(2)} = Bs. {notaDebito.baseImponibleDiferencial.toFixed(2)}</Text>
+                <Text>IVA ({factura.alicuotaIVA}%): Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)} - Bs. {notaDebito.baseImponibleDiferencial.toFixed(2)} = Bs. {notaDebito.ivaDiferencial.toFixed(2)}</Text>
               </View>
             </View>
             
@@ -340,10 +397,10 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                   <Text style={styles.tableCell}>Factura Original (después de retención)</Text>
                   <Text style={styles.tableCell}>{(factura.total - factura.retencionIVA).toFixed(2)}</Text>
                 </View>
-                {notaCredito && (
+                {hasNotasCredito && (
                   <View style={styles.tableRow}>
-                    <Text style={styles.tableCell}>Nota de Crédito (después de retención)</Text>
-                    <Text style={styles.tableCell}>-{(notaCredito.total - notaCredito.retencionIVA).toFixed(2)}</Text>
+                    <Text style={styles.tableCell}>Notas de Crédito (después de retención)</Text>
+                    <Text style={styles.tableCell}>-{totalesNotasCredito.totalPagar.toFixed(2)}</Text>
                   </View>
                 )}
                 <View style={styles.tableRow}>
@@ -361,6 +418,9 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
             <View style={styles.signatureSection}>
               <View style={styles.signatureBox}>
                 <Text style={{fontSize: 8}}>Elaborado por</Text>
+              </View>
+              <View style={styles.signatureBox}>
+                <Text style={{fontSize: 8}}>Autorizado por</Text>
               </View>
               <View style={styles.signatureBox}>
                 <Text style={{fontSize: 8}}>Recibido por</Text>
