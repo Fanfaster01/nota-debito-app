@@ -147,23 +147,34 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
 
           {notaDebito && (
             <div className="mt-6 border-t border-gray-200 pt-6">
-              <h4 className="font-medium mb-2">Detalles del Diferencial Cambiario</h4>
+              <h4 className="font-medium mb-2">Cálculo del Diferencial Cambiario</h4>
+              <div className="p-4 bg-gray-50 rounded mb-4">
+                <p className="font-medium mb-2">Datos del cálculo:</p>
+                <p>• Monto neto en USD: $ {notaDebito.montoUSDNeto.toFixed(2)}</p>
+                <p>• Valor en Bs. con tasa original: $ {notaDebito.montoUSDNeto.toFixed(2)} × {notaDebito.tasaCambioOriginal.toFixed(2)} = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)}</p>
+                <p>• Valor en Bs. con tasa de pago: $ {notaDebito.montoUSDNeto.toFixed(2)} × {notaDebito.tasaCambioPago.toFixed(2)} = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)}</p>
+                <p>• Diferencial cambiario (con IVA): Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)}</p>
+                <p>• Base imponible: Bs. {notaDebito.baseImponibleDiferencial.toFixed(2)}</p>
+                <p>• IVA ({factura.alicuotaIVA}%): Bs. {notaDebito.ivaDiferencial.toFixed(2)}</p>
+                <p>• Retención de IVA ({factura.porcentajeRetencion}%): Bs. {notaDebito.retencionIVADiferencial.toFixed(2)}</p>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <p><span className="font-medium">Monto Neto en USD:</span> $ {notaDebito.montoUSDNeto.toFixed(2)}</p>
-                  <p><span className="font-medium">Valor en Bs. con tasa original ({notaDebito.tasaCambioOriginal.toFixed(2)}):</span> Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)}</p>
-                  <p><span className="font-medium">Valor en Bs. con tasa de pago ({notaDebito.tasaCambioPago.toFixed(2)}):</span> Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)}</p>
+                  <h5 className="font-medium mb-2">Nota de Débito:</h5>
+                  <p><span className="font-medium">Base Imponible del Diferencial:</span> Bs. {notaDebito.baseImponibleDiferencial.toFixed(2)}</p>
+                  <p><span className="font-medium">IVA ({factura.alicuotaIVA}%):</span> Bs. {notaDebito.ivaDiferencial.toFixed(2)}</p>
+                  <p><span className="font-medium">Total Nota de Débito:</span> Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)}</p>
+                  <p><span className="font-medium">Retención de IVA ({factura.porcentajeRetencion}%):</span> Bs. {notaDebito.retencionIVADiferencial.toFixed(2)}</p>
+                  <p className="font-medium mt-2">Nota de Débito después de retención: Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
                 </div>
                 <div>
-                  <p><span className="font-medium">Diferencial Cambiario (Base Imponible):</span> Bs. {notaDebito.diferencialCambiario.toFixed(2)}</p>
-                  <p><span className="font-medium">IVA ({factura.alicuotaIVA}%) sobre diferencial:</span> Bs. {notaDebito.ivaDisferencialCambiario.toFixed(2)}</p>
-                  <p><span className="font-medium">Total Nota de Débito:</span> Bs. {notaDebito.totalNotaDebito.toFixed(2)}</p>
-                  {notaDebito.retencionIVADiferencial !== undefined && (
-                    <p><span className="font-medium">Retención IVA ({factura.porcentajeRetencion}%):</span> Bs. {notaDebito.retencionIVADiferencial.toFixed(2)}</p>
-                  )}
-                  {notaDebito.montoNetoPagarNotaDebito !== undefined && (
-                    <p className="font-medium text-lg mt-2">Nota de Débito después de retención: Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
-                  )}
+                  <h5 className="font-medium mb-2">Verificación del cálculo:</h5>
+                  <p>• El diferencial cambiario con IVA (Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)}) se descompone en:</p>
+                  <p className="ml-4">- Base imponible: Bs. {notaDebito.baseImponibleDiferencial.toFixed(2)}</p>
+                  <p className="ml-4">- IVA ({factura.alicuotaIVA}%): Bs. {notaDebito.ivaDiferencial.toFixed(2)}</p>
+                  <p>• La retención del IVA se calcula sobre el IVA del diferencial:</p>
+                  <p className="ml-4">Bs. {notaDebito.ivaDiferencial.toFixed(2)} × {(factura.porcentajeRetencion / 100).toFixed(2)} = Bs. {notaDebito.retencionIVADiferencial.toFixed(2)}</p>
                 </div>
               </div>
 
@@ -175,11 +186,7 @@ export const NotaDebitoForm: React.FC<NotaDebitoFormProps> = ({
                     {notaCredito && (
                       <p><span className="font-medium">Menos: Nota de Crédito (después de retención):</span> Bs. {(notaCredito.total - notaCredito.retencionIVA).toFixed(2)}</p>
                     )}
-                    {notaDebito.montoNetoPagarNotaDebito !== undefined ? (
-                      <p><span className="font-medium">Más: Nota de Débito (después de retención):</span> Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
-                    ) : (
-                      <p><span className="font-medium">Más: Nota de Débito:</span> Bs. {notaDebito.totalNotaDebito.toFixed(2)}</p>
-                    )}
+                    <p><span className="font-medium">Más: Nota de Débito (después de retención):</span> Bs. {notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</p>
                   </div>
                   <div className="flex items-center justify-center">
                     <p className="text-center text-2xl font-bold">MONTO FINAL A PAGAR: Bs. {montoFinalPagar.toFixed(2)}</p>

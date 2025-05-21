@@ -50,9 +50,9 @@ export interface Factura {
     tasaCambioOriginal: number;
     tasaCambioPago: number;
     montoUSDNeto: number;
-    diferencialCambiario: number;
-    ivaDisferencialCambiario: number;
-    totalNotaDebito: number;
-    retencionIVADiferencial?: number; // Monto de retención de IVA sobre el diferencial cambiario
-    montoNetoPagarNotaDebito?: number; // Monto neto a pagar por la nota de débito después de retención
+    diferencialCambiarioConIVA: number; // Diferencial cambiario con IVA incluido
+    baseImponibleDiferencial: number;   // Base imponible extraída del diferencial
+    ivaDiferencial: number;             // IVA extraído del diferencial
+    retencionIVADiferencial: number;    // Retención de IVA sobre el diferencial
+    montoNetoPagarNotaDebito: number;   // Monto neto a pagar después de retención
   }

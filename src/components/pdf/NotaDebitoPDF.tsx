@@ -173,7 +173,6 @@ export const NotaDebitoPDFDownloadLink: React.FC<NotaDebitoPDFProps> = ({ notaDe
 // Documento PDF
 const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, montoFinalPagar }) => {
   const { factura, notaCredito } = notaDebito;
-  const hasRetencion = notaDebito.retencionIVADiferencial !== undefined;
   
   return (
     <Document>
@@ -294,7 +293,7 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                 <Text>Monto neto en USD: $ {notaDebito.montoUSDNeto.toFixed(2)}</Text>
                 <Text>Valor en Bs. con tasa original: $ {notaDebito.montoUSDNeto.toFixed(2)} × Bs. {notaDebito.tasaCambioOriginal.toFixed(2)}/USD = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)}</Text>
                 <Text>Valor en Bs. con tasa de pago: $ {notaDebito.montoUSDNeto.toFixed(2)} × Bs. {notaDebito.tasaCambioPago.toFixed(2)}/USD = Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)}</Text>
-                <Text>Diferencial cambiario: Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)} - Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)} = Bs. {notaDebito.diferencialCambiario.toFixed(2)}</Text>
+                <Text>Diferencial cambiario (con IVA): Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioPago).toFixed(2)} - Bs. {(notaDebito.montoUSDNeto * notaDebito.tasaCambioOriginal).toFixed(2)} = Bs. {notaDebito.diferencialCambiarioConIVA.toFixed(2)}</Text>
               </View>
             </View>
             
@@ -308,28 +307,24 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                 </View>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableCell}>Diferencial Cambiario (Base Imponible)</Text>
-                  <Text style={styles.tableCell}>{notaDebito.diferencialCambiario.toFixed(2)}</Text>
+                  <Text style={styles.tableCell}>{notaDebito.baseImponibleDiferencial.toFixed(2)}</Text>
                 </View>
                 <View style={styles.tableRow}>
                   <Text style={styles.tableCell}>IVA ({factura.alicuotaIVA}%)</Text>
-                  <Text style={styles.tableCell}>{notaDebito.ivaDisferencialCambiario.toFixed(2)}</Text>
+                  <Text style={styles.tableCell}>{notaDebito.ivaDiferencial.toFixed(2)}</Text>
                 </View>
                 <View style={styles.tableRow}>
                   <Text style={[styles.tableCell, styles.bold]}>Total Nota de Débito</Text>
-                  <Text style={[styles.tableCell, styles.bold]}>{notaDebito.totalNotaDebito.toFixed(2)}</Text>
+                  <Text style={[styles.tableCell, styles.bold]}>{notaDebito.diferencialCambiarioConIVA.toFixed(2)}</Text>
                 </View>
-                {hasRetencion && (
-                  <>
-                    <View style={styles.tableRow}>
-                      <Text style={styles.tableCell}>Retención IVA ({factura.porcentajeRetencion}%)</Text>
-                      <Text style={styles.tableCell}>-{notaDebito.retencionIVADiferencial?.toFixed(2)}</Text>
-                    </View>
-                    <View style={styles.tableRow}>
-                      <Text style={[styles.tableCell, styles.bold]}>Monto a pagar después de retención</Text>
-                      <Text style={[styles.tableCell, styles.bold]}>{notaDebito.montoNetoPagarNotaDebito?.toFixed(2)}</Text>
-                    </View>
-                  </>
-                )}
+                <View style={styles.tableRow}>
+                  <Text style={styles.tableCell}>Retención IVA ({factura.porcentajeRetencion}%)</Text>
+                  <Text style={styles.tableCell}>-{notaDebito.retencionIVADiferencial.toFixed(2)}</Text>
+                </View>
+                <View style={styles.tableRow}>
+                  <Text style={[styles.tableCell, styles.bold]}>Monto a pagar después de retención</Text>
+                  <Text style={[styles.tableCell, styles.bold]}>{notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</Text>
+                </View>
               </View>
             </View>
             
@@ -352,8 +347,8 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
                   </View>
                 )}
                 <View style={styles.tableRow}>
-                  <Text style={styles.tableCell}>Nota de Débito por Diferencial Cambiario{hasRetencion ? ' (después de retención)' : ''}</Text>
-                  <Text style={styles.tableCell}>{hasRetencion ? notaDebito.montoNetoPagarNotaDebito?.toFixed(2) : notaDebito.totalNotaDebito.toFixed(2)}</Text>
+                  <Text style={styles.tableCell}>Nota de Débito por Diferencial Cambiario (después de retención)</Text>
+                  <Text style={styles.tableCell}>{notaDebito.montoNetoPagarNotaDebito.toFixed(2)}</Text>
                 </View>
                 <View style={styles.tableRow}>
                   <Text style={[styles.tableCell, styles.bold]}>MONTO FINAL A PAGAR</Text>
@@ -366,9 +361,6 @@ const NotaDebitoPDFDocument: React.FC<NotaDebitoPDFProps> = ({ notaDebito, monto
             <View style={styles.signatureSection}>
               <View style={styles.signatureBox}>
                 <Text style={{fontSize: 8}}>Elaborado por</Text>
-              </View>
-              <View style={styles.signatureBox}>
-                <Text style={{fontSize: 8}}>Autorizado por</Text>
               </View>
               <View style={styles.signatureBox}>
                 <Text style={{fontSize: 8}}>Recibido por</Text>

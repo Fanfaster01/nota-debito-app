@@ -1,4 +1,4 @@
-// src/lib/calculations.ts (modificado)
+// src/lib/calculations.ts (corregido)
 import { Factura, NotaCredito, NotaDebito } from '../types';
 
 export const calcularSubTotal = (baseImponible: number, montoExento: number): number => {
@@ -21,6 +21,7 @@ export const calcularMontoUSD = (montoBolivares: number, tasaCambio: number): nu
   return montoBolivares / tasaCambio;
 };
 
+// Calcula el diferencial cambiario bruto (con IVA incluido)
 export const calcularDiferencialCambiario = (
   montoUSD: number,
   tasaCambioOriginal: number,
@@ -31,33 +32,45 @@ export const calcularDiferencialCambiario = (
   return montoBolivaresPago - montoBolivaresOriginal;
 };
 
+// Extrae la base imponible de un monto que incluye IVA
+export const extraerBaseImponible = (montoConIVA: number, alicuotaIVA: number = 16): number => {
+  return montoConIVA / (1 + alicuotaIVA / 100);
+};
+
+// Calcula el IVA de un monto que ya incluye IVA
+export const extraerIVA = (montoConIVA: number, alicuotaIVA: number = 16): number => {
+  const baseImponible = extraerBaseImponible(montoConIVA, alicuotaIVA);
+  return montoConIVA - baseImponible;
+};
+
 export const calcularNotaDebito = (
   factura: Factura,
   notaCredito: NotaCredito | null,
   tasaCambioPago: number
 ): NotaDebito => {
-  // Calcular monto neto en USD después de la nota de crédito
+  // Calcular monto neto en USD después de la nota de crédito (ya incluye IVA)
   const montoUSDFactura = factura.montoUSD || factura.total / factura.tasaCambio;
   const montoUSDNotaCredito = notaCredito 
     ? (notaCredito.montoUSD || notaCredito.total / notaCredito.tasaCambio) 
     : 0;
   const montoUSDNeto = montoUSDFactura - montoUSDNotaCredito;
 
-  // Calcular montos en bolívares a las diferentes tasas
+  // Calcular montos en bolívares a las diferentes tasas (ya incluyen IVA)
   const montoBolivaresOriginal = montoUSDNeto * factura.tasaCambio;
   const montoBolivaresPago = montoUSDNeto * tasaCambioPago;
 
-  // Calcular diferencial cambiario (base imponible)
-  const diferencialCambiario = montoBolivaresPago - montoBolivaresOriginal;
+  // Calcular diferencial cambiario (incluye IVA)
+  const diferencialCambiarioConIVA = montoBolivaresPago - montoBolivaresOriginal;
   
-  // Calcular IVA sobre diferencial (usando la misma alícuota de la factura)
-  const ivaDisferencialCambiario = calcularIVA(diferencialCambiario, factura.alicuotaIVA);
+  // Extraer la base imponible y el IVA del diferencial cambiario
+  const baseImponibleDiferencial = extraerBaseImponible(diferencialCambiarioConIVA, factura.alicuotaIVA);
+  const ivaDiferencial = diferencialCambiarioConIVA - baseImponibleDiferencial;
   
-  // Calcular total nota de débito
-  const totalNotaDebito = diferencialCambiario + ivaDisferencialCambiario;
-
   // Calcular retención de IVA sobre el diferencial cambiario
-  const retencionIVADiferencial = calcularRetencionIVA(ivaDisferencialCambiario, factura.porcentajeRetencion);
+  const retencionIVADiferencial = calcularRetencionIVA(ivaDiferencial, factura.porcentajeRetencion);
+
+  // Monto neto a pagar por la nota de débito (después de retención)
+  const montoNetoPagarNotaDebito = diferencialCambiarioConIVA - retencionIVADiferencial;
 
   return {
     numero: '',
@@ -67,11 +80,11 @@ export const calcularNotaDebito = (
     tasaCambioOriginal: factura.tasaCambio,
     tasaCambioPago,
     montoUSDNeto,
-    diferencialCambiario,
-    ivaDisferencialCambiario,
-    totalNotaDebito,
+    diferencialCambiarioConIVA,
+    baseImponibleDiferencial,
+    ivaDiferencial,
     retencionIVADiferencial,
-    montoNetoPagarNotaDebito: totalNotaDebito - retencionIVADiferencial
+    montoNetoPagarNotaDebito
   };
 };
 
@@ -89,8 +102,7 @@ export const calcularMontoFinalPagar = (
     : 0;
   
   // Monto adicional por diferencial cambiario después de retención
-  const montoAdicionalDiferencial = notaDebito.montoNetoPagarNotaDebito || 
-    (notaDebito.totalNotaDebito - (notaDebito.retencionIVADiferencial || 0));
+  const montoAdicionalDiferencial = notaDebito.montoNetoPagarNotaDebito;
   
   // Monto total final a pagar
   return montoPagarFactura - montoRestarNotaCredito + montoAdicionalDiferencial;
