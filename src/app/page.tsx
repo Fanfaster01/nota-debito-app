@@ -1,3 +1,4 @@
+// src/app/page.tsx
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -9,17 +10,25 @@ import { NotaDebitoForm } from '@/components/forms/NotaDebitoForm';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { NotaDebitoPDFViewer, NotaDebitoPDFDownloadLink } from '@/components/pdf/NotaDebitoPDF';
+import { ProtectedLayout } from '@/components/layout/ProtectedLayout';
+import { useAuth } from '@/contexts/AuthContext';
+import { facturaService, notaCreditoService, notaDebitoService } from '@/services/dataService';
 import { format } from 'date-fns';
 
 export default function Home() {
+  const { userProfile } = useAuth();
   const [step, setStep] = useState<'factura' | 'notasCredito' | 'notaDebito' | 'resultado'>('factura');
   const [factura, setFactura] = useState<Factura | null>(null);
+  const [facturaId, setFacturaId] = useState<string | null>(null);
   const [notasCredito, setNotasCredito] = useState<NotaCredito[]>([]);
+  const [notasCreditoIds, setNotasCreditoIds] = useState<string[]>([]);
   const [notaDebito, setNotaDebito] = useState<NotaDebito | null>(null);
   const [montoFinalPagar, setMontoFinalPagar] = useState<number>(0);
   const [currentNotaCredito, setCurrentNotaCredito] = useState<NotaCredito | null>(null);
   const [showNotaCreditoForm, setShowNotaCreditoForm] = useState<boolean>(false);
   const [limitError, setLimitError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Verificar límite de notas de crédito cuando cambian las notas o la factura
   useEffect(() => {
@@ -34,12 +43,44 @@ export default function Home() {
     }
   }, [factura, notasCredito]);
 
-  const handleFacturaSubmit = (data: Factura) => {
-    setFactura(data);
-    setStep('notasCredito');
+  const handleFacturaSubmit = async (data: Factura) => {
+    if (!userProfile?.company_id) {
+      setError('No se puede determinar la compañía del usuario');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Verificar si la factura ya existe
+      const existingFactura = await facturaService.getByNumero(data.numero, userProfile.company_id);
+      
+      if (existingFactura) {
+        setError(`Ya existe una factura con el número ${data.numero}. Use un número diferente.`);
+        setLoading(false);
+        return;
+      }
+
+      // Crear la factura en la base de datos
+      const createdFactura = await facturaService.create(data, userProfile.company_id, userProfile.id);
+      
+      setFactura(data);
+      setFacturaId(createdFactura.id);
+      setStep('notasCredito');
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar la factura');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleNotaCreditoSubmit = (data: NotaCredito) => {
+  const handleNotaCreditoSubmit = async (data: NotaCredito) => {
+    if (!facturaId || !userProfile?.company_id) {
+      setError('Error: No se puede asociar la nota de crédito');
+      return;
+    }
+
     // Verificar si la nueva nota de crédito excedería el límite
     const nuevasNotas = [...notasCredito, data];
     const { excedeLimite, montoDisponibleUSD } = verificarLimiteNotasCredito(factura!, nuevasNotas);
@@ -48,11 +89,29 @@ export default function Home() {
       setLimitError(`La nota de crédito excede el monto disponible de la factura. Monto disponible: $${montoDisponibleUSD.toFixed(2)}`);
       return;
     }
-    
-    setNotasCredito([...notasCredito, data]);
-    setCurrentNotaCredito(null);
-    setShowNotaCreditoForm(false);
-    setLimitError(null);
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Crear la nota de crédito en la base de datos
+      const createdNotaCredito = await notaCreditoService.create(
+        data, 
+        facturaId, 
+        userProfile.company_id, 
+        userProfile.id
+      );
+      
+      setNotasCredito([...notasCredito, data]);
+      setNotasCreditoIds([...notasCreditoIds, createdNotaCredito.id]);
+      setCurrentNotaCredito(null);
+      setShowNotaCreditoForm(false);
+      setLimitError(null);
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar la nota de crédito');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleEditNotaCredito = (index: number) => {
@@ -60,10 +119,25 @@ export default function Home() {
     setShowNotaCreditoForm(true);
   };
 
-  const handleDeleteNotaCredito = (index: number) => {
-    const updatedNotas = [...notasCredito];
-    updatedNotas.splice(index, 1);
-    setNotasCredito(updatedNotas);
+  const handleDeleteNotaCredito = async (index: number) => {
+    const notaCreditoId = notasCreditoIds[index];
+    
+    setLoading(true);
+    try {
+      await notaCreditoService.delete(notaCreditoId);
+      
+      const updatedNotas = [...notasCredito];
+      const updatedIds = [...notasCreditoIds];
+      updatedNotas.splice(index, 1);
+      updatedIds.splice(index, 1);
+      
+      setNotasCredito(updatedNotas);
+      setNotasCreditoIds(updatedIds);
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar la nota de crédito');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSkipNotasCredito = () => {
@@ -74,29 +148,62 @@ export default function Home() {
     setStep('notaDebito');
   };
 
-  const handleNotaDebitoSubmit = (data: NotaDebito) => {
-    setNotaDebito(data);
-    
-    if (factura) {
-      const montoFinal = calcularMontoFinalPagar(factura, notasCredito, data);
-      setMontoFinalPagar(montoFinal);
+  const handleNotaDebitoSubmit = async (data: NotaDebito) => {
+    if (!facturaId || !userProfile?.company_id) {
+      setError('Error: No se puede crear la nota de débito');
+      return;
     }
-    
-    setStep('resultado');
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Generar número secuencial para la nota de débito
+      const numeroNotaDebito = `ND-${Date.now()}`;
+      const notaDebitoCompleta = {
+        ...data,
+        numero: numeroNotaDebito,
+      };
+
+      // Crear la nota de débito en la base de datos
+      await notaDebitoService.create(
+        notaDebitoCompleta,
+        facturaId,
+        notasCreditoIds,
+        userProfile.company_id,
+        userProfile.id
+      );
+
+      setNotaDebito(notaDebitoCompleta);
+      
+      if (factura) {
+        const montoFinal = calcularMontoFinalPagar(factura, notasCredito, notaDebitoCompleta);
+        setMontoFinalPagar(montoFinal);
+      }
+      
+      setStep('resultado');
+    } catch (err: any) {
+      setError(err.message || 'Error al crear la nota de débito');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleReset = () => {
     setFactura(null);
+    setFacturaId(null);
     setNotasCredito([]);
+    setNotasCreditoIds([]);
     setNotaDebito(null);
     setStep('factura');
     setShowNotaCreditoForm(false);
     setCurrentNotaCredito(null);
     setLimitError(null);
+    setError(null);
   };
 
   return (
-    <main className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <ProtectedLayout requiredPermission="notas_debito">
       <div className="max-w-7xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-gray-900">
@@ -106,6 +213,27 @@ export default function Home() {
             Crear notas de débito por diferencial cambiario para facturas en divisas
           </p>
         </div>
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+            <p className="text-red-600">{error}</p>
+            <button 
+              onClick={() => setError(null)}
+              className="mt-2 text-sm text-red-500 hover:text-red-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        )}
+
+        {loading && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="flex items-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-3"></div>
+              <p className="text-blue-600">Procesando...</p>
+            </div>
+          </div>
+        )}
 
         <div className="mb-8">
           <div className="relative">
@@ -167,12 +295,14 @@ export default function Home() {
                             <button
                               onClick={() => handleEditNotaCredito(index)}
                               className="text-indigo-600 hover:text-indigo-900 mr-3"
+                              disabled={loading}
                             >
                               Editar
                             </button>
                             <button
                               onClick={() => handleDeleteNotaCredito(index)}
                               className="text-red-600 hover:text-red-900"
+                              disabled={loading}
                             >
                               Eliminar
                             </button>
@@ -191,11 +321,13 @@ export default function Home() {
                 <Button 
                   variant="secondary" 
                   onClick={() => setShowNotaCreditoForm(true)}
+                  disabled={loading}
                 >
                   Agregar Nota de Crédito
                 </Button>
                 <Button 
                   onClick={handleContinueToNotaDebito}
+                  disabled={loading}
                 >
                   {notasCredito.length > 0 ? 'Continuar sin agregar más notas' : 'Continuar sin Notas de Crédito'}
                 </Button>
@@ -213,6 +345,7 @@ export default function Home() {
                     setShowNotaCreditoForm(false);
                     setCurrentNotaCredito(null);
                   }}
+                  disabled={loading}
                 >
                   Cancelar
                 </Button>
@@ -235,7 +368,7 @@ export default function Home() {
               <div className="space-y-6">
                 <div className="p-4 bg-green-50 border border-green-200 rounded-md">
                   <p className="text-green-700 font-medium">
-                    La Nota de Débito por Diferencial Cambiario ha sido generada exitosamente.
+                    La Nota de Débito por Diferencial Cambiario ha sido generada y guardada exitosamente.
                   </p>
                 </div>
                 
@@ -244,7 +377,7 @@ export default function Home() {
                     variant="outline" 
                     onClick={handleReset}
                   >
-                    Volver al inicio
+                    Crear Nueva Nota
                   </Button>
                   <NotaDebitoPDFDownloadLink 
                     notaDebito={notaDebito} 
@@ -268,12 +401,13 @@ export default function Home() {
             <Button 
               variant="outline" 
               onClick={() => setStep(step === 'notaDebito' ? 'notasCredito' : 'factura')}
+              disabled={loading}
             >
               Volver atrás
             </Button>
           </div>
         )}
       </div>
-    </main>
+    </ProtectedLayout>
   );
 }
