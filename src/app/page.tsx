@@ -10,18 +10,12 @@ import { NotaDebitoForm } from '@/components/forms/NotaDebitoForm';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { NotaDebitoPDFViewer, NotaDebitoPDFDownloadLink } from '@/components/pdf/NotaDebitoPDF';
-import { ProtectedLayout } from '@/components/layout/ProtectedLayout';
-import { useAuth } from '@/contexts/AuthContext';
-import { facturaService, notaCreditoService, notaDebitoService } from '@/services/dataService';
 import { format } from 'date-fns';
 
 export default function Home() {
-  const { userProfile } = useAuth();
   const [step, setStep] = useState<'factura' | 'notasCredito' | 'notaDebito' | 'resultado'>('factura');
   const [factura, setFactura] = useState<Factura | null>(null);
-  const [facturaId, setFacturaId] = useState<string | null>(null);
   const [notasCredito, setNotasCredito] = useState<NotaCredito[]>([]);
-  const [notasCreditoIds, setNotasCreditoIds] = useState<string[]>([]);
   const [notaDebito, setNotaDebito] = useState<NotaDebito | null>(null);
   const [montoFinalPagar, setMontoFinalPagar] = useState<number>(0);
   const [currentNotaCredito, setCurrentNotaCredito] = useState<NotaCredito | null>(null);
@@ -43,44 +37,24 @@ export default function Home() {
     }
   }, [factura, notasCredito]);
 
-  const handleFacturaSubmit = async (data: Factura) => {
-    if (!userProfile?.company_id) {
-      setError('No se puede determinar la compañía del usuario');
-      return;
-    }
-
+  const handleFacturaSubmit = (data: Factura) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Verificar si la factura ya existe
-      const existingFactura = await facturaService.getByNumero(data.numero, userProfile.company_id);
-      
-      if (existingFactura) {
-        setError(`Ya existe una factura con el número ${data.numero}. Use un número diferente.`);
-        setLoading(false);
-        return;
-      }
-
-      // Crear la factura en la base de datos
-      const createdFactura = await facturaService.create(data, userProfile.company_id, userProfile.id);
+      // Simular validación de número único (opcional)
+      // En el futuro aquí iría la validación con la base de datos
       
       setFactura(data);
-      setFacturaId(createdFactura.id);
       setStep('notasCredito');
     } catch (err: any) {
-      setError(err.message || 'Error al guardar la factura');
+      setError(err.message || 'Error al procesar la factura');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleNotaCreditoSubmit = async (data: NotaCredito) => {
-    if (!facturaId || !userProfile?.company_id) {
-      setError('Error: No se puede asociar la nota de crédito');
-      return;
-    }
-
+  const handleNotaCreditoSubmit = (data: NotaCredito) => {
     // Verificar si la nueva nota de crédito excedería el límite
     const nuevasNotas = [...notasCredito, data];
     const { excedeLimite, montoDisponibleUSD } = verificarLimiteNotasCredito(factura!, nuevasNotas);
@@ -94,21 +68,12 @@ export default function Home() {
     setError(null);
 
     try {
-      // Crear la nota de crédito en la base de datos
-      const createdNotaCredito = await notaCreditoService.create(
-        data, 
-        facturaId, 
-        userProfile.company_id, 
-        userProfile.id
-      );
-      
       setNotasCredito([...notasCredito, data]);
-      setNotasCreditoIds([...notasCreditoIds, createdNotaCredito.id]);
       setCurrentNotaCredito(null);
       setShowNotaCreditoForm(false);
       setLimitError(null);
     } catch (err: any) {
-      setError(err.message || 'Error al guardar la nota de crédito');
+      setError(err.message || 'Error al procesar la nota de crédito');
     } finally {
       setLoading(false);
     }
@@ -119,20 +84,12 @@ export default function Home() {
     setShowNotaCreditoForm(true);
   };
 
-  const handleDeleteNotaCredito = async (index: number) => {
-    const notaCreditoId = notasCreditoIds[index];
-    
+  const handleDeleteNotaCredito = (index: number) => {
     setLoading(true);
     try {
-      await notaCreditoService.delete(notaCreditoId);
-      
       const updatedNotas = [...notasCredito];
-      const updatedIds = [...notasCreditoIds];
       updatedNotas.splice(index, 1);
-      updatedIds.splice(index, 1);
-      
       setNotasCredito(updatedNotas);
-      setNotasCreditoIds(updatedIds);
     } catch (err: any) {
       setError(err.message || 'Error al eliminar la nota de crédito');
     } finally {
@@ -148,12 +105,7 @@ export default function Home() {
     setStep('notaDebito');
   };
 
-  const handleNotaDebitoSubmit = async (data: NotaDebito) => {
-    if (!facturaId || !userProfile?.company_id) {
-      setError('Error: No se puede crear la nota de débito');
-      return;
-    }
-
+  const handleNotaDebitoSubmit = (data: NotaDebito) => {
     setLoading(true);
     setError(null);
 
@@ -164,15 +116,6 @@ export default function Home() {
         ...data,
         numero: numeroNotaDebito,
       };
-
-      // Crear la nota de débito en la base de datos
-      await notaDebitoService.create(
-        notaDebitoCompleta,
-        facturaId,
-        notasCreditoIds,
-        userProfile.company_id,
-        userProfile.id
-      );
 
       setNotaDebito(notaDebitoCompleta);
       
@@ -191,20 +134,20 @@ export default function Home() {
 
   const handleReset = () => {
     setFactura(null);
-    setFacturaId(null);
     setNotasCredito([]);
-    setNotasCreditoIds([]);
     setNotaDebito(null);
     setStep('factura');
     setShowNotaCreditoForm(false);
     setCurrentNotaCredito(null);
     setLimitError(null);
     setError(null);
+    setMontoFinalPagar(0);
   };
 
   return (
-    <ProtectedLayout requiredPermission="notas_debito">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold text-gray-900">
             Generador de Notas de Débito por Diferencial Cambiario
@@ -214,6 +157,7 @@ export default function Home() {
           </p>
         </div>
 
+        {/* Error Messages */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-600">{error}</p>
@@ -226,6 +170,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* Loading Indicator */}
         {loading && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
             <div className="flex items-center">
@@ -235,6 +180,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* Step Indicator */}
         <div className="mb-8">
           <div className="relative">
             <div className="absolute inset-0 flex items-center" aria-hidden="true">
@@ -251,10 +197,12 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Step 1: Factura Form */}
         {step === 'factura' && (
           <FacturaForm onSubmit={handleFacturaSubmit} />
         )}
 
+        {/* Step 2: Notas de Crédito */}
         {step === 'notasCredito' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -315,7 +263,7 @@ export default function Home() {
               </div>
             )}
 
-            {/* Mostrar el formulario solo cuando se presiona el botón */}
+            {/* Formulario de nota de crédito */}
             {!showNotaCreditoForm ? (
               <div className="flex space-x-4">
                 <Button 
@@ -354,6 +302,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* Step 3: Nota de Débito */}
         {step === 'notaDebito' && (
           <NotaDebitoForm 
             factura={factura} 
@@ -362,13 +311,14 @@ export default function Home() {
           />
         )}
 
+        {/* Step 4: Resultado */}
         {step === 'resultado' && notaDebito && (
           <div className="space-y-8">
             <Card title="Nota de Débito Generada">
               <div className="space-y-6">
                 <div className="p-4 bg-green-50 border border-green-200 rounded-md">
                   <p className="text-green-700 font-medium">
-                    La Nota de Débito por Diferencial Cambiario ha sido generada y guardada exitosamente.
+                    La Nota de Débito por Diferencial Cambiario ha sido generada exitosamente.
                   </p>
                 </div>
                 
@@ -396,6 +346,7 @@ export default function Home() {
           </div>
         )}
 
+        {/* Navigation */}
         {step !== 'factura' && step !== 'resultado' && (
           <div className="mt-8 flex justify-start">
             <Button 
@@ -408,6 +359,6 @@ export default function Home() {
           </div>
         )}
       </div>
-    </ProtectedLayout>
+    </div>
   );
 }
