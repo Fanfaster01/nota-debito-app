@@ -25,7 +25,7 @@ const userUpdateSchema = z.object({
   full_name: z.string().min(1, 'El nombre es requerido'),
   email: z.string().email('Email inválido'),
   role: z.enum(['master', 'admin', 'user']),
-  company_id: z.string().optional().or(z.literal('')),
+  company_id: z.string().nullable().optional(),
 })
 
 type UserUpdateFormData = z.infer<typeof userUpdateSchema>
@@ -39,7 +39,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserWithCompany[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<UserWithCompany | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
@@ -97,20 +99,24 @@ export default function UsersPage() {
     setValue('full_name', user.full_name || '')
     setValue('email', user.email)
     setValue('role', user.role)
-    setValue('company_id', user.company_id || '')
+    setValue('company_id', user.company_id || null)
+    setError(null)
+    setSuccessMessage(null)
   }
 
   const handleFormSubmit = async (data: UserUpdateFormData) => {
     if (!editingUser) return
 
+    setSaving(true)
     setError(null)
+    setSuccessMessage(null)
 
     try {
       const updates = {
         full_name: data.full_name,
         email: data.email,
         role: data.role,
-        company_id: data.company_id || null,
+        company_id: data.company_id || null, // Permitir compañía para todos los roles
       }
 
       const { error: updateError } = await adminUserService.updateUser(editingUser.id, updates)
@@ -120,11 +126,17 @@ export default function UsersPage() {
         return
       }
 
+      setSuccessMessage('Usuario actualizado exitosamente')
       setEditingUser(null)
       reset()
       await loadData()
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err: any) {
       setError('Error al actualizar usuario: ' + err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -138,6 +150,8 @@ export default function UsersPage() {
       }
 
       await loadData()
+      setSuccessMessage(`Usuario ${!user.is_active ? 'activado' : 'desactivado'} exitosamente`)
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err: any) {
       setError('Error al cambiar estado: ' + err.message)
     }
@@ -154,6 +168,8 @@ export default function UsersPage() {
 
       setDeleteConfirm(null)
       await loadData()
+      setSuccessMessage('Usuario eliminado exitosamente')
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err: any) {
       setError('Error al eliminar usuario: ' + err.message)
     }
@@ -163,6 +179,7 @@ export default function UsersPage() {
     setEditingUser(null)
     reset()
     setError(null)
+    setSuccessMessage(null)
   }
 
   const getRoleBadgeColor = (role: string) => {
@@ -224,7 +241,7 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* Error Message */}
+        {/* Messages */}
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-600">{error}</p>
@@ -237,6 +254,12 @@ export default function UsersPage() {
           </div>
         )}
 
+        {successMessage && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-green-600">{successMessage}</p>
+          </div>
+        )}
+
         {/* Edit User Modal */}
         {editingUser && (
           <Card title="Editar Usuario">
@@ -246,12 +269,14 @@ export default function UsersPage() {
                   label="Nombre Completo"
                   {...register('full_name')}
                   error={errors.full_name?.message}
+                  disabled={saving}
                 />
                 <Input
                   label="Email"
                   type="email"
                   {...register('email')}
                   error={errors.email?.message}
+                  disabled={saving}
                 />
               </div>
               
@@ -263,6 +288,7 @@ export default function UsersPage() {
                   <select
                     {...register('role')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={saving}
                   >
                     <option value="user">Usuario</option>
                     <option value="admin">Administrador</option>
@@ -271,33 +297,59 @@ export default function UsersPage() {
                   {errors.role && <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>}
                 </div>
                 
-                {selectedRole !== 'master' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Compañía
-                    </label>
-                    <select
-                      {...register('company_id')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Sin compañía asignada</option>
-                      {companies.filter(c => c.is_active).map((company) => (
-                        <option key={company.id} value={company.id}>
-                          {company.name} ({company.rif})
-                        </option>
-                      ))}
-                    </select>
-                    {errors.company_id && <p className="mt-1 text-sm text-red-600">{errors.company_id.message}</p>}
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Compañía {selectedRole === 'master' && <span className="text-gray-400">(Opcional para Master)</span>}
+                  </label>
+                  <select
+                    {...register('company_id')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={saving}
+                  >
+                    <option value="">Sin compañía asignada</option>
+                    {companies.filter(c => c.is_active).map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name} ({company.rif})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.company_id && <p className="mt-1 text-sm text-red-600">{errors.company_id.message}</p>}
+                  {selectedRole !== 'master' && !watch('company_id') && (
+                    <p className="mt-1 text-sm text-yellow-600">
+                      ⚠️ Este usuario no podrá acceder al sistema sin una compañía asignada
+                    </p>
+                  )}
+                  {selectedRole === 'master' && watch('company_id') && (
+                    <p className="mt-1 text-sm text-blue-600">
+                      ℹ️ Los usuarios master pueden tener una compañía asignada para pruebas
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>Información sobre roles:</strong>
+                  <br />• <strong>Usuario:</strong> Acceso básico, puede crear facturas y notas de débito
+                  <br />• <strong>Administrador:</strong> Puede gestionar datos de su compañía
+                  <br />• <strong>Master:</strong> Acceso total al sistema, gestiona compañías y usuarios
+                </p>
               </div>
 
               <div className="flex justify-end space-x-3 pt-4">
-                <Button type="button" variant="outline" onClick={handleCancelEdit}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  Actualizar Usuario
+                <Button 
+                  type="submit"
+                  disabled={saving}
+                >
+                  {saving ? 'Guardando...' : 'Actualizar Usuario'}
                 </Button>
               </div>
             </form>
@@ -366,7 +418,9 @@ export default function UsersPage() {
                             <div className="text-gray-500">{user.companies.rif}</div>
                           </div>
                         ) : (
-                          <span className="text-gray-400">Sin compañía</span>
+                          <span className={`text-gray-400 ${user.role !== 'master' ? 'font-medium' : ''}`}>
+                            {user.role === 'master' ? 'Opcional' : '⚠️ Sin compañía'}
+                          </span>
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

@@ -11,6 +11,7 @@ export type User = Tables<'users'>
 export type FacturaDB = Tables<'facturas'>
 export type NotaCreditoDB = Tables<'notas_credito'>
 export type NotaDebitoDB = Tables<'notas_debito'>
+export type Proveedor = Tables<'proveedores'>
 
 export type Json =
   | string
@@ -411,6 +412,56 @@ export type Database = {
             columns: ["nota_debito_id"]
             isOneToOne: false
             referencedRelation: "notas_debito"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      proveedores: {
+        Row: {
+          id: string
+          nombre: string
+          rif: string
+          direccion: string
+          telefono: string | null
+          email: string | null
+          contacto: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          nombre: string
+          rif: string
+          direccion: string
+          telefono?: string | null
+          email?: string | null
+          contacto?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          nombre?: string
+          rif?: string
+          direccion?: string
+          telefono?: string | null
+          email?: string | null
+          contacto?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proveedores_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]

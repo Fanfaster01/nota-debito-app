@@ -35,7 +35,9 @@ export default function CompaniesPage() {
   const { user } = useAuth()
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
@@ -43,7 +45,7 @@ export default function CompaniesPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isSubmitting },
     reset,
     setValue
   } = useForm<CompanyFormData>({
@@ -87,8 +89,16 @@ export default function CompaniesPage() {
 
   const handleCreateCompany = () => {
     setEditingCompany(null)
-    reset()
+    reset({
+      name: '',
+      rif: '',
+      address: '',
+      phone: '',
+      email: '',
+    })
     setShowForm(true)
+    setError(null)
+    setSuccessMessage(null)
   }
 
   const handleEditCompany = (company: Company) => {
@@ -99,18 +109,22 @@ export default function CompaniesPage() {
     setValue('phone', company.phone || '')
     setValue('email', company.email || '')
     setShowForm(true)
+    setError(null)
+    setSuccessMessage(null)
   }
 
   const handleFormSubmit = async (data: CompanyFormData) => {
+    setSaving(true)
     setError(null)
+    setSuccessMessage(null)
 
     try {
       const companyData: TablesInsert<'companies'> = {
-        name: data.name,
-        rif: data.rif,
-        address: data.address,
-        phone: data.phone || null,
-        email: data.email || null,
+        name: data.name.trim(),
+        rif: data.rif.trim().toUpperCase(),
+        address: data.address.trim(),
+        phone: data.phone?.trim() || null,
+        email: data.email?.trim() || null,
       }
 
       if (editingCompany) {
@@ -121,22 +135,37 @@ export default function CompaniesPage() {
           setError('Error al actualizar compañía: ' + updateError.message)
           return
         }
+        
+        setSuccessMessage('Compañía actualizada exitosamente')
       } else {
         // Crear nueva compañía
         const { error: createError } = await companyService.createCompany(companyData)
         
         if (createError) {
-          setError('Error al crear compañía: ' + createError.message)
+          if (createError.message?.includes('duplicate key')) {
+            setError('Ya existe una compañía con ese RIF')
+          } else {
+            setError('Error al crear compañía: ' + createError.message)
+          }
           return
         }
+        
+        setSuccessMessage('Compañía creada exitosamente')
       }
 
+      // Limpiar y recargar
       setShowForm(false)
       setEditingCompany(null)
       reset()
       await loadCompanies()
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err: any) {
+      console.error('Error en handleFormSubmit:', err)
       setError('Error al procesar compañía: ' + err.message)
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -150,6 +179,8 @@ export default function CompaniesPage() {
       }
 
       await loadCompanies()
+      setSuccessMessage(`Compañía ${!company.is_active ? 'activada' : 'desactivada'} exitosamente`)
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err: any) {
       setError('Error al cambiar estado: ' + err.message)
     }
@@ -166,6 +197,8 @@ export default function CompaniesPage() {
 
       setDeleteConfirm(null)
       await loadCompanies()
+      setSuccessMessage('Compañía eliminada exitosamente')
+      setTimeout(() => setSuccessMessage(null), 3000)
     } catch (err: any) {
       setError('Error al eliminar compañía: ' + err.message)
     }
@@ -215,7 +248,7 @@ export default function CompaniesPage() {
           </Button>
         </div>
 
-        {/* Error Message */}
+        {/* Messages */}
         {error && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-600">{error}</p>
@@ -228,6 +261,12 @@ export default function CompaniesPage() {
           </div>
         )}
 
+        {successMessage && (
+          <div className="p-4 bg-green-50 border border-green-200 rounded-md">
+            <p className="text-green-600">{successMessage}</p>
+          </div>
+        )}
+
         {/* Form Modal */}
         {showForm && (
           <Card title={editingCompany ? 'Editar Compañía' : 'Nueva Compañía'}>
@@ -237,12 +276,15 @@ export default function CompaniesPage() {
                   label="Nombre de la Compañía"
                   {...register('name')}
                   error={errors.name?.message}
+                  disabled={saving}
                 />
                 <Input
                   label="RIF"
                   {...register('rif')}
                   error={errors.rif?.message}
                   placeholder="J-12345678-9"
+                  disabled={saving}
+                  style={{ textTransform: 'uppercase' }}
                 />
               </div>
               
@@ -250,6 +292,7 @@ export default function CompaniesPage() {
                 label="Dirección"
                 {...register('address')}
                 error={errors.address?.message}
+                disabled={saving}
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -257,21 +300,33 @@ export default function CompaniesPage() {
                   label="Teléfono"
                   {...register('phone')}
                   error={errors.phone?.message}
+                  placeholder="0212-1234567"
+                  disabled={saving}
                 />
                 <Input
                   label="Email"
                   type="email"
                   {...register('email')}
                   error={errors.email?.message}
+                  placeholder="info@empresa.com"
+                  disabled={saving}
                 />
               </div>
 
               <div className="flex justify-end space-x-3 pt-4">
-                <Button type="button" variant="outline" onClick={handleCancelForm}>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCancelForm}
+                  disabled={saving}
+                >
                   Cancelar
                 </Button>
-                <Button type="submit">
-                  {editingCompany ? 'Actualizar' : 'Crear'} Compañía
+                <Button 
+                  type="submit"
+                  disabled={saving || isSubmitting}
+                >
+                  {saving ? 'Guardando...' : (editingCompany ? 'Actualizar' : 'Crear')} Compañía
                 </Button>
               </div>
             </form>
@@ -340,18 +395,21 @@ export default function CompaniesPage() {
                         <button
                           onClick={() => handleEditCompany(company)}
                           className="text-indigo-600 hover:text-indigo-900"
+                          title="Editar compañía"
                         >
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleToggleStatus(company)}
                           className={`${company.is_active ? 'text-red-600 hover:text-red-900' : 'text-green-600 hover:text-green-900'}`}
+                          title={company.is_active ? 'Desactivar compañía' : 'Activar compañía'}
                         >
                           {company.is_active ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(company.id)}
                           className="text-red-600 hover:text-red-900"
+                          title="Eliminar compañía"
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -374,7 +432,7 @@ export default function CompaniesPage() {
 
         {/* Delete Confirmation Modal */}
         {deleteConfirm && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center">
+          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 ¿Eliminar Compañía?

@@ -17,6 +17,12 @@ export {
     settingsService
   } from './settingsService'
   
+  // Servicio de proveedores
+  export {
+    ProveedorService,
+    proveedorService
+  } from './proveedorService'
+  
   // Servicios originales del sistema de facturación
   export {
     FacturaService,
