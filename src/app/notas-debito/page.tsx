@@ -9,11 +9,13 @@ import { NotaCreditoForm } from '@/components/forms/NotaCreditoForm';
 import { NotaDebitoForm } from '@/components/forms/NotaDebitoForm';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Pagination } from '@/components/ui/Pagination';
 import { NotaDebitoPDFViewer, NotaDebitoPDFDownloadLink } from '@/components/pdf/NotaDebitoPDF';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { facturaService, notaCreditoService, notaDebitoService } from '@/lib/services';
 import { format } from 'date-fns';
+import { exportNotasDebitoToExcel } from '@/utils/exportExcel';
 import { 
   PlusIcon, 
   DocumentTextIcon,
@@ -25,6 +27,7 @@ import { NotasDebitoFilters } from '@/components/notas-debito/NotasDebitoFilters
 import { NotasDebitoList } from '@/components/notas-debito/NotasDebitoList';
 import { NotaDebitoEditModal } from '@/components/notas-debito/NotaDebitoEditModal';
 import { NotaDebitoDetailModal } from '@/components/notas-debito/NotaDebitoDetailModal';
+import { QuickSummary } from '@/components/notas-debito/QuickSummary';
 
 export default function NotasDebitoPage() {
   const { user, company } = useAuth();
@@ -47,6 +50,7 @@ export default function NotasDebitoPage() {
 
   // Estados para consultar notas de débito
   const [notasDebitoList, setNotasDebitoList] = useState<NotaDebito[]>([]);
+  const [allNotasDebito, setAllNotasDebito] = useState<NotaDebito[]>([]); // Para exportar todo
   const [searchLoading, setSearchLoading] = useState(false);
   const [filters, setFilters] = useState({
     fechaDesde: '',
@@ -61,18 +65,23 @@ export default function NotasDebitoPage() {
     montoTotalFinal: 0
   });
 
+  // Estados para paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
+
   // Estados para modales
   const [editingNota, setEditingNota] = useState<NotaDebito | null>(null);
   const [viewingNota, setViewingNota] = useState<NotaDebito | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
-  // Cargar notas de débito al cambiar de tab o al iniciar
-  useEffect(() => {
-    if (activeTab === 'consultar' && company) {
-      handleSearch();
-    }
-  }, [activeTab, company]);
+  // Calcular paginación
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedNotasDebito = notasDebitoList.slice(startIndex, endIndex);
 
   // Verificar límite de notas de crédito cuando cambian las notas o la factura
   useEffect(() => {
@@ -86,6 +95,13 @@ export default function NotasDebitoPage() {
       }
     }
   }, [factura, notasCredito]);
+
+  // Cargar notas de débito al cambiar de tab o al iniciar
+  useEffect(() => {
+    if (activeTab === 'consultar' && company) {
+      handleSearch();
+    }
+  }, [activeTab, company]);
 
   // Funciones para búsqueda y filtros
   const handleSearch = async () => {
@@ -114,6 +130,9 @@ export default function NotasDebitoPage() {
       }
 
       setNotasDebitoList(data || []);
+      setAllNotasDebito(data || []); // Guardar todos los resultados para exportación
+      setTotalItems(data?.length || 0);
+      setCurrentPage(1); // Resetear a primera página en nueva búsqueda
 
       // Obtener estadísticas
       const { data: statsData } = await notaDebitoService.getNotasDebitoStats(
@@ -142,9 +161,47 @@ export default function NotasDebitoPage() {
   };
 
   const handleExportExcel = async () => {
-    // Implementar exportación a Excel
-    setSuccessMessage('Función de exportación a Excel próximamente');
-    setTimeout(() => setSuccessMessage(null), 3000);
+    if (allNotasDebito.length === 0) {
+      setError('No hay datos para exportar');
+      return;
+    }
+
+    setExportingExcel(true);
+    
+    try {
+      // Pequeño delay para mostrar el estado de carga
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const result = await exportNotasDebitoToExcel(allNotasDebito, 'notas_debito', {
+        fechaDesde: filters.fechaDesde,
+        fechaHasta: filters.fechaHasta,
+        proveedor: filters.proveedor
+      });
+      
+      if (result.success) {
+        setSuccessMessage(`Archivo Excel generado exitosamente con ${allNotasDebito.length} registros`);
+      } else {
+        setError(`Error al exportar: ${result.error}`);
+      }
+    } catch (error: any) {
+      setError(`Error inesperado: ${error.message}`);
+    } finally {
+      setExportingExcel(false);
+      setTimeout(() => {
+        setSuccessMessage(null);
+        setError(null);
+      }, 3000);
+    }
+  };
+
+  // Handlers para paginación
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const handleItemsPerPageChange = (items: number) => {
+    setItemsPerPage(items);
+    setCurrentPage(1); // Volver a la primera página al cambiar items por página
   };
 
   // Funciones para editar y eliminar
@@ -667,51 +724,52 @@ export default function NotasDebitoPage() {
               loading={searchLoading}
             />
 
-            {/* Estadísticas */}
-            {stats.totalNotas > 0 && (
-              <Card>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Total de Notas</p>
-                    <p className="text-2xl font-bold text-gray-900">{stats.totalNotas}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Diferencial Total</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      Bs. {stats.montoTotalDiferencial.toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Monto Total Final</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      Bs. {stats.montoTotalFinal.toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            )}
+            {/* Estadísticas con el nuevo componente */}
+            <QuickSummary stats={stats} loading={searchLoading} />
 
             {/* Botón de exportar */}
             <div className="flex justify-end">
               <Button 
                 variant="outline"
                 onClick={handleExportExcel}
-                disabled={notasDebitoList.length === 0}
+                disabled={notasDebitoList.length === 0 || exportingExcel}
               >
-                <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
-                Exportar a Excel
+                {exportingExcel ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    Exportando...
+                  </>
+                ) : (
+                  <>
+                    <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+                    Exportar a Excel
+                  </>
+                )}
               </Button>
             </div>
 
-            {/* Tabla de notas de débito */}
+            {/* Tabla de notas de débito con paginación */}
             <Card>
               <NotasDebitoList
-                notasDebito={notasDebitoList}
+                notasDebito={paginatedNotasDebito}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onViewDetails={handleViewDetails}
                 loading={searchLoading}
               />
+              
+              {/* Paginación */}
+              {totalItems > 0 && (
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={totalItems}
+                  itemsPerPage={itemsPerPage}
+                  onPageChange={handlePageChange}
+                  onItemsPerPageChange={handleItemsPerPageChange}
+                  showItemsPerPageSelector={true}
+                />
+              )}
             </Card>
 
             {/* Modales */}

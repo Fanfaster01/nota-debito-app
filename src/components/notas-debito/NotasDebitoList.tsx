@@ -7,7 +7,9 @@ import {
   PencilIcon, 
   TrashIcon, 
   EyeIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ChevronUpIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline'
 import { formatearFecha } from '@/utils/dateUtils'
 import { NotaDebitoPDFDownloadLink } from '@/components/pdf/NotaDebitoPDF'
@@ -21,6 +23,9 @@ interface NotasDebitoListProps {
   loading?: boolean
 }
 
+type SortField = 'numero' | 'fecha' | 'proveedor' | 'tasaCambioPago' | 'diferencial' | 'montoFinal'
+type SortDirection = 'asc' | 'desc'
+
 export const NotasDebitoList: React.FC<NotasDebitoListProps> = ({
   notasDebito,
   onEdit,
@@ -29,10 +34,70 @@ export const NotasDebitoList: React.FC<NotasDebitoListProps> = ({
   loading
 }) => {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [sortField, setSortField] = useState<SortField | null>(null)
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   const handleDeleteConfirm = (nota: NotaDebito) => {
     onDelete(nota)
     setDeleteConfirm(null)
+  }
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const sortedNotasDebito = [...notasDebito].sort((a, b) => {
+    if (!sortField) return 0
+
+    let aValue: any
+    let bValue: any
+
+    switch (sortField) {
+      case 'numero':
+        aValue = a.numero
+        bValue = b.numero
+        break
+      case 'fecha':
+        aValue = new Date(a.fecha).getTime()
+        bValue = new Date(b.fecha).getTime()
+        break
+      case 'proveedor':
+        aValue = a.factura.proveedor.nombre.toLowerCase()
+        bValue = b.factura.proveedor.nombre.toLowerCase()
+        break
+      case 'tasaCambioPago':
+        aValue = a.tasaCambioPago
+        bValue = b.tasaCambioPago
+        break
+      case 'diferencial':
+        aValue = a.diferencialCambiarioConIVA
+        bValue = b.diferencialCambiarioConIVA
+        break
+      case 'montoFinal':
+        aValue = calcularMontoFinalPagar(a.factura, a.notasCredito || [], a)
+        bValue = calcularMontoFinalPagar(b.factura, b.notasCredito || [], b)
+        break
+      default:
+        return 0
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) {
+      return <div className="w-4 h-4" />
+    }
+    return sortDirection === 'asc' 
+      ? <ChevronUpIcon className="w-4 h-4" />
+      : <ChevronDownIcon className="w-4 h-4" />
   }
 
   if (loading) {
@@ -48,6 +113,9 @@ export const NotasDebitoList: React.FC<NotasDebitoListProps> = ({
       <div className="text-center py-12">
         <DocumentTextIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <p className="text-gray-500">No se encontraron notas de débito</p>
+        <p className="text-sm text-gray-400 mt-2">
+          Intenta ajustar los filtros de búsqueda o crear una nueva nota de débito
+        </p>
       </div>
     )
   }
@@ -58,26 +126,68 @@ export const NotasDebitoList: React.FC<NotasDebitoListProps> = ({
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Número
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('numero')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Número</span>
+                  <SortIcon field="numero" />
+                </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('fecha')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Fecha</span>
+                  <SortIcon field="fecha" />
+                </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Proveedor
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('proveedor')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Proveedor</span>
+                  <SortIcon field="proveedor" />
+                </div>
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Factura
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Tasa Original → Pago
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('tasaCambioPago')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Tasa Original → Pago</span>
+                  <SortIcon field="tasaCambioPago" />
+                </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Diferencial
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('diferencial')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Diferencial</span>
+                  <SortIcon field="diferencial" />
+                </div>
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Monto Final
+              <th 
+                scope="col" 
+                className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('montoFinal')}
+              >
+                <div className="flex items-center space-x-1">
+                  <span>Monto Final</span>
+                  <SortIcon field="montoFinal" />
+                </div>
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
@@ -85,7 +195,7 @@ export const NotasDebitoList: React.FC<NotasDebitoListProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {notasDebito.map((nota) => {
+            {sortedNotasDebito.map((nota) => {
               const montoFinal = calcularMontoFinalPagar(
                 nota.factura,
                 nota.notasCredito || [],
