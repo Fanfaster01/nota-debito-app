@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/contexts/AuthContext';
-import { proveedorService } from '@/lib/services/proveedorService';
+import { proveedorService, ProveedorWithBanco } from '@/lib/services/proveedorService';
 import { ProveedorModal } from './ProveedorModal';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import debounce from 'lodash/debounce';
@@ -24,7 +24,7 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
   const [showProveedorModal, setShowProveedorModal] = useState(false);
   const [searchingProveedor, setSearchingProveedor] = useState(false);
   const [proveedorFound, setProveedorFound] = useState(false);
-  const [proveedorSuggestions, setProveedorSuggestions] = useState<any[]>([]);
+  const [proveedorSuggestions, setProveedorSuggestions] = useState<ProveedorWithBanco[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   const {
@@ -98,6 +98,10 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
           // Proveedor encontrado - autocompletar
           setValue('proveedor.nombre', proveedorExacto.nombre);
           setValue('proveedor.direccion', proveedorExacto.direccion);
+          
+          // AQUÍ ES DONDE SE ACTUALIZA EL PORCENTAJE DE RETENCIÓN
+          setValue('porcentajeRetencion', proveedorExacto.porcentaje_retencion || 75);
+          
           setProveedorFound(true);
           setProveedorSuggestions([]);
           setShowSuggestions(false);
@@ -197,6 +201,10 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
         setValue('proveedor.nombre', nuevoProveedor.nombre);
         setValue('proveedor.rif', nuevoProveedor.rif);
         setValue('proveedor.direccion', nuevoProveedor.direccion);
+        
+        // TAMBIÉN ACTUALIZAR EL PORCENTAJE CUANDO SE CREA UN NUEVO PROVEEDOR
+        setValue('porcentajeRetencion', nuevoProveedor.porcentaje_retencion || 75);
+        
         setProveedorFound(true);
       }
     } catch (error) {
@@ -205,10 +213,14 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
     }
   };
 
-  const selectProveedor = (proveedor: any) => {
+  const selectProveedor = (proveedor: ProveedorWithBanco) => {
     setValue('proveedor.nombre', proveedor.nombre);
     setValue('proveedor.rif', proveedor.rif);
     setValue('proveedor.direccion', proveedor.direccion);
+    
+    // ACTUALIZAR PORCENTAJE AL SELECCIONAR DE LAS SUGERENCIAS
+    setValue('porcentajeRetencion', proveedor.porcentaje_retencion || 75);
+    
     setProveedorFound(true);
     setShowSuggestions(false);
     setProveedorSuggestions([]);
@@ -314,6 +326,15 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
                 readOnly={proveedorFound}
                 className={proveedorFound ? 'bg-gray-50' : ''}
               />
+              
+              {/* Mostrar información adicional del proveedor cuando se encuentra */}
+              {proveedorFound && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-md text-sm">
+                  <p className="text-blue-800">
+                    <strong>Retención configurada:</strong> {porcentajeRetencion}%
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -425,6 +446,8 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
               step="0.01"
               {...register('porcentajeRetencion', { valueAsNumber: true })}
               error={errors.porcentajeRetencion?.message}
+              className={proveedorFound ? 'bg-gray-50' : ''}
+              readOnly={proveedorFound}
             />
             <Input
               label="Monto de Retención IVA"

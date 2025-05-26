@@ -12,7 +12,8 @@ import {
   DocumentTextIcon,
   CogIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  BuildingStorefrontIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -26,7 +27,12 @@ const navigation = [
   { name: 'Notas de Débito', href: '/notas-debito', icon: DocumentTextIcon },
 ]
 
+const adminNavigation = [
+  { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
+]
+
 const masterNavigation = [
+  { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
   { name: 'Compañías', href: '/admin/companies', icon: BuildingOfficeIcon },
   { name: 'Usuarios', href: '/admin/users', icon: UsersIcon },
   { name: 'Configuración', href: '/admin/settings', icon: CogIcon },
@@ -87,6 +93,8 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const availableNavigation = user.role === 'master' 
     ? [...navigation, ...masterNavigation] 
+    : user.role === 'admin'
+    ? [...navigation, ...adminNavigation]
     : navigation
 
   return (

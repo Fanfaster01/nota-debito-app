@@ -2,15 +2,30 @@
 import { createClient } from '@/utils/supabase/client'
 import { Proveedor, TablesInsert } from '@/types/database'
 
+export interface ProveedorWithBanco extends Proveedor {
+  bancos?: {
+    id: string
+    nombre: string
+    codigo: string
+  } | null
+}
+
 export class ProveedorService {
   private supabase = createClient()
 
   // Buscar proveedor por RIF
-  async getProveedorByRif(rif: string): Promise<{ data: Proveedor | null, error: any }> {
+  async getProveedorByRif(rif: string): Promise<{ data: ProveedorWithBanco | null, error: any }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores')
-        .select('*')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `)
         .eq('rif', rif.toUpperCase())
         .eq('is_active', true)
         .single()
@@ -22,11 +37,18 @@ export class ProveedorService {
   }
 
   // Buscar proveedores (para búsqueda en tiempo real)
-  async searchProveedores(searchTerm: string): Promise<{ data: Proveedor[] | null, error: any }> {
+  async searchProveedores(searchTerm: string): Promise<{ data: ProveedorWithBanco[] | null, error: any }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores')
-        .select('*')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `)
         .eq('is_active', true)
         .or(`nombre.ilike.%${searchTerm}%,rif.ilike.%${searchTerm}%`)
         .limit(10)
@@ -38,12 +60,60 @@ export class ProveedorService {
     }
   }
 
+  // Obtener todos los proveedores activos con paginación
+  async getAllProveedoresPaginated(
+    page: number = 1, 
+    itemsPerPage: number = 10,
+    searchTerm?: string
+  ): Promise<{ 
+    data: ProveedorWithBanco[] | null, 
+    totalCount: number,
+    error: any 
+  }> {
+    try {
+      let query = this.supabase
+        .from('proveedores')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `, { count: 'exact' })
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (searchTerm) {
+        query = query.or(`nombre.ilike.%${searchTerm}%,rif.ilike.%${searchTerm}%,contacto.ilike.%${searchTerm}%`)
+      }
+
+      const from = (page - 1) * itemsPerPage
+      const to = from + itemsPerPage - 1
+
+      query = query.range(from, to)
+
+      const { data, error, count } = await query
+
+      return { data, totalCount: count || 0, error }
+    } catch (error) {
+      return { data: null, totalCount: 0, error }
+    }
+  }
+
   // Obtener todos los proveedores activos
-  async getAllProveedores(): Promise<{ data: Proveedor[] | null, error: any }> {
+  async getAllProveedores(): Promise<{ data: ProveedorWithBanco[] | null, error: any }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores')
-        .select('*')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `)
         .eq('is_active', true)
         .order('nombre')
 
@@ -67,7 +137,8 @@ export class ProveedorService {
       const proveedorData = {
         ...proveedor,
         rif: proveedor.rif.toUpperCase(),
-        created_by: user.id
+        created_by: user.id,
+        porcentaje_retencion: proveedor.porcentaje_retencion || 75
       }
 
       const { data, error } = await this.supabase
@@ -118,14 +189,19 @@ export class ProveedorService {
   }
 
   // Verificar si existe un proveedor con el RIF
-  async checkRifExists(rif: string): Promise<boolean> {
+  async checkRifExists(rif: string, excludeId?: string): Promise<boolean> {
     try {
-      const { data, error } = await this.supabase
+      let query = this.supabase
         .from('proveedores')
         .select('id')
         .eq('rif', rif.toUpperCase())
         .eq('is_active', true)
-        .single()
+
+      if (excludeId) {
+        query = query.neq('id', excludeId)
+      }
+
+      const { data, error } = await query.single()
 
       return !error && !!data
     } catch (error) {

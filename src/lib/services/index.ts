@@ -20,8 +20,15 @@ export {
   // Servicio de proveedores
   export {
     ProveedorService,
-    proveedorService
+    proveedorService,
+    type ProveedorWithBanco
   } from './proveedorService'
+  
+  // Servicio de bancos
+  export {
+    BancoService,
+    bancoService
+  } from './bancoService'
   
   // Servicios originales del sistema de facturación
   export {

@@ -12,6 +12,7 @@ export type FacturaDB = Tables<'facturas'>
 export type NotaCreditoDB = Tables<'notas_credito'>
 export type NotaDebitoDB = Tables<'notas_debito'>
 export type Proveedor = Tables<'proveedores'>
+export type Banco = Tables<'bancos'>
 
 export type Json =
   | string
@@ -425,6 +426,9 @@ export type Database = {
           telefono: string | null
           email: string | null
           contacto: string | null
+          porcentaje_retencion: number
+          numero_cuenta: string | null
+          banco_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -438,6 +442,9 @@ export type Database = {
           telefono?: string | null
           email?: string | null
           contacto?: string | null
+          porcentaje_retencion?: number
+          numero_cuenta?: string | null
+          banco_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -451,12 +458,22 @@ export type Database = {
           telefono?: string | null
           email?: string | null
           contacto?: string | null
+          porcentaje_retencion?: number
+          numero_cuenta?: string | null
+          banco_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
           is_active?: boolean
         }
         Relationships: [
+          {
+            foreignKeyName: "proveedores_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "bancos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "proveedores_created_by_fkey"
             columns: ["created_by"]
@@ -465,6 +482,33 @@ export type Database = {
             referencedColumns: ["id"]
           }
         ]
+      }
+      bancos: {
+        Row: {
+          id: string
+          nombre: string
+          codigo: string
+          created_at: string
+          updated_at: string
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          nombre: string
+          codigo: string
+          created_at?: string
+          updated_at?: string
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          nombre?: string
+          codigo?: string
+          created_at?: string
+          updated_at?: string
+          is_active?: boolean
+        }
+        Relationships: []
       }
     }
     Views: {
