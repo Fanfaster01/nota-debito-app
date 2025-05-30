@@ -523,8 +523,12 @@ export type Database = {
           hora_cierre: string | null
           monto_apertura: number
           monto_cierre: number | null
+          tasa_dia: number
           total_pagos_movil: number
           cantidad_pagos_movil: number
+          total_zelle_usd: number
+          total_zelle_bs: number
+          cantidad_zelle: number
           estado: 'abierta' | 'cerrada'
           observaciones: string | null
           created_at: string
@@ -539,8 +543,12 @@ export type Database = {
           hora_cierre?: string | null
           monto_apertura?: number
           monto_cierre?: number | null
+          tasa_dia?: number
           total_pagos_movil?: number
           cantidad_pagos_movil?: number
+          total_zelle_usd?: number
+          total_zelle_bs?: number
+          cantidad_zelle?: number
           estado?: 'abierta' | 'cerrada'
           observaciones?: string | null
           created_at?: string
@@ -555,8 +563,12 @@ export type Database = {
           hora_cierre?: string | null
           monto_apertura?: number
           monto_cierre?: number | null
+          tasa_dia?: number
           total_pagos_movil?: number
           cantidad_pagos_movil?: number
+          total_zelle_usd?: number
+          total_zelle_bs?: number
+          cantidad_zelle?: number
           estado?: 'abierta' | 'cerrada'
           observaciones?: string | null
           created_at?: string
@@ -644,72 +656,72 @@ export type Database = {
         ]
       }
       pagos_zelle: {
-          Row: {
-            id: string
-            caja_id: string
-            monto_usd: number
-            tasa: number
-            monto_bs: number
-            fecha_hora: string
-            nombre_cliente: string
-            telefono: string
-            user_id: string
-            company_id: string
-            created_at: string
-            updated_at: string
-          }
-          Insert: {
-            id?: string
-            caja_id: string
-            monto_usd: number
-            tasa: number
-            monto_bs: number
-            fecha_hora?: string
-            nombre_cliente: string
-            telefono: string
-            user_id: string
-            company_id: string
-            created_at?: string
-            updated_at?: string
-          }
-          Update: {
-            id?: string
-            caja_id?: string
-            monto_usd?: number
-            tasa?: number
-            monto_bs?: number
-            fecha_hora?: string
-            nombre_cliente?: string
-            telefono?: string
-            user_id?: string
-            company_id?: string
-            created_at?: string
-            updated_at?: string
-          }
-          Relationships: [
-            {
-              foreignKeyName: "pagos_zelle_caja_id_fkey"
-              columns: ["caja_id"]
-              isOneToOne: false
-              referencedRelation: "cajas"
-              referencedColumns: ["id"]
-            },
-            {
-              foreignKeyName: "pagos_zelle_user_id_fkey"
-              columns: ["user_id"]
-              isOneToOne: false
-              referencedRelation: "users"
-              referencedColumns: ["id"]
-            },
-            {
-              foreignKeyName: "pagos_zelle_company_id_fkey"
-              columns: ["company_id"]
-              isOneToOne: false
-              referencedRelation: "companies"
-              referencedColumns: ["id"]
-            }
-          ]
+        Row: {
+          id: string
+          caja_id: string
+          monto_usd: number
+          tasa: number
+          monto_bs: number
+          fecha_hora: string
+          nombre_cliente: string
+          telefono: string
+          user_id: string
+          company_id: string
+          created_at: string
+          updated_at: string
         }
+        Insert: {
+          id?: string
+          caja_id: string
+          monto_usd: number
+          tasa: number
+          monto_bs: number
+          fecha_hora?: string
+          nombre_cliente: string
+          telefono: string
+          user_id: string
+          company_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          caja_id?: string
+          monto_usd?: number
+          tasa?: number
+          monto_bs?: number
+          fecha_hora?: string
+          nombre_cliente?: string
+          telefono?: string
+          user_id?: string
+          company_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_zelle_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_zelle_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_zelle_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -9,28 +9,33 @@ import { Button } from '@/components/ui/Button'
 import { CajaControl } from '@/components/cajas/CajaControl'
 import { PagoMovilForm } from '@/components/cajas/PagoMovilForm'
 import { PagoMovilList } from '@/components/cajas/PagoMovilList'
+import { PagoZelleForm } from '@/components/cajas/PagoZelleForm'
+import { PagoZelleList } from '@/components/cajas/PagoZelleList'
 import { TicketModal } from '@/components/cajas/TicketModal'
 import { cajaService } from '@/lib/services/cajaService'
-import { CajaUI, PagoMovilUI, ReporteCaja } from '@/types/caja'
+import { CajaUI, PagoMovilUI, PagoZelleUI, ReporteCaja } from '@/types/caja'
 import { 
   DocumentArrowDownIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  CurrencyDollarIcon,
+  DevicePhoneMobileIcon
 } from '@heroicons/react/24/outline'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 
 export default function CajasPage() {
   const { user, company } = useAuth()
   const [caja, setCaja] = useState<CajaUI | null>(null)
   const [pagosMovil, setPagosMovil] = useState<PagoMovilUI[]>([])
+  const [pagosZelle, setPagosZelle] = useState<PagoZelleUI[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [editingPago, setEditingPago] = useState<PagoMovilUI | null>(null)
+  const [editingPagoMovil, setEditingPagoMovil] = useState<PagoMovilUI | null>(null)
+  const [editingPagoZelle, setEditingPagoZelle] = useState<PagoZelleUI | null>(null)
   const [showTicketModal, setShowTicketModal] = useState(false)
   const [reporteActual, setReporteActual] = useState<ReporteCaja | null>(null)
+  const [activeTab, setActiveTab] = useState<'movil' | 'zelle'>('movil')
 
   // Cargar caja actual al montar el componente
   useEffect(() => {
@@ -57,13 +62,14 @@ export default function CajasPage() {
       if (cajaData) {
         setCaja(cajaData)
         
-        // Si hay caja abierta, cargar sus pagos móviles
+        // Si hay caja abierta, cargar sus pagos
         const { data: cajaConPagos, error: pagosError } = await cajaService.getCajaConPagos(cajaData.id!)
         
         if (pagosError) {
           setError('Error al cargar pagos: ' + pagosError.message)
-        } else if (cajaConPagos?.pagosMovil) {
-          setPagosMovil(cajaConPagos.pagosMovil)
+        } else if (cajaConPagos) {
+          setPagosMovil(cajaConPagos.pagosMovil || [])
+          setPagosZelle(cajaConPagos.pagosZelle || [])
         }
       }
     } catch (err: any) {
@@ -73,7 +79,7 @@ export default function CajasPage() {
     }
   }
 
-  const handleAbrirCaja = async (montoApertura: number) => {
+  const handleAbrirCaja = async (montoApertura: number, tasaDia: number) => {
     if (!user || !company) return
 
     setLoading(true)
@@ -84,7 +90,8 @@ export default function CajasPage() {
       const { data: nuevaCaja, error: abrirError } = await cajaService.abrirCaja(
         user.id,
         company.id,
-        montoApertura
+        montoApertura,
+        tasaDia
       )
 
       if (abrirError) {
@@ -95,6 +102,7 @@ export default function CajasPage() {
       if (nuevaCaja) {
         setCaja(nuevaCaja)
         setPagosMovil([])
+        setPagosZelle([])
         setSuccessMessage('Caja abierta exitosamente')
         setTimeout(() => setSuccessMessage(null), 3000)
       }
@@ -144,17 +152,41 @@ export default function CajasPage() {
     }
   }
 
-  const handleAgregarPago = async (data: { monto: number; nombreCliente: string; telefono: string; numeroReferencia: string }) => {
+  const handleActualizarTasa = async (nuevaTasa: number) => {
+    if (!caja?.id) return
+
+    setError(null)
+    setSuccessMessage(null)
+
+    try {
+      const { error: updateError } = await cajaService.actualizarTasaDia(caja.id, nuevaTasa)
+
+      if (updateError) {
+        setError('Error al actualizar tasa: ' + updateError.message)
+        return
+      }
+
+      // Actualizar la caja local
+      setCaja({ ...caja, tasaDia: nuevaTasa })
+      setSuccessMessage('Tasa actualizada exitosamente')
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError('Error al actualizar tasa: ' + err.message)
+    }
+  }
+
+  // Handlers para Pagos Móviles
+  const handleAgregarPagoMovil = async (data: { monto: number; nombreCliente: string; telefono: string; numeroReferencia: string }) => {
     if (!caja?.id || !user || !company) return
 
     setError(null)
     setSuccessMessage(null)
 
     try {
-      if (editingPago) {
+      if (editingPagoMovil) {
         // Actualizar pago existente
         const { data: pagoActualizado, error: updateError } = await cajaService.actualizarPagoMovil(
-          editingPago.id!,
+          editingPagoMovil.id!,
           data
         )
 
@@ -165,9 +197,9 @@ export default function CajasPage() {
 
         if (pagoActualizado) {
           setPagosMovil(pagosMovil.map(p => 
-            p.id === editingPago.id ? pagoActualizado : p
+            p.id === editingPagoMovil.id ? pagoActualizado : p
           ))
-          setEditingPago(null)
+          setEditingPagoMovil(null)
           setSuccessMessage('Pago actualizado exitosamente')
           
           // Actualizar totales de la caja
@@ -207,12 +239,13 @@ export default function CajasPage() {
     }
   }
 
-  const handleEditarPago = (pago: PagoMovilUI) => {
-    setEditingPago(pago)
+  const handleEditarPagoMovil = (pago: PagoMovilUI) => {
+    setEditingPagoMovil(pago)
+    setActiveTab('movil')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const handleEliminarPago = async (pagoId: string) => {
+  const handleEliminarPagoMovil = async (pagoId: string) => {
     setError(null)
     setSuccessMessage(null)
 
@@ -225,6 +258,105 @@ export default function CajasPage() {
       }
 
       setPagosMovil(pagosMovil.filter(p => p.id !== pagoId))
+      setSuccessMessage('Pago eliminado exitosamente')
+      
+      // Actualizar totales de la caja
+      await cargarCajaActual()
+      
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError('Error al eliminar pago: ' + err.message)
+    }
+  }
+
+  // Handlers para Pagos Zelle
+  const handleAgregarPagoZelle = async (data: { montoUsd: number; tasa: number; nombreCliente: string; telefono: string }) => {
+    if (!caja?.id || !user || !company) return
+
+    setError(null)
+    setSuccessMessage(null)
+
+    try {
+      if (editingPagoZelle) {
+        // Actualizar pago existente
+        const { data: pagoActualizado, error: updateError } = await cajaService.actualizarPagoZelle(
+          editingPagoZelle.id!,
+          {
+            montoUsd: data.montoUsd,
+            tasa: data.tasa,
+            nombreCliente: data.nombreCliente,
+            telefono: data.telefono
+          }
+        )
+
+        if (updateError) {
+          setError('Error al actualizar pago: ' + updateError.message)
+          return
+        }
+
+        if (pagoActualizado) {
+          setPagosZelle(pagosZelle.map(p => 
+            p.id === editingPagoZelle.id ? pagoActualizado : p
+          ))
+          setEditingPagoZelle(null)
+          setSuccessMessage('Pago actualizado exitosamente')
+          
+          // Actualizar totales de la caja
+          await cargarCajaActual()
+        }
+      } else {
+        // Crear nuevo pago
+        const nuevoPago: Omit<PagoZelleUI, 'id' | 'fechaHora' | 'montoBs'> = {
+          cajaId: caja.id,
+          montoUsd: data.montoUsd,
+          tasa: data.tasa,
+          nombreCliente: data.nombreCliente,
+          telefono: data.telefono,
+          userId: user.id,
+          companyId: company.id
+        }
+
+        const { data: pagoCreado, error: createError } = await cajaService.agregarPagoZelle(nuevoPago)
+
+        if (createError) {
+          setError('Error al agregar pago: ' + createError.message)
+          return
+        }
+
+        if (pagoCreado) {
+          setPagosZelle([...pagosZelle, pagoCreado])
+          setSuccessMessage('Pago agregado exitosamente')
+          
+          // Actualizar totales de la caja
+          await cargarCajaActual()
+        }
+      }
+
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError('Error al procesar pago: ' + err.message)
+    }
+  }
+
+  const handleEditarPagoZelle = (pago: PagoZelleUI) => {
+    setEditingPagoZelle(pago)
+    setActiveTab('zelle')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleEliminarPagoZelle = async (pagoId: string) => {
+    setError(null)
+    setSuccessMessage(null)
+
+    try {
+      const { error: deleteError } = await cajaService.eliminarPagoZelle(pagoId)
+
+      if (deleteError) {
+        setError('Error al eliminar pago: ' + deleteError.message)
+        return
+      }
+
+      setPagosZelle(pagosZelle.filter(p => p.id !== pagoId))
       setSuccessMessage('Pago eliminado exitosamente')
       
       // Actualizar totales de la caja
@@ -261,8 +393,12 @@ export default function CajasPage() {
     }
   }
 
-  const handleCancelarEdicion = () => {
-    setEditingPago(null)
+  const handleCancelarEdicionMovil = () => {
+    setEditingPagoMovil(null)
+  }
+
+  const handleCancelarEdicionZelle = () => {
+    setEditingPagoZelle(null)
   }
 
   // Verificar permisos
@@ -284,7 +420,7 @@ export default function CajasPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Gestión de Caja</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Control de pagos móviles del día
+              Control de pagos móviles y Zelle del día
             </p>
           </div>
           
@@ -329,52 +465,102 @@ export default function CajasPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Columna izquierda */}
-            <div className="space-y-6">
-              {/* Control de caja */}
-              <CajaControl
-                caja={caja}
-                onAbrirCaja={handleAbrirCaja}
-                onCerrarCaja={handleCerrarCaja}
-                loading={loading}
-              />
+          <>
+            {/* Control de caja - siempre visible */}
+            <CajaControl
+              caja={caja}
+              onAbrirCaja={handleAbrirCaja}
+              onCerrarCaja={handleCerrarCaja}
+              onActualizarTasa={handleActualizarTasa}
+              loading={loading}
+            />
 
-              {/* Formulario de pago móvil (solo si la caja está abierta) */}
-              {caja?.estado === 'abierta' && (
-                <PagoMovilForm
-                  onSubmit={handleAgregarPago}
-                  loading={loading}
-                  editingPago={editingPago}
-                  onCancelEdit={handleCancelarEdicion}
-                />
-              )}
-            </div>
+            {/* Contenido principal - solo si la caja está abierta */}
+            {caja?.estado === 'abierta' && (
+              <>
+                {/* Tabs para cambiar entre Pagos Móviles y Zelle */}
+                <div className="border-b border-gray-200">
+                  <nav className="-mb-px flex space-x-8">
+                    <button
+                      onClick={() => setActiveTab('movil')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                        activeTab === 'movil'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <DevicePhoneMobileIcon className="h-5 w-5 mr-2" />
+                      Pagos Móviles
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('zelle')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                        activeTab === 'zelle'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <CurrencyDollarIcon className="h-5 w-5 mr-2" />
+                      Pagos Zelle
+                    </button>
+                  </nav>
+                </div>
 
-            {/* Columna derecha - Lista de pagos */}
-            <div className="space-y-6">
-              {caja?.estado === 'abierta' ? (
-                <PagoMovilList
-                  pagosMovil={pagosMovil}
-                  onEdit={handleEditarPago}
-                  onDelete={handleEliminarPago}
-                  loading={loading}
-                />
-              ) : (
-                <Card>
-                  <div className="text-center py-12">
-                    <BanknotesIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500">
-                      {caja?.estado === 'cerrada' 
-                        ? 'La caja está cerrada'
-                        : 'Abre la caja para registrar pagos móviles'
-                      }
-                    </p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Columna izquierda - Formulario */}
+                  <div>
+                    {activeTab === 'movil' ? (
+                      <PagoMovilForm
+                        onSubmit={handleAgregarPagoMovil}
+                        loading={loading}
+                        editingPago={editingPagoMovil}
+                        onCancelEdit={handleCancelarEdicionMovil}
+                      />
+                    ) : (
+                      <PagoZelleForm
+                        tasaDia={caja.tasaDia}
+                        onSubmit={handleAgregarPagoZelle}
+                        loading={loading}
+                        editingPago={editingPagoZelle}
+                        onCancelEdit={handleCancelarEdicionZelle}
+                      />
+                    )}
                   </div>
-                </Card>
-              )}
-            </div>
-          </div>
+
+                  {/* Columna derecha - Lista */}
+                  <div>
+                    {activeTab === 'movil' ? (
+                      <PagoMovilList
+                        pagosMovil={pagosMovil}
+                        onEdit={handleEditarPagoMovil}
+                        onDelete={handleEliminarPagoMovil}
+                        loading={loading}
+                      />
+                    ) : (
+                      <PagoZelleList
+                        pagosZelle={pagosZelle}
+                        onEdit={handleEditarPagoZelle}
+                        onDelete={handleEliminarPagoZelle}
+                        loading={loading}
+                      />
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Mensaje cuando la caja está cerrada */}
+            {caja?.estado === 'cerrada' && (
+              <Card>
+                <div className="text-center py-12">
+                  <BanknotesIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-500">
+                    La caja está cerrada. Abre una nueva caja para registrar pagos.
+                  </p>
+                </div>
+              </Card>
+            )}
+          </>
         )}
       </div>
 
