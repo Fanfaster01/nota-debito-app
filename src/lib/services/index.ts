@@ -30,6 +30,12 @@ export {
     bancoService
   } from './bancoService'
   
+  // Servicio de cajas
+  export {
+    CajaService,
+    cajaService
+  } from './cajaService'
+  
   // Servicios originales del sistema de facturación
   export {
     FacturaService,

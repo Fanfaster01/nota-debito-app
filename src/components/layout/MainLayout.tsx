@@ -13,7 +13,8 @@ import {
   CogIcon,
   Bars3Icon,
   XMarkIcon,
-  BuildingStorefrontIcon
+  BuildingStorefrontIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -25,6 +26,7 @@ interface MainLayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Notas de Débito', href: '/notas-debito', icon: DocumentTextIcon },
+  { name: 'Gestión de Cajas', href: '/cajas', icon: BanknotesIcon },
 ]
 
 const adminNavigation = [

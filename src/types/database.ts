@@ -13,6 +13,8 @@ export type NotaCreditoDB = Tables<'notas_credito'>
 export type NotaDebitoDB = Tables<'notas_debito'>
 export type Proveedor = Tables<'proveedores'>
 export type Banco = Tables<'bancos'>
+export type Caja = Tables<'cajas'>
+export type PagoMovil = Tables<'pagos_movil'>
 
 export type Json =
   | string
@@ -509,6 +511,136 @@ export type Database = {
           is_active?: boolean
         }
         Relationships: []
+      }
+      cajas: {
+        Row: {
+          id: string
+          user_id: string
+          company_id: string
+          fecha: string
+          hora_apertura: string
+          hora_cierre: string | null
+          monto_apertura: number
+          monto_cierre: number | null
+          total_pagos_movil: number
+          cantidad_pagos_movil: number
+          estado: 'abierta' | 'cerrada'
+          observaciones: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          company_id: string
+          fecha: string
+          hora_apertura: string
+          hora_cierre?: string | null
+          monto_apertura?: number
+          monto_cierre?: number | null
+          total_pagos_movil?: number
+          cantidad_pagos_movil?: number
+          estado?: 'abierta' | 'cerrada'
+          observaciones?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          company_id?: string
+          fecha?: string
+          hora_apertura?: string
+          hora_cierre?: string | null
+          monto_apertura?: number
+          monto_cierre?: number | null
+          total_pagos_movil?: number
+          cantidad_pagos_movil?: number
+          estado?: 'abierta' | 'cerrada'
+          observaciones?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cajas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cajas_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      pagos_movil: {
+        Row: {
+          id: string
+          caja_id: string
+          monto: number
+          fecha_hora: string
+          nombre_cliente: string
+          telefono: string
+          numero_referencia: string
+          user_id: string
+          company_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          caja_id: string
+          monto: number
+          fecha_hora?: string
+          nombre_cliente: string
+          telefono: string
+          numero_referencia: string
+          user_id: string
+          company_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          caja_id?: string
+          monto?: number
+          fecha_hora?: string
+          nombre_cliente?: string
+          telefono?: string
+          numero_referencia?: string
+          user_id?: string
+          company_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_movil_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_movil_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pagos_movil_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
