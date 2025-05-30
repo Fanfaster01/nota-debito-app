@@ -1,4 +1,4 @@
-// src/types/caja.ts
+// src/types/caja.ts - Versión actualizada completa
 
 export interface CajaUI {
     id?: string
@@ -9,8 +9,12 @@ export interface CajaUI {
     horaCierre?: Date | null
     montoApertura: number
     montoCierre?: number | null
+    tasaDia: number // Nueva propiedad
     totalPagosMovil: number
     cantidadPagosMovil: number
+    totalZelleUsd: number // Nueva propiedad
+    totalZelleBs: number // Nueva propiedad
+    cantidadZelle: number // Nueva propiedad
     estado: 'abierta' | 'cerrada'
     observaciones?: string | null
     // Relaciones
@@ -25,6 +29,7 @@ export interface CajaUI {
       rif: string
     }
     pagosMovil?: PagoMovilUI[]
+    pagosZelle?: PagoZelleUI[] // Nueva propiedad
   }
   
   export interface PagoMovilUI {
@@ -39,10 +44,26 @@ export interface CajaUI {
     companyId: string
   }
   
+  export interface PagoZelleUI {
+    id?: string
+    cajaId: string
+    montoUsd: number
+    tasa: number
+    montoBs: number
+    fechaHora: Date
+    nombreCliente: string
+    telefono: string
+    userId: string
+    companyId: string
+  }
+  
   export interface CajaResumen {
     fecha: string
     totalPagosMovil: number
     cantidadPagosMovil: number
+    totalZelleUsd: number
+    totalZelleBs: number
+    cantidadZelle: number
     estado: 'abierta' | 'cerrada'
     usuario: string
   }
@@ -57,8 +78,13 @@ export interface CajaUI {
   export interface ReporteCaja {
     caja: CajaUI
     pagosMovil: PagoMovilUI[]
+    pagosZelle: PagoZelleUI[]
     totales: {
-      cantidadPagos: number
-      montoTotal: number
+      cantidadPagosMovil: number
+      montoTotalMovil: number
+      cantidadZelle: number
+      montoTotalZelleUsd: number
+      montoTotalZelleBs: number
+      montoTotalGeneral: number // Total en Bs de todo
     }
   }
