@@ -12,13 +12,16 @@ import {
   LockClosedIcon,
   CalendarIcon,
   ClockIcon,
-  UserIcon
+  UserIcon,
+  CurrencyDollarIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 const abrirCajaSchema = z.object({
-  montoApertura: z.number().min(0, 'El monto no puede ser negativo')
+  montoApertura: z.number().min(0, 'El monto no puede ser negativo'),
+  tasaDia: z.number().positive('La tasa debe ser mayor a 0')
 })
 
 const cerrarCajaSchema = z.object({
@@ -31,8 +34,9 @@ type CerrarCajaFormData = z.infer<typeof cerrarCajaSchema>
 
 interface CajaControlProps {
   caja: CajaUI | null
-  onAbrirCaja: (montoApertura: number) => Promise<void>
+  onAbrirCaja: (montoApertura: number, tasaDia: number) => Promise<void>
   onCerrarCaja: (montoCierre: number, observaciones?: string) => Promise<void>
+  onActualizarTasa?: (nuevaTasa: number) => Promise<void>
   loading?: boolean
 }
 
@@ -40,14 +44,18 @@ export const CajaControl: React.FC<CajaControlProps> = ({
   caja,
   onAbrirCaja,
   onCerrarCaja,
+  onActualizarTasa,
   loading
 }) => {
   const [showCerrarForm, setShowCerrarForm] = useState(false)
+  const [editandoTasa, setEditandoTasa] = useState(false)
+  const [nuevaTasa, setNuevaTasa] = useState<number>(caja?.tasaDia || 0)
 
   const abrirForm = useForm<AbrirCajaFormData>({
     resolver: zodResolver(abrirCajaSchema),
     defaultValues: {
-      montoApertura: 0
+      montoApertura: 0,
+      tasaDia: 0
     }
   })
 
@@ -60,7 +68,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
   })
 
   const handleAbrirCaja = async (data: AbrirCajaFormData) => {
-    await onAbrirCaja(data.montoApertura)
+    await onAbrirCaja(data.montoApertura, data.tasaDia)
     abrirForm.reset()
   }
 
@@ -68,6 +76,13 @@ export const CajaControl: React.FC<CajaControlProps> = ({
     await onCerrarCaja(data.montoCierre, data.observaciones)
     cerrarForm.reset()
     setShowCerrarForm(false)
+  }
+
+  const handleActualizarTasa = async () => {
+    if (onActualizarTasa && nuevaTasa > 0) {
+      await onActualizarTasa(nuevaTasa)
+      setEditandoTasa(false)
+    }
   }
 
   const formatMonto = (monto: number) => {
@@ -100,6 +115,22 @@ export const CajaControl: React.FC<CajaControlProps> = ({
             disabled={loading}
             placeholder="0.00"
           />
+
+          <Input
+            label="Tasa del Día (Bs/USD)"
+            type="number"
+            step="0.01"
+            {...abrirForm.register('tasaDia', { valueAsNumber: true })}
+            error={abrirForm.formState.errors.tasaDia?.message}
+            disabled={loading}
+            placeholder="0.00"
+          />
+
+          <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
+            <p className="text-sm text-yellow-800">
+              <strong>Importante:</strong> La tasa del día se utilizará para calcular el monto en bolívares de los pagos en Zelle.
+            </p>
+          </div>
 
           <div className="flex justify-end">
             <Button
@@ -160,20 +191,103 @@ export const CajaControl: React.FC<CajaControlProps> = ({
           </div>
         </div>
 
+        {/* Tasa del día */}
+        <div className="bg-blue-50 p-4 rounded-md">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <CurrencyDollarIcon className="h-5 w-5 text-blue-600 mr-2" />
+              <div>
+                <p className="text-sm font-medium text-blue-700">Tasa del Día</p>
+                {editandoTasa ? (
+                  <div className="flex items-center space-x-2 mt-1">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={nuevaTasa}
+                      onChange={(e) => setNuevaTasa(parseFloat(e.target.value) || 0)}
+                      className="w-32 px-2 py-1 border border-gray-300 rounded-md text-sm"
+                      disabled={loading}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={handleActualizarTasa}
+                      disabled={loading || nuevaTasa <= 0}
+                    >
+                      Guardar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditandoTasa(false)
+                        setNuevaTasa(caja.tasaDia)
+                      }}
+                      disabled={loading}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xl font-bold text-blue-800">
+                    Bs. {formatMonto(caja.tasaDia)} / USD
+                  </p>
+                )}
+              </div>
+            </div>
+            {!editandoTasa && onActualizarTasa && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditandoTasa(true)}
+                disabled={loading}
+              >
+                Editar Tasa
+              </Button>
+            )}
+          </div>
+        </div>
+
         {/* Resumen de pagos */}
         <div className="border-t pt-4">
-          <h4 className="font-medium mb-3">Resumen de Pagos Móviles</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <h4 className="font-medium mb-3">Resumen de Pagos</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="bg-green-50 p-4 rounded-md">
-              <p className="text-sm font-medium text-green-700 mb-1">Cantidad de Pagos</p>
+              <div className="flex items-center mb-2">
+                <BanknotesIcon className="h-5 w-5 text-green-600 mr-2" />
+                <p className="text-sm font-medium text-green-700">Pagos Móviles</p>
+              </div>
               <p className="text-2xl font-bold text-green-800">
                 {caja.cantidadPagosMovil}
               </p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-md">
-              <p className="text-sm font-medium text-green-700 mb-1">Total Recaudado</p>
-              <p className="text-2xl font-bold text-green-800">
+              <p className="text-sm text-green-600 mt-1">
                 Bs. {formatMonto(caja.totalPagosMovil)}
+              </p>
+            </div>
+
+            <div className="bg-blue-50 p-4 rounded-md">
+              <div className="flex items-center mb-2">
+                <CurrencyDollarIcon className="h-5 w-5 text-blue-600 mr-2" />
+                <p className="text-sm font-medium text-blue-700">Pagos Zelle</p>
+              </div>
+              <p className="text-2xl font-bold text-blue-800">
+                {caja.cantidadZelle}
+              </p>
+              <div className="text-sm text-blue-600 mt-1">
+                <p>$ {formatMonto(caja.totalZelleUsd)}</p>
+                <p>Bs. {formatMonto(caja.totalZelleBs)}</p>
+              </div>
+            </div>
+
+            <div className="bg-purple-50 p-4 rounded-md">
+              <div className="flex items-center mb-2">
+                <BanknotesIcon className="h-5 w-5 text-purple-600 mr-2" />
+                <p className="text-sm font-medium text-purple-700">Total General</p>
+              </div>
+              <p className="text-2xl font-bold text-purple-800">
+                Bs. {formatMonto(caja.totalPagosMovil + caja.totalZelleBs)}
+              </p>
+              <p className="text-sm text-purple-600 mt-1">
+                {caja.cantidadPagosMovil + caja.cantidadZelle} transacciones
               </p>
             </div>
           </div>
