@@ -3,6 +3,7 @@ import React from 'react'
 import { ReporteCaja } from '@/types/caja'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { formatearFecha } from '@/utils/dateUtils'
 
 interface TicketCajaProps {
   reporte: ReporteCaja
@@ -48,7 +49,7 @@ export const TicketCaja: React.FC<TicketCajaProps> = ({ reporte }) => {
       <div className="mb-3 text-xs">
         <div className="flex justify-between">
           <span>FECHA:</span>
-          <span>{format(caja.fecha, 'dd/MM/yyyy', { locale: es })}</span>
+          <span>{formatearFecha(caja.fecha)}</span>
         </div>
         <div className="flex justify-between">
           <span>CAJERO:</span>
