@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { ProtectedLayout } from '@/components/layout/ProtectedLayout'
+import { MainLayout } from '@/components/layout/MainLayout'
 import { creditoService } from '@/lib/services/creditoService'
 import { ClienteSearch } from '@/components/forms/ClienteSearch'
 import { ClienteUI } from '@/lib/services/clienteService'
@@ -106,19 +106,19 @@ export default function EstadoCuentaPage() {
 
   if (!canAccess) {
     return (
-      <ProtectedLayout>
+      <MainLayout>
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Acceso Denegado</h1>
             <p className="text-gray-600">No tienes permisos para acceder a esta sección.</p>
           </div>
         </div>
-      </ProtectedLayout>
+      </MainLayout>
     )
   }
 
   return (
-    <ProtectedLayout>
+    <MainLayout>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -328,6 +328,6 @@ export default function EstadoCuentaPage() {
           </div>
         )}
       </div>
-    </ProtectedLayout>
+    </MainLayout>
   )
 }

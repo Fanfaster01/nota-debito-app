@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PencilIcon, TrashIcon, CreditCardIcon } from '@heroicons/react/24/outline'
+import { Card } from '@/components/ui/Card'
 import { cajaService } from '@/lib/services/cajaService'
 import type { CreditoCajaUI } from '@/types/caja'
 
@@ -110,9 +111,15 @@ export default function CreditoCajaList({
 
   if (creditos.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        No hay créditos registrados
-      </div>
+      <Card>
+        <div className="text-center py-8">
+          <CreditCardIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">No hay créditos registrados</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Los créditos que registres aparecerán aquí
+          </p>
+        </div>
+      </Card>
     )
   }
 

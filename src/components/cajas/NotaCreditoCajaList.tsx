@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
+import { PencilIcon, TrashIcon, DocumentMinusIcon } from '@heroicons/react/24/outline'
+import { Card } from '@/components/ui/Card'
 import { cajaService } from '@/lib/services/cajaService'
 import type { NotaCreditoCajaUI } from '@/types/caja'
 
@@ -109,9 +110,15 @@ export default function NotaCreditoCajaList({
 
   if (notasCredito.length === 0) {
     return (
-      <div className="text-center py-8 text-gray-500">
-        No hay notas de crédito registradas
-      </div>
+      <Card>
+        <div className="text-center py-8">
+          <DocumentMinusIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500">No hay notas de crédito registradas</p>
+          <p className="text-sm text-gray-400 mt-2">
+            Las notas de crédito que registres aparecerán aquí
+          </p>
+        </div>
+      </Card>
     )
   }
 
