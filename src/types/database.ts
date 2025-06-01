@@ -16,6 +16,8 @@ export type Banco = Tables<'bancos'>
 export type Caja = Tables<'cajas'>
 export type PagoMovil = Tables<'pagos_movil'>
 export type PagoZelle = Tables<'pagos_zelle'>
+export type NotaCreditoCaja = Tables<'notas_credito_caja'>
+export type CreditoCaja = Tables<'creditos_caja'>
 
 export type Json =
   | string
@@ -522,6 +524,7 @@ export type Database = {
           hora_apertura: string
           hora_cierre: string | null
           monto_apertura: number
+          monto_apertura_usd: number
           monto_cierre: number | null
           tasa_dia: number
           total_pagos_movil: number
@@ -529,6 +532,11 @@ export type Database = {
           total_zelle_usd: number
           total_zelle_bs: number
           cantidad_zelle: number
+          total_notas_credito: number
+          cantidad_notas_credito: number
+          total_creditos_bs: number
+          total_creditos_usd: number
+          cantidad_creditos: number
           estado: 'abierta' | 'cerrada'
           observaciones: string | null
           created_at: string
@@ -542,6 +550,7 @@ export type Database = {
           hora_apertura: string
           hora_cierre?: string | null
           monto_apertura?: number
+          monto_apertura_usd?: number
           monto_cierre?: number | null
           tasa_dia?: number
           total_pagos_movil?: number
@@ -549,6 +558,11 @@ export type Database = {
           total_zelle_usd?: number
           total_zelle_bs?: number
           cantidad_zelle?: number
+          total_notas_credito?: number
+          cantidad_notas_credito?: number
+          total_creditos_bs?: number
+          total_creditos_usd?: number
+          cantidad_creditos?: number
           estado?: 'abierta' | 'cerrada'
           observaciones?: string | null
           created_at?: string
@@ -562,6 +576,7 @@ export type Database = {
           hora_apertura?: string
           hora_cierre?: string | null
           monto_apertura?: number
+          monto_apertura_usd?: number
           monto_cierre?: number | null
           tasa_dia?: number
           total_pagos_movil?: number
@@ -569,6 +584,11 @@ export type Database = {
           total_zelle_usd?: number
           total_zelle_bs?: number
           cantidad_zelle?: number
+          total_notas_credito?: number
+          cantidad_notas_credito?: number
+          total_creditos_bs?: number
+          total_creditos_usd?: number
+          cantidad_creditos?: number
           estado?: 'abierta' | 'cerrada'
           observaciones?: string | null
           created_at?: string
@@ -715,6 +735,146 @@ export type Database = {
           },
           {
             foreignKeyName: "pagos_zelle_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      notas_credito_caja: {
+        Row: {
+          id: string
+          caja_id: string
+          numero_nota_credito: string
+          factura_afectada: string
+          monto_bs: number
+          nombre_cliente: string
+          explicacion: string
+          fecha_hora: string
+          user_id: string
+          company_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          caja_id: string
+          numero_nota_credito: string
+          factura_afectada: string
+          monto_bs: number
+          nombre_cliente: string
+          explicacion: string
+          fecha_hora?: string
+          user_id: string
+          company_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          caja_id?: string
+          numero_nota_credito?: string
+          factura_afectada?: string
+          monto_bs?: number
+          nombre_cliente?: string
+          explicacion?: string
+          fecha_hora?: string
+          user_id?: string
+          company_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notas_credito_caja_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_credito_caja_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notas_credito_caja_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      creditos_caja: {
+        Row: {
+          id: string
+          caja_id: string
+          numero_factura: string
+          nombre_cliente: string
+          telefono_cliente: string
+          monto_bs: number
+          monto_usd: number
+          tasa: number
+          estado: 'pendiente' | 'pagado'
+          fecha_hora: string
+          user_id: string
+          company_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          caja_id: string
+          numero_factura: string
+          nombre_cliente: string
+          telefono_cliente: string
+          monto_bs: number
+          monto_usd: number
+          tasa: number
+          estado?: 'pendiente' | 'pagado'
+          fecha_hora?: string
+          user_id: string
+          company_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          caja_id?: string
+          numero_factura?: string
+          nombre_cliente?: string
+          telefono_cliente?: string
+          monto_bs?: number
+          monto_usd?: number
+          tasa?: number
+          estado?: 'pendiente' | 'pagado'
+          fecha_hora?: string
+          user_id?: string
+          company_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creditos_caja_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_caja_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_caja_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

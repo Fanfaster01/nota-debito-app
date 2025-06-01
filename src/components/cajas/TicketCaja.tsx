@@ -10,7 +10,7 @@ interface TicketCajaProps {
 }
 
 export const TicketCaja: React.FC<TicketCajaProps> = ({ reporte }) => {
-  const { caja, pagosMovil, pagosZelle, totales } = reporte
+  const { caja, pagosMovil, pagosZelle, notasCredito, totales } = reporte
 
   const formatMonto = (monto: number) => {
     return new Intl.NumberFormat('es-VE', {
@@ -181,11 +181,55 @@ export const TicketCaja: React.FC<TicketCajaProps> = ({ reporte }) => {
       {/* Línea divisoria */}
       <div className="border-t border-dashed border-gray-400 my-2"></div>
 
+      {/* SECCIÓN NOTAS DE CRÉDITO */}
+      <div className="text-center font-bold text-xs mb-2">
+        NOTAS DE CRÉDITO ({totales.cantidadNotasCredito})
+      </div>
+
+      {notasCredito.length > 0 ? (
+        <>
+          {/* Encabezados de la tabla */}
+          <div className="grid grid-cols-12 gap-1 text-xs font-bold border-b border-gray-400 pb-1 mb-1">
+            <div className="col-span-1 text-center">#</div>
+            <div className="col-span-2">HORA</div>
+            <div className="col-span-2">N° NC</div>
+            <div className="col-span-2">FACT</div>
+            <div className="col-span-2">CLIENTE</div>
+            <div className="col-span-3 text-right">MONTO</div>
+          </div>
+
+          {/* Lista de notas de crédito */}
+          <div className="mb-2">
+            {notasCredito.map((nota, index) => (
+              <div key={nota.id} className="grid grid-cols-12 gap-1 text-xs py-0.5">
+                <div className="col-span-1 text-center">{index + 1}</div>
+                <div className="col-span-2">{format(nota.fechaHora, 'HH:mm')}</div>
+                <div className="col-span-2">{nota.numeroNotaCredito}</div>
+                <div className="col-span-2">{nota.facturaAfectada}</div>
+                <div className="col-span-2">{formatearTexto(nota.nombreCliente, 8)}</div>
+                <div className="col-span-3 text-right">{formatMonto(nota.montoBs)}</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between font-bold border-t border-gray-400 pt-1">
+            <span>TOTAL NC:</span>
+            <span>Bs. {formatMonto(totales.montoTotalNotasCredito)}</span>
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-2 text-xs">
+          NO HAY NOTAS DE CRÉDITO
+        </div>
+      )}
+
+      {/* Línea divisoria */}
+      <div className="border-t border-dashed border-gray-400 my-2"></div>
+
       {/* TOTALES GENERALES */}
       <div className="text-xs">
         <div className="flex justify-between font-bold">
           <span>CANTIDAD TOTAL:</span>
-          <span>{totales.cantidadPagosMovil + totales.cantidadZelle} PAGOS</span>
+          <span>{totales.cantidadPagosMovil + totales.cantidadZelle + totales.cantidadNotasCredito} OPERACIONES</span>
         </div>
         <div className="border-t border-gray-400 pt-1 mt-1 space-y-1">
           <div className="flex justify-between">
@@ -195,6 +239,10 @@ export const TicketCaja: React.FC<TicketCajaProps> = ({ reporte }) => {
           <div className="flex justify-between">
             <span>Total Pagos Zelle:</span>
             <span>Bs. {formatMonto(totales.montoTotalZelleBs)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span>Total Notas Crédito:</span>
+            <span>Bs. {formatMonto(totales.montoTotalNotasCredito)}</span>
           </div>
           <div className="flex justify-between font-bold text-sm border-t border-gray-400 pt-1">
             <span>TOTAL GENERAL:</span>
@@ -209,16 +257,18 @@ export const TicketCaja: React.FC<TicketCajaProps> = ({ reporte }) => {
       {/* Resumen final */}
       <div className="text-xs">
         <div className="flex justify-between">
-          <span>Apertura:</span>
+          <span>Fondo de Caja (Bs):</span>
           <span>Bs. {formatMonto(caja.montoApertura)}</span>
         </div>
-        <div className="flex justify-between">
-          <span>Total Ingresos:</span>
+        {caja.montoAperturaUsd > 0 && (
+          <div className="flex justify-between">
+            <span>Fondo de Caja ($):</span>
+            <span>$ {formatMonto(caja.montoAperturaUsd)}</span>
+          </div>
+        )}
+        <div className="flex justify-between mt-1">
+          <span>Total Ingresos del Día:</span>
           <span>Bs. {formatMonto(totales.montoTotalGeneral)}</span>
-        </div>
-        <div className="flex justify-between font-bold border-t border-gray-400 pt-1 mt-1">
-          <span>TOTAL EN CAJA:</span>
-          <span>Bs. {formatMonto(caja.montoApertura + totales.montoTotalGeneral)}</span>
         </div>
       </div>
 

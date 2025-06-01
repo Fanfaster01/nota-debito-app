@@ -14,7 +14,9 @@ import {
   ClockIcon,
   UserIcon,
   CurrencyDollarIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  DocumentTextIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
@@ -22,6 +24,7 @@ import { formatearFecha } from '@/utils/dateUtils'
 
 const abrirCajaSchema = z.object({
   montoApertura: z.number().min(0, 'El monto no puede ser negativo'),
+  montoAperturaUsd: z.number().min(0, 'El monto no puede ser negativo'),
   tasaDia: z.number().positive('La tasa debe ser mayor a 0')
 })
 
@@ -35,7 +38,7 @@ type CerrarCajaFormData = z.infer<typeof cerrarCajaSchema>
 
 interface CajaControlProps {
   caja: CajaUI | null
-  onAbrirCaja: (montoApertura: number, tasaDia: number) => Promise<void>
+  onAbrirCaja: (montoApertura: number, montoAperturaUsd: number, tasaDia: number) => Promise<void>
   onCerrarCaja: (montoCierre: number, observaciones?: string) => Promise<void>
   onActualizarTasa?: (nuevaTasa: number) => Promise<void>
   loading?: boolean
@@ -56,6 +59,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
     resolver: zodResolver(abrirCajaSchema),
     defaultValues: {
       montoApertura: 0,
+      montoAperturaUsd: 0,
       tasaDia: 0
     }
   })
@@ -69,7 +73,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
   })
 
   const handleAbrirCaja = async (data: AbrirCajaFormData) => {
-    await onAbrirCaja(data.montoApertura, data.tasaDia)
+    await onAbrirCaja(data.montoApertura, data.montoAperturaUsd, data.tasaDia)
     abrirForm.reset()
   }
 
@@ -107,15 +111,27 @@ export const CajaControl: React.FC<CajaControlProps> = ({
             </div>
           </div>
 
-          <Input
-            label="Monto de Apertura (Bs)"
-            type="number"
-            step="0.01"
-            {...abrirForm.register('montoApertura', { valueAsNumber: true })}
-            error={abrirForm.formState.errors.montoApertura?.message}
-            disabled={loading}
-            placeholder="0.00"
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="Monto de Apertura (Bs)"
+              type="number"
+              step="0.01"
+              {...abrirForm.register('montoApertura', { valueAsNumber: true })}
+              error={abrirForm.formState.errors.montoApertura?.message}
+              disabled={loading}
+              placeholder="0.00"
+            />
+
+            <Input
+              label="Monto de Apertura ($)"
+              type="number"
+              step="0.01"
+              {...abrirForm.register('montoAperturaUsd', { valueAsNumber: true })}
+              error={abrirForm.formState.errors.montoAperturaUsd?.message}
+              disabled={loading}
+              placeholder="0.00"
+            />
+          </div>
 
           <Input
             label="Tasa del Día (Bs/USD)"
@@ -189,6 +205,11 @@ export const CajaControl: React.FC<CajaControlProps> = ({
             <p className="text-lg font-semibold">
               Bs. {formatMonto(caja.montoApertura)}
             </p>
+            {caja.montoAperturaUsd > 0 && (
+              <p className="text-sm text-gray-600 mt-1">
+                $ {formatMonto(caja.montoAperturaUsd)}
+              </p>
+            )}
           </div>
         </div>
 
@@ -251,7 +272,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
         {/* Resumen de pagos */}
         <div className="border-t pt-4">
           <h4 className="font-medium mb-3">Resumen de Pagos</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-green-50 p-4 rounded-md">
               <div className="flex items-center mb-2">
                 <BanknotesIcon className="h-5 w-5 text-green-600 mr-2" />
@@ -279,16 +300,46 @@ export const CajaControl: React.FC<CajaControlProps> = ({
               </div>
             </div>
 
-            <div className="bg-purple-50 p-4 rounded-md">
+            <div className="bg-amber-50 p-4 rounded-md">
+              <div className="flex items-center mb-2">
+                <CreditCardIcon className="h-5 w-5 text-amber-600 mr-2" />
+                <p className="text-sm font-medium text-amber-700">Créditos</p>
+              </div>
+              <p className="text-2xl font-bold text-amber-800">
+                {caja.cantidadCreditos || 0}
+              </p>
+              <div className="text-sm text-amber-600 mt-1">
+                <p>Bs. {formatMonto(caja.totalCreditosBs || 0)}</p>
+                <p>$ {formatMonto(caja.totalCreditosUsd || 0)}</p>
+              </div>
+            </div>
+
+            <div className="bg-orange-50 p-4 rounded-md">
+              <div className="flex items-center mb-2">
+                <DocumentTextIcon className="h-5 w-5 text-orange-600 mr-2" />
+                <p className="text-sm font-medium text-orange-700">Notas de Crédito</p>
+              </div>
+              <p className="text-2xl font-bold text-orange-800">
+                {caja.cantidadNotasCredito || 0}
+              </p>
+              <p className="text-sm text-orange-600 mt-1">
+                Bs. {formatMonto(caja.totalNotasCredito || 0)}
+              </p>
+            </div>
+
+            <div className="bg-purple-50 p-4 rounded-md lg:col-span-4">
               <div className="flex items-center mb-2">
                 <BanknotesIcon className="h-5 w-5 text-purple-600 mr-2" />
                 <p className="text-sm font-medium text-purple-700">Total General</p>
               </div>
               <p className="text-2xl font-bold text-purple-800">
-                Bs. {formatMonto(caja.totalPagosMovil + caja.totalZelleBs)}
+                Bs. {formatMonto(caja.totalPagosMovil + caja.totalZelleBs + (caja.totalCreditosBs || 0) + (caja.totalNotasCredito || 0))}
               </p>
               <p className="text-sm text-purple-600 mt-1">
-                {caja.cantidadPagosMovil + caja.cantidadZelle} transacciones
+                {caja.cantidadPagosMovil + caja.cantidadZelle + (caja.cantidadCreditos || 0) + (caja.cantidadNotasCredito || 0)} operaciones
+              </p>
+              <p className="text-sm text-purple-600">
+                Total USD: $ {formatMonto((caja.totalZelleUsd || 0) + (caja.totalCreditosUsd || 0))}
               </p>
             </div>
           </div>

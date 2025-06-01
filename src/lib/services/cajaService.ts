@@ -1,7 +1,7 @@
 // src/lib/services/cajaService.ts
 import { createClient } from '@/utils/supabase/client'
-import { Caja, PagoMovil, PagoZelle, TablesInsert, TablesUpdate, User } from '@/types/database'
-import { CajaUI, PagoMovilUI, PagoZelleUI, FiltrosCaja, ReporteCaja } from '@/types/caja'
+import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, TablesInsert, TablesUpdate, User } from '@/types/database'
+import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, FiltrosCaja, ReporteCaja } from '@/types/caja'
 import { format } from 'date-fns'
 
 export interface CajaWithRelations extends Caja {
@@ -13,6 +13,8 @@ export interface CajaWithRelations extends Caja {
   }
   pagos_movil?: PagoMovil[]
   pagos_zelle?: PagoZelle[]
+  notas_credito_caja?: NotaCreditoCaja[]
+  creditos_caja?: CreditoCaja[]
 }
 
 export class CajaService {
@@ -28,6 +30,7 @@ export class CajaService {
       horaApertura: new Date(cajaDB.hora_apertura),
       horaCierre: cajaDB.hora_cierre ? new Date(cajaDB.hora_cierre) : null,
       montoApertura: cajaDB.monto_apertura,
+      montoAperturaUsd: cajaDB.monto_apertura_usd || 0,
       montoCierre: cajaDB.monto_cierre,
       tasaDia: cajaDB.tasa_dia || 0,
       totalPagosMovil: cajaDB.total_pagos_movil,
@@ -35,6 +38,11 @@ export class CajaService {
       totalZelleUsd: cajaDB.total_zelle_usd || 0,
       totalZelleBs: cajaDB.total_zelle_bs || 0,
       cantidadZelle: cajaDB.cantidad_zelle || 0,
+      totalNotasCredito: cajaDB.total_notas_credito || 0,
+      cantidadNotasCredito: cajaDB.cantidad_notas_credito || 0,
+      totalCreditosBs: cajaDB.total_creditos_bs || 0,
+      totalCreditosUsd: cajaDB.total_creditos_usd || 0,
+      cantidadCreditos: cajaDB.cantidad_creditos || 0,
       estado: cajaDB.estado,
       observaciones: cajaDB.observaciones,
       usuario: cajaDB.users ? {
@@ -44,7 +52,9 @@ export class CajaService {
       } : undefined,
       company: cajaDB.companies,
       pagosMovil: cajaDB.pagos_movil?.map(pm => this.mapPagoMovilFromDB(pm)),
-      pagosZelle: cajaDB.pagos_zelle?.map(pz => this.mapPagoZelleFromDB(pz))
+      pagosZelle: cajaDB.pagos_zelle?.map(pz => this.mapPagoZelleFromDB(pz)),
+      notasCredito: cajaDB.notas_credito_caja?.map(nc => this.mapNotaCreditoCajaFromDB(nc)),
+      creditos: cajaDB.creditos_caja?.map(c => this.mapCreditoCajaFromDB(c))
     }
   }
 
@@ -76,6 +86,40 @@ export class CajaService {
       telefono: pagoZelleDB.telefono,
       userId: pagoZelleDB.user_id,
       companyId: pagoZelleDB.company_id
+    }
+  }
+
+  // Mapear Nota de Crédito de Caja de DB a UI
+  private mapNotaCreditoCajaFromDB(notaCreditoDB: NotaCreditoCaja): NotaCreditoCajaUI {
+    return {
+      id: notaCreditoDB.id,
+      cajaId: notaCreditoDB.caja_id,
+      numeroNotaCredito: notaCreditoDB.numero_nota_credito,
+      facturaAfectada: notaCreditoDB.factura_afectada,
+      montoBs: notaCreditoDB.monto_bs,
+      nombreCliente: notaCreditoDB.nombre_cliente,
+      explicacion: notaCreditoDB.explicacion,
+      fechaHora: new Date(notaCreditoDB.fecha_hora),
+      userId: notaCreditoDB.user_id,
+      companyId: notaCreditoDB.company_id
+    }
+  }
+
+  // Mapear Crédito de Caja de DB a UI
+  private mapCreditoCajaFromDB(creditoDB: CreditoCaja): CreditoCajaUI {
+    return {
+      id: creditoDB.id,
+      cajaId: creditoDB.caja_id,
+      numeroFactura: creditoDB.numero_factura,
+      nombreCliente: creditoDB.nombre_cliente,
+      telefonoCliente: creditoDB.telefono_cliente,
+      montoBs: creditoDB.monto_bs,
+      montoUsd: creditoDB.monto_usd,
+      tasa: creditoDB.tasa,
+      estado: creditoDB.estado,
+      fechaHora: new Date(creditoDB.fecha_hora),
+      userId: creditoDB.user_id,
+      companyId: creditoDB.company_id
     }
   }
 
@@ -118,7 +162,7 @@ export class CajaService {
   }
 
   // Abrir caja
-  async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, tasaDia: number): Promise<{ data: CajaUI | null, error: any }> {
+  async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, montoAperturaUsd: number = 0, tasaDia: number): Promise<{ data: CajaUI | null, error: any }> {
     try {
       // Verificar si ya existe una caja abierta
       const { data: cajaExistente } = await this.verificarCajaAbierta(userId)
@@ -136,12 +180,18 @@ export class CajaService {
         fecha: format(new Date(), 'yyyy-MM-dd'),
         hora_apertura: new Date().toISOString(),
         monto_apertura: montoApertura,
+        monto_apertura_usd: montoAperturaUsd,
         tasa_dia: tasaDia,
         total_pagos_movil: 0,
         cantidad_pagos_movil: 0,
         total_zelle_usd: 0,
         total_zelle_bs: 0,
         cantidad_zelle: 0,
+        total_notas_credito: 0,
+        cantidad_notas_credito: 0,
+        total_creditos_bs: 0,
+        total_creditos_usd: 0,
+        cantidad_creditos: 0,
         estado: 'abierta'
       }
 
@@ -277,7 +327,9 @@ export class CajaService {
             rif
           ),
           pagos_movil (*),
-          pagos_zelle (*)
+          pagos_zelle (*),
+          notas_credito_caja (*),
+          creditos_caja (*)
         `)
         .eq('id', cajaId)
         .single()
@@ -659,6 +711,403 @@ export class CajaService {
     }
   }
 
+  // Agregar nota de crédito de caja
+  async agregarNotaCreditoCaja(notaCredito: Omit<NotaCreditoCajaUI, 'id' | 'fechaHora'>): Promise<{ data: NotaCreditoCajaUI | null, error: any }> {
+    try {
+      // Verificar que la caja esté abierta
+      const { data: caja, error: cajaError } = await this.supabase
+        .from('cajas')
+        .select('estado, total_notas_credito, cantidad_notas_credito')
+        .eq('id', notaCredito.cajaId)
+        .single()
+
+      if (cajaError || !caja) {
+        return { data: null, error: new Error('Caja no encontrada') }
+      }
+
+      if (caja.estado !== 'abierta') {
+        return { data: null, error: new Error('La caja está cerrada') }
+      }
+
+      // Validar que el número de nota de crédito sea numérico
+      if (!/^\d+$/.test(notaCredito.numeroNotaCredito)) {
+        return { data: null, error: new Error('El número de nota de crédito debe contener solo números') }
+      }
+
+      // Validar que la factura afectada sea numérica
+      if (!/^\d+$/.test(notaCredito.facturaAfectada)) {
+        return { data: null, error: new Error('El número de factura afectada debe contener solo números') }
+      }
+
+      // Insertar la nota de crédito
+      const nuevaNotaCredito: TablesInsert<'notas_credito_caja'> = {
+        caja_id: notaCredito.cajaId,
+        numero_nota_credito: notaCredito.numeroNotaCredito,
+        factura_afectada: notaCredito.facturaAfectada,
+        monto_bs: notaCredito.montoBs,
+        nombre_cliente: notaCredito.nombreCliente,
+        explicacion: notaCredito.explicacion,
+        user_id: notaCredito.userId,
+        company_id: notaCredito.companyId
+      }
+
+      const { data: notaCreada, error: notaError } = await this.supabase
+        .from('notas_credito_caja')
+        .insert(nuevaNotaCredito)
+        .select()
+        .single()
+
+      if (notaError) return { data: null, error: notaError }
+
+      // Actualizar totales en la caja
+      const { error: updateError } = await this.supabase
+        .from('cajas')
+        .update({
+          total_notas_credito: caja.total_notas_credito + notaCredito.montoBs,
+          cantidad_notas_credito: caja.cantidad_notas_credito + 1
+        })
+        .eq('id', notaCredito.cajaId)
+
+      if (updateError) {
+        // Si falla la actualización, intentar eliminar la nota creada
+        await this.supabase.from('notas_credito_caja').delete().eq('id', notaCreada.id)
+        return { data: null, error: updateError }
+      }
+
+      return { data: this.mapNotaCreditoCajaFromDB(notaCreada), error: null }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Actualizar nota de crédito de caja
+  async actualizarNotaCreditoCaja(notaId: string, updates: Partial<Omit<NotaCreditoCajaUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId'>>): Promise<{ data: NotaCreditoCajaUI | null, error: any }> {
+    try {
+      // Obtener la nota actual para calcular diferencia
+      const { data: notaActual, error: getError } = await this.supabase
+        .from('notas_credito_caja')
+        .select('*, cajas!inner(estado, total_notas_credito)')
+        .eq('id', notaId)
+        .single()
+
+      if (getError || !notaActual) {
+        return { data: null, error: new Error('Nota de crédito no encontrada') }
+      }
+
+      if (notaActual.cajas.estado !== 'abierta') {
+        return { data: null, error: new Error('La caja está cerrada') }
+      }
+
+      // Validar números si se están actualizando
+      if (updates.numeroNotaCredito && !/^\d+$/.test(updates.numeroNotaCredito)) {
+        return { data: null, error: new Error('El número de nota de crédito debe contener solo números') }
+      }
+      
+      if (updates.facturaAfectada && !/^\d+$/.test(updates.facturaAfectada)) {
+        return { data: null, error: new Error('El número de factura afectada debe contener solo números') }
+      }
+
+      // Preparar actualizaciones
+      const dbUpdates: TablesUpdate<'notas_credito_caja'> = {}
+      if (updates.numeroNotaCredito !== undefined) dbUpdates.numero_nota_credito = updates.numeroNotaCredito
+      if (updates.facturaAfectada !== undefined) dbUpdates.factura_afectada = updates.facturaAfectada
+      if (updates.montoBs !== undefined) dbUpdates.monto_bs = updates.montoBs
+      if (updates.nombreCliente !== undefined) dbUpdates.nombre_cliente = updates.nombreCliente
+      if (updates.explicacion !== undefined) dbUpdates.explicacion = updates.explicacion
+
+      // Actualizar la nota
+      const { data: notaActualizada, error: updateError } = await this.supabase
+        .from('notas_credito_caja')
+        .update(dbUpdates)
+        .eq('id', notaId)
+        .select()
+        .single()
+
+      if (updateError) return { data: null, error: updateError }
+
+      // Si se actualizó el monto, actualizar totales en la caja
+      if (updates.montoBs !== undefined && updates.montoBs !== notaActual.monto_bs) {
+        const diferencia = updates.montoBs - notaActual.monto_bs
+        
+        const { error: cajaUpdateError } = await this.supabase
+          .from('cajas')
+          .update({
+            total_notas_credito: notaActual.cajas.total_notas_credito + diferencia
+          })
+          .eq('id', notaActual.caja_id)
+
+        if (cajaUpdateError) {
+          // Revertir el cambio en la nota
+          await this.supabase
+            .from('notas_credito_caja')
+            .update({ monto_bs: notaActual.monto_bs })
+            .eq('id', notaId)
+          return { data: null, error: cajaUpdateError }
+        }
+      }
+
+      return { data: this.mapNotaCreditoCajaFromDB(notaActualizada), error: null }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Eliminar nota de crédito de caja
+  async eliminarNotaCreditoCaja(notaId: string): Promise<{ error: any }> {
+    try {
+      // Obtener la nota para actualizar totales
+      const { data: nota, error: getError } = await this.supabase
+        .from('notas_credito_caja')
+        .select('*, cajas!inner(estado, total_notas_credito, cantidad_notas_credito)')
+        .eq('id', notaId)
+        .single()
+
+      if (getError || !nota) {
+        return { error: new Error('Nota de crédito no encontrada') }
+      }
+
+      if (nota.cajas.estado !== 'abierta') {
+        return { error: new Error('La caja está cerrada') }
+      }
+
+      // Eliminar la nota
+      const { error: deleteError } = await this.supabase
+        .from('notas_credito_caja')
+        .delete()
+        .eq('id', notaId)
+
+      if (deleteError) return { error: deleteError }
+
+      // Actualizar totales en la caja
+      const { error: updateError } = await this.supabase
+        .from('cajas')
+        .update({
+          total_notas_credito: nota.cajas.total_notas_credito - nota.monto_bs,
+          cantidad_notas_credito: nota.cajas.cantidad_notas_credito - 1
+        })
+        .eq('id', nota.caja_id)
+
+      return { error: updateError }
+    } catch (error) {
+      return { error }
+    }
+  }
+
+  // Agregar crédito de caja
+  async agregarCreditoCaja(credito: Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'montoUsd' | 'tasa' | 'estado'>): Promise<{ data: CreditoCajaUI | null, error: any }> {
+    try {
+      // Verificar que la caja esté abierta y obtener la tasa
+      const { data: caja, error: cajaError } = await this.supabase
+        .from('cajas')
+        .select('estado, tasa_dia, total_creditos_bs, total_creditos_usd, cantidad_creditos')
+        .eq('id', credito.cajaId)
+        .single()
+
+      if (cajaError || !caja) {
+        return { data: null, error: new Error('Caja no encontrada') }
+      }
+
+      if (caja.estado !== 'abierta') {
+        return { data: null, error: new Error('La caja está cerrada') }
+      }
+
+      // Validar que el número de factura sea numérico
+      if (!/^\d+$/.test(credito.numeroFactura)) {
+        return { data: null, error: new Error('El número de factura debe contener solo números') }
+      }
+
+      // Verificar que no exista otra factura con el mismo número
+      const { data: facturaExistente, error: verificarError } = await this.supabase
+        .from('creditos_caja')
+        .select('id')
+        .eq('numero_factura', credito.numeroFactura)
+        .eq('company_id', credito.companyId)
+        .single()
+
+      if (facturaExistente) {
+        return { data: null, error: new Error('Ya existe una factura con ese número') }
+      }
+
+      // Calcular monto en USD usando la tasa del día
+      const montoUsd = parseFloat((credito.montoBs / caja.tasa_dia).toFixed(2))
+
+      // Insertar el crédito
+      const nuevoCredito: TablesInsert<'creditos_caja'> = {
+        caja_id: credito.cajaId,
+        numero_factura: credito.numeroFactura,
+        nombre_cliente: credito.nombreCliente,
+        telefono_cliente: credito.telefonoCliente,
+        monto_bs: credito.montoBs,
+        monto_usd: montoUsd,
+        tasa: caja.tasa_dia,
+        estado: 'pendiente',
+        user_id: credito.userId,
+        company_id: credito.companyId
+      }
+
+      const { data: creditoCreado, error: creditoError } = await this.supabase
+        .from('creditos_caja')
+        .insert(nuevoCredito)
+        .select()
+        .single()
+
+      if (creditoError) return { data: null, error: creditoError }
+
+      // Actualizar totales en la caja
+      const { error: updateError } = await this.supabase
+        .from('cajas')
+        .update({
+          total_creditos_bs: caja.total_creditos_bs + credito.montoBs,
+          total_creditos_usd: caja.total_creditos_usd + montoUsd,
+          cantidad_creditos: caja.cantidad_creditos + 1
+        })
+        .eq('id', credito.cajaId)
+
+      if (updateError) {
+        // Si falla la actualización, intentar eliminar el crédito creado
+        await this.supabase.from('creditos_caja').delete().eq('id', creditoCreado.id)
+        return { data: null, error: updateError }
+      }
+
+      return { data: this.mapCreditoCajaFromDB(creditoCreado), error: null }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Actualizar crédito de caja
+  async actualizarCreditoCaja(creditoId: string, updates: Partial<Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId' | 'montoUsd' | 'tasa' | 'estado'>>): Promise<{ data: CreditoCajaUI | null, error: any }> {
+    try {
+      // Obtener el crédito actual para calcular diferencia
+      const { data: creditoActual, error: getError } = await this.supabase
+        .from('creditos_caja')
+        .select('*, cajas!inner(estado, total_creditos_bs, total_creditos_usd, tasa_dia)')
+        .eq('id', creditoId)
+        .single()
+
+      if (getError || !creditoActual) {
+        return { data: null, error: new Error('Crédito no encontrado') }
+      }
+
+      if (creditoActual.cajas.estado !== 'abierta') {
+        return { data: null, error: new Error('La caja está cerrada') }
+      }
+
+      // Validar número de factura si se está actualizando
+      if (updates.numeroFactura && !/^\d+$/.test(updates.numeroFactura)) {
+        return { data: null, error: new Error('El número de factura debe contener solo números') }
+      }
+
+      // Si se actualiza el número de factura, verificar que no exista
+      if (updates.numeroFactura && updates.numeroFactura !== creditoActual.numero_factura) {
+        const { data: facturaExistente } = await this.supabase
+          .from('creditos_caja')
+          .select('id')
+          .eq('numero_factura', updates.numeroFactura)
+          .eq('company_id', creditoActual.company_id)
+          .neq('id', creditoId)
+          .single()
+
+        if (facturaExistente) {
+          return { data: null, error: new Error('Ya existe una factura con ese número') }
+        }
+      }
+
+      // Preparar actualizaciones
+      const dbUpdates: TablesUpdate<'creditos_caja'> = {}
+      let nuevoMontoUsd = creditoActual.monto_usd
+
+      if (updates.numeroFactura !== undefined) dbUpdates.numero_factura = updates.numeroFactura
+      if (updates.nombreCliente !== undefined) dbUpdates.nombre_cliente = updates.nombreCliente
+      if (updates.telefonoCliente !== undefined) dbUpdates.telefono_cliente = updates.telefonoCliente
+      
+      if (updates.montoBs !== undefined) {
+        dbUpdates.monto_bs = updates.montoBs
+        nuevoMontoUsd = parseFloat((updates.montoBs / creditoActual.cajas.tasa_dia).toFixed(2))
+        dbUpdates.monto_usd = nuevoMontoUsd
+      }
+
+      // Actualizar el crédito
+      const { data: creditoActualizado, error: updateError } = await this.supabase
+        .from('creditos_caja')
+        .update(dbUpdates)
+        .eq('id', creditoId)
+        .select()
+        .single()
+
+      if (updateError) return { data: null, error: updateError }
+
+      // Si se actualizó el monto, actualizar totales en la caja
+      if (updates.montoBs !== undefined && updates.montoBs !== creditoActual.monto_bs) {
+        const diferenciaBs = updates.montoBs - creditoActual.monto_bs
+        const diferenciaUsd = nuevoMontoUsd - creditoActual.monto_usd
+        
+        const { error: cajaUpdateError } = await this.supabase
+          .from('cajas')
+          .update({
+            total_creditos_bs: creditoActual.cajas.total_creditos_bs + diferenciaBs,
+            total_creditos_usd: creditoActual.cajas.total_creditos_usd + diferenciaUsd
+          })
+          .eq('id', creditoActual.caja_id)
+
+        if (cajaUpdateError) {
+          // Revertir el cambio en el crédito
+          await this.supabase
+            .from('creditos_caja')
+            .update({ monto_bs: creditoActual.monto_bs, monto_usd: creditoActual.monto_usd })
+            .eq('id', creditoId)
+          return { data: null, error: cajaUpdateError }
+        }
+      }
+
+      return { data: this.mapCreditoCajaFromDB(creditoActualizado), error: null }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Eliminar crédito de caja
+  async eliminarCreditoCaja(creditoId: string): Promise<{ error: any }> {
+    try {
+      // Obtener el crédito para actualizar totales
+      const { data: credito, error: getError } = await this.supabase
+        .from('creditos_caja')
+        .select('*, cajas!inner(estado, total_creditos_bs, total_creditos_usd, cantidad_creditos)')
+        .eq('id', creditoId)
+        .single()
+
+      if (getError || !credito) {
+        return { error: new Error('Crédito no encontrado') }
+      }
+
+      if (credito.cajas.estado !== 'abierta') {
+        return { error: new Error('La caja está cerrada') }
+      }
+
+      // Eliminar el crédito
+      const { error: deleteError } = await this.supabase
+        .from('creditos_caja')
+        .delete()
+        .eq('id', creditoId)
+
+      if (deleteError) return { error: deleteError }
+
+      // Actualizar totales en la caja
+      const { error: updateError } = await this.supabase
+        .from('cajas')
+        .update({
+          total_creditos_bs: credito.cajas.total_creditos_bs - credito.monto_bs,
+          total_creditos_usd: credito.cajas.total_creditos_usd - credito.monto_usd,
+          cantidad_creditos: credito.cajas.cantidad_creditos - 1
+        })
+        .eq('id', credito.caja_id)
+
+      return { error: updateError }
+    } catch (error) {
+      return { error }
+    }
+  }
+
   // Generar reporte de caja
   async generarReporteCaja(cajaId: string): Promise<{ data: ReporteCaja | null, error: any }> {
     try {
@@ -672,13 +1121,21 @@ export class CajaService {
         caja,
         pagosMovil: caja.pagosMovil || [],
         pagosZelle: caja.pagosZelle || [],
+        notasCredito: caja.notasCredito || [],
+        creditos: caja.creditos || [],
         totales: {
           cantidadPagosMovil: caja.cantidadPagosMovil,
           montoTotalMovil: caja.totalPagosMovil,
           cantidadZelle: caja.cantidadZelle,
           montoTotalZelleUsd: caja.totalZelleUsd,
           montoTotalZelleBs: caja.totalZelleBs,
-          montoTotalGeneral: caja.totalPagosMovil + caja.totalZelleBs
+          cantidadNotasCredito: caja.cantidadNotasCredito,
+          montoTotalNotasCredito: caja.totalNotasCredito,
+          cantidadCreditos: caja.cantidadCreditos,
+          montoTotalCreditosBs: caja.totalCreditosBs,
+          montoTotalCreditosUsd: caja.totalCreditosUsd,
+          montoTotalGeneral: caja.totalPagosMovil + caja.totalZelleBs + caja.totalNotasCredito + caja.totalCreditosBs,
+          montoTotalGeneralUsd: caja.totalZelleUsd + caja.totalCreditosUsd
         }
       }
 
@@ -704,6 +1161,11 @@ export class CajaService {
           total_zelle_usd,
           total_zelle_bs,
           cantidad_zelle,
+          total_notas_credito,
+          cantidad_notas_credito,
+          total_creditos_bs,
+          total_creditos_usd,
+          cantidad_creditos,
           users:user_id (
             full_name
           )
@@ -722,7 +1184,13 @@ export class CajaService {
         totalZelleUsd: data?.reduce((sum, c) => sum + c.total_zelle_usd, 0) || 0,
         totalZelleBs: data?.reduce((sum, c) => sum + c.total_zelle_bs, 0) || 0,
         totalCantidadZelle: data?.reduce((sum, c) => sum + c.cantidad_zelle, 0) || 0,
-        montoTotalGeneral: data?.reduce((sum, c) => sum + c.total_pagos_movil + c.total_zelle_bs, 0) || 0,
+        totalNotasCredito: data?.reduce((sum, c) => sum + c.total_notas_credito, 0) || 0,
+        totalCantidadNotasCredito: data?.reduce((sum, c) => sum + c.cantidad_notas_credito, 0) || 0,
+        totalCreditosBs: data?.reduce((sum, c) => sum + c.total_creditos_bs, 0) || 0,
+        totalCreditosUsd: data?.reduce((sum, c) => sum + c.total_creditos_usd, 0) || 0,
+        totalCantidadCreditos: data?.reduce((sum, c) => sum + c.cantidad_creditos, 0) || 0,
+        montoTotalGeneral: data?.reduce((sum, c) => sum + c.total_pagos_movil + c.total_zelle_bs + c.total_notas_credito + c.total_creditos_bs, 0) || 0,
+        montoTotalGeneralUsd: data?.reduce((sum, c) => sum + c.total_zelle_usd + c.total_creditos_usd, 0) || 0,
         cajasPorDia: data || []
       }
 

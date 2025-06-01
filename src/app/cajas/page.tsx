@@ -11,16 +11,22 @@ import { PagoMovilForm } from '@/components/cajas/PagoMovilForm'
 import { PagoMovilList } from '@/components/cajas/PagoMovilList'
 import { PagoZelleForm } from '@/components/cajas/PagoZelleForm'
 import { PagoZelleList } from '@/components/cajas/PagoZelleList'
+import NotaCreditoCajaForm from '@/components/cajas/NotaCreditoCajaForm'
+import NotaCreditoCajaList from '@/components/cajas/NotaCreditoCajaList'
+import CreditoCajaForm from '@/components/cajas/CreditoCajaForm'
+import CreditoCajaList from '@/components/cajas/CreditoCajaList'
 import { TicketModal } from '@/components/cajas/TicketModal'
 import { cajaService } from '@/lib/services/cajaService'
-import { CajaUI, PagoMovilUI, PagoZelleUI, ReporteCaja } from '@/types/caja'
+import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, ReporteCaja } from '@/types/caja'
 import { 
   DocumentArrowDownIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   BanknotesIcon,
   CurrencyDollarIcon,
-  DevicePhoneMobileIcon
+  DevicePhoneMobileIcon,
+  DocumentTextIcon,
+  CreditCardIcon
 } from '@heroicons/react/24/outline'
 
 export default function CajasPage() {
@@ -28,6 +34,8 @@ export default function CajasPage() {
   const [caja, setCaja] = useState<CajaUI | null>(null)
   const [pagosMovil, setPagosMovil] = useState<PagoMovilUI[]>([])
   const [pagosZelle, setPagosZelle] = useState<PagoZelleUI[]>([])
+  const [notasCredito, setNotasCredito] = useState<NotaCreditoCajaUI[]>([])
+  const [creditos, setCreditos] = useState<CreditoCajaUI[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -35,7 +43,7 @@ export default function CajasPage() {
   const [editingPagoZelle, setEditingPagoZelle] = useState<PagoZelleUI | null>(null)
   const [showTicketModal, setShowTicketModal] = useState(false)
   const [reporteActual, setReporteActual] = useState<ReporteCaja | null>(null)
-  const [activeTab, setActiveTab] = useState<'movil' | 'zelle'>('movil')
+  const [activeTab, setActiveTab] = useState<'movil' | 'zelle' | 'creditos' | 'notasCredito'>('movil')
 
   // Cargar caja actual al montar el componente
   useEffect(() => {
@@ -70,6 +78,8 @@ export default function CajasPage() {
         } else if (cajaConPagos) {
           setPagosMovil(cajaConPagos.pagosMovil || [])
           setPagosZelle(cajaConPagos.pagosZelle || [])
+          setNotasCredito(cajaConPagos.notasCredito || [])
+          setCreditos(cajaConPagos.creditos || [])
         }
       }
     } catch (err: any) {
@@ -79,7 +89,7 @@ export default function CajasPage() {
     }
   }
 
-  const handleAbrirCaja = async (montoApertura: number, tasaDia: number) => {
+  const handleAbrirCaja = async (montoApertura: number, montoAperturaUsd: number, tasaDia: number) => {
     if (!user || !company) return
 
     setLoading(true)
@@ -91,6 +101,7 @@ export default function CajasPage() {
         user.id,
         company.id,
         montoApertura,
+        montoAperturaUsd,
         tasaDia
       )
 
@@ -103,6 +114,8 @@ export default function CajasPage() {
         setCaja(nuevaCaja)
         setPagosMovil([])
         setPagosZelle([])
+        setNotasCredito([])
+        setCreditos([])
         setSuccessMessage('Caja abierta exitosamente')
         setTimeout(() => setSuccessMessage(null), 3000)
       }
@@ -401,6 +414,64 @@ export default function CajasPage() {
     setEditingPagoZelle(null)
   }
 
+  // Handler para agregar nota de crédito
+  const handleAgregarNotaCredito = (nota: NotaCreditoCajaUI) => {
+    setNotasCredito([...notasCredito, nota])
+    setSuccessMessage('Nota de crédito agregada exitosamente')
+    setTimeout(() => setSuccessMessage(null), 3000)
+    // Actualizar totales de la caja
+    cargarCajaActual()
+  }
+
+  // Handler para actualizar nota de crédito
+  const handleNotaCreditoActualizada = (notaActualizada: NotaCreditoCajaUI) => {
+    setNotasCredito(notasCredito.map(n => 
+      n.id === notaActualizada.id ? notaActualizada : n
+    ))
+    setSuccessMessage('Nota de crédito actualizada exitosamente')
+    setTimeout(() => setSuccessMessage(null), 3000)
+    // Actualizar totales de la caja
+    cargarCajaActual()
+  }
+
+  // Handler para eliminar nota de crédito
+  const handleNotaCreditoEliminada = (notaId: string) => {
+    setNotasCredito(notasCredito.filter(n => n.id !== notaId))
+    setSuccessMessage('Nota de crédito eliminada exitosamente')
+    setTimeout(() => setSuccessMessage(null), 3000)
+    // Actualizar totales de la caja
+    cargarCajaActual()
+  }
+
+  // Handler para agregar crédito
+  const handleAgregarCredito = (credito: CreditoCajaUI) => {
+    setCreditos([...creditos, credito])
+    setSuccessMessage('Crédito agregado exitosamente')
+    setTimeout(() => setSuccessMessage(null), 3000)
+    // Actualizar totales de la caja
+    cargarCajaActual()
+  }
+
+  // Handler para actualizar crédito
+  const handleCreditoActualizado = (creditoActualizado: CreditoCajaUI) => {
+    setCreditos(creditos.map(c => 
+      c.id === creditoActualizado.id ? creditoActualizado : c
+    ))
+    setSuccessMessage('Crédito actualizado exitosamente')
+    setTimeout(() => setSuccessMessage(null), 3000)
+    // Actualizar totales de la caja
+    cargarCajaActual()
+  }
+
+  // Handler para eliminar crédito
+  const handleCreditoEliminado = (creditoId: string) => {
+    setCreditos(creditos.filter(c => c.id !== creditoId))
+    setSuccessMessage('Crédito eliminado exitosamente')
+    setTimeout(() => setSuccessMessage(null), 3000)
+    // Actualizar totales de la caja
+    cargarCajaActual()
+  }
+
   // Verificar permisos
   if (!user || !company) {
     return (
@@ -503,20 +574,43 @@ export default function CajasPage() {
                       <CurrencyDollarIcon className="h-5 w-5 mr-2" />
                       Pagos Zelle
                     </button>
+                    <button
+                      onClick={() => setActiveTab('creditos')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                        activeTab === 'creditos'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <CreditCardIcon className="h-5 w-5 mr-2" />
+                      Créditos
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('notasCredito')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
+                        activeTab === 'notasCredito'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <DocumentTextIcon className="h-5 w-5 mr-2" />
+                      Notas de Crédito
+                    </button>
                   </nav>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Columna izquierda - Formulario */}
                   <div>
-                    {activeTab === 'movil' ? (
+                    {activeTab === 'movil' && (
                       <PagoMovilForm
                         onSubmit={handleAgregarPagoMovil}
                         loading={loading}
                         editingPago={editingPagoMovil}
                         onCancelEdit={handleCancelarEdicionMovil}
                       />
-                    ) : (
+                    )}
+                    {activeTab === 'zelle' && (
                       <PagoZelleForm
                         tasaDia={caja.tasaDia}
                         onSubmit={handleAgregarPagoZelle}
@@ -525,23 +619,53 @@ export default function CajasPage() {
                         onCancelEdit={handleCancelarEdicionZelle}
                       />
                     )}
+                    {activeTab === 'creditos' && (
+                      <CreditoCajaForm
+                        cajaId={caja.id!}
+                        tasaDia={caja.tasaDia}
+                        onSuccess={handleAgregarCredito}
+                        onCancel={() => {}}
+                      />
+                    )}
+                    {activeTab === 'notasCredito' && (
+                      <NotaCreditoCajaForm
+                        cajaId={caja.id!}
+                        onSuccess={handleAgregarNotaCredito}
+                        onCancel={() => {}}
+                      />
+                    )}
                   </div>
 
                   {/* Columna derecha - Lista */}
                   <div>
-                    {activeTab === 'movil' ? (
+                    {activeTab === 'movil' && (
                       <PagoMovilList
                         pagosMovil={pagosMovil}
                         onEdit={handleEditarPagoMovil}
                         onDelete={handleEliminarPagoMovil}
                         loading={loading}
                       />
-                    ) : (
+                    )}
+                    {activeTab === 'zelle' && (
                       <PagoZelleList
                         pagosZelle={pagosZelle}
                         onEdit={handleEditarPagoZelle}
                         onDelete={handleEliminarPagoZelle}
                         loading={loading}
+                      />
+                    )}
+                    {activeTab === 'creditos' && (
+                      <CreditoCajaList
+                        creditos={creditos}
+                        onCreditoActualizado={handleCreditoActualizado}
+                        onCreditoEliminado={handleCreditoEliminado}
+                      />
+                    )}
+                    {activeTab === 'notasCredito' && (
+                      <NotaCreditoCajaList
+                        notasCredito={notasCredito}
+                        onNotaActualizada={handleNotaCreditoActualizada}
+                        onNotaEliminada={handleNotaCreditoEliminada}
                       />
                     )}
                   </div>

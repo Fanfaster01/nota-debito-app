@@ -8,6 +8,7 @@ export interface CajaUI {
     horaApertura: Date
     horaCierre?: Date | null
     montoApertura: number
+    montoAperturaUsd: number
     montoCierre?: number | null
     tasaDia: number // Nueva propiedad
     totalPagosMovil: number
@@ -15,6 +16,11 @@ export interface CajaUI {
     totalZelleUsd: number // Nueva propiedad
     totalZelleBs: number // Nueva propiedad
     cantidadZelle: number // Nueva propiedad
+    totalNotasCredito: number
+    cantidadNotasCredito: number
+    totalCreditosBs: number
+    totalCreditosUsd: number
+    cantidadCreditos: number
     estado: 'abierta' | 'cerrada'
     observaciones?: string | null
     // Relaciones
@@ -30,6 +36,8 @@ export interface CajaUI {
     }
     pagosMovil?: PagoMovilUI[]
     pagosZelle?: PagoZelleUI[] // Nueva propiedad
+    notasCredito?: NotaCreditoCajaUI[]
+    creditos?: CreditoCajaUI[]
   }
   
   export interface PagoMovilUI {
@@ -56,6 +64,34 @@ export interface CajaUI {
     userId: string
     companyId: string
   }
+
+  export interface NotaCreditoCajaUI {
+    id?: string
+    cajaId: string
+    numeroNotaCredito: string
+    facturaAfectada: string
+    montoBs: number
+    nombreCliente: string
+    explicacion: string
+    fechaHora: Date
+    userId: string
+    companyId: string
+  }
+
+  export interface CreditoCajaUI {
+    id?: string
+    cajaId: string
+    numeroFactura: string
+    nombreCliente: string
+    telefonoCliente: string
+    montoBs: number
+    montoUsd: number
+    tasa: number
+    estado: 'pendiente' | 'pagado'
+    fechaHora: Date
+    userId: string
+    companyId: string
+  }
   
   export interface CajaResumen {
     fecha: string
@@ -79,12 +115,20 @@ export interface CajaUI {
     caja: CajaUI
     pagosMovil: PagoMovilUI[]
     pagosZelle: PagoZelleUI[]
+    notasCredito: NotaCreditoCajaUI[]
+    creditos: CreditoCajaUI[]
     totales: {
       cantidadPagosMovil: number
       montoTotalMovil: number
       cantidadZelle: number
       montoTotalZelleUsd: number
       montoTotalZelleBs: number
+      cantidadNotasCredito: number
+      montoTotalNotasCredito: number
+      cantidadCreditos: number
+      montoTotalCreditosBs: number
+      montoTotalCreditosUsd: number
       montoTotalGeneral: number // Total en Bs de todo
+      montoTotalGeneralUsd: number // Total en USD
     }
   }
