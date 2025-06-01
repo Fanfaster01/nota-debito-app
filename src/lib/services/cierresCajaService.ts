@@ -56,11 +56,6 @@ export class CierresCajaService {
         .from('cajas')
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -131,11 +126,7 @@ export class CierresCajaService {
           cantidadCreditos: cajaData.cantidad_creditos || 0,
           estado: cajaData.estado,
           observaciones: cajaData.observaciones,
-          usuario: cajaData.users ? {
-            id: cajaData.users.id,
-            full_name: cajaData.users.full_name,
-            email: cajaData.users.email
-          } : undefined,
+          usuario: undefined,
           company: cajaData.companies
         }
 
@@ -223,8 +214,8 @@ export class CierresCajaService {
       // Agrupar por usuario para estadísticas
       const usuarioStats = new Map()
       cierres.forEach(cierre => {
-        const userId = cierre.caja.usuario?.id
-        const nombreUsuario = cierre.caja.usuario?.full_name || 'Sin nombre'
+        const userId = cierre.caja.userId
+        const nombreUsuario = 'Usuario ' + userId // Since we don't have user details
         
         if (userId) {
           if (!usuarioStats.has(userId)) {

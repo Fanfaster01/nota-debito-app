@@ -5,7 +5,6 @@ import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, Fil
 import { format } from 'date-fns'
 
 export interface CajaWithRelations extends Caja {
-  users?: Pick<User, 'id' | 'full_name' | 'email'>
   companies?: {
     id: string
     name: string
@@ -45,11 +44,7 @@ export class CajaService {
       cantidadCreditos: cajaDB.cantidad_creditos || 0,
       estado: cajaDB.estado,
       observaciones: cajaDB.observaciones,
-      usuario: cajaDB.users ? {
-        id: cajaDB.users.id,
-        full_name: cajaDB.users.full_name,
-        email: cajaDB.users.email
-      } : undefined,
+      usuario: undefined,
       company: cajaDB.companies,
       pagosMovil: cajaDB.pagos_movil?.map(pm => this.mapPagoMovilFromDB(pm)),
       pagosZelle: cajaDB.pagos_zelle?.map(pz => this.mapPagoZelleFromDB(pz)),
@@ -140,11 +135,6 @@ export class CajaService {
         .from('cajas')
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -179,11 +169,6 @@ export class CajaService {
         .from('cajas')
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -256,11 +241,6 @@ export class CajaService {
         .insert(nuevaCaja)
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -296,11 +276,6 @@ export class CajaService {
         .eq('estado', 'abierta') // Solo cerrar si está abierta
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -456,11 +431,6 @@ export class CajaService {
         .from('cajas')
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -506,11 +476,6 @@ export class CajaService {
         .from('cajas')
         .select(`
           *,
-          users:user_id (
-            id,
-            full_name,
-            email
-          ),
           companies:company_id (
             id,
             name,
@@ -1376,10 +1341,7 @@ export class CajaService {
           cantidad_notas_credito,
           total_creditos_bs,
           total_creditos_usd,
-          cantidad_creditos,
-          users:user_id (
-            full_name
-          )
+          cantidad_creditos
         `)
         .eq('company_id', companyId)
         .gte('fecha', format(fechaInicio, 'yyyy-MM-dd'))
