@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { PencilIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { cajaService } from '@/lib/services/cajaService'
-import { Button } from '@/components/ui/Button'
 import type { CreditoCajaUI } from '@/types/caja'
 
 interface CreditoCajaListProps {

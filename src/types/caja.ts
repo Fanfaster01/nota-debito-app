@@ -81,6 +81,15 @@ export interface CajaUI {
   export interface CreditoCajaUI {
     id?: string
     cajaId: string
+    clienteId?: string | null
+    cliente?: {
+      id: string
+      tipoDocumento: 'V' | 'E' | 'J' | 'G' | 'P'
+      numeroDocumento: string
+      nombre: string
+      telefono?: string | null
+      direccion?: string | null
+    }
     numeroFactura: string
     nombreCliente: string
     telefonoCliente: string
@@ -111,6 +120,30 @@ export interface CajaUI {
     estado?: 'abierta' | 'cerrada' | 'todas'
   }
   
+  export interface CierrePuntoVentaUI {
+    id?: string
+    bancoId: string
+    banco?: {
+      id: string
+      nombre: string
+      codigo: string
+    }
+    montoBs: number
+    montoUsd: number
+    numeroLote: string
+  }
+
+  export interface CierreCajaFormData {
+    efectivoDolares: number
+    efectivoEuros: number
+    efectivoBs: number
+    reporteZ: number
+    fondoCajaDolares: number
+    fondoCajaBs: number
+    cierresPuntoVenta: CierrePuntoVentaUI[]
+    observaciones?: string
+  }
+
   export interface ReporteCaja {
     caja: CajaUI
     pagosMovil: PagoMovilUI[]

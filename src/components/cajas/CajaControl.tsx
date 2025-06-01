@@ -3,10 +3,11 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { CajaUI } from '@/types/caja'
+import { CajaUI, CierreCajaFormData } from '@/types/caja'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { CierreCajaForm } from './CierreCajaForm'
 import { 
   LockOpenIcon, 
   LockClosedIcon,
@@ -28,18 +29,13 @@ const abrirCajaSchema = z.object({
   tasaDia: z.number().positive('La tasa debe ser mayor a 0')
 })
 
-const cerrarCajaSchema = z.object({
-  montoCierre: z.number().min(0, 'El monto no puede ser negativo'),
-  observaciones: z.string().optional()
-})
 
 type AbrirCajaFormData = z.infer<typeof abrirCajaSchema>
-type CerrarCajaFormData = z.infer<typeof cerrarCajaSchema>
 
 interface CajaControlProps {
   caja: CajaUI | null
   onAbrirCaja: (montoApertura: number, montoAperturaUsd: number, tasaDia: number) => Promise<void>
-  onCerrarCaja: (montoCierre: number, observaciones?: string) => Promise<void>
+  onCerrarCaja: (data: CierreCajaFormData) => Promise<void>
   onActualizarTasa?: (nuevaTasa: number) => Promise<void>
   loading?: boolean
 }
@@ -64,22 +60,14 @@ export const CajaControl: React.FC<CajaControlProps> = ({
     }
   })
 
-  const cerrarForm = useForm<CerrarCajaFormData>({
-    resolver: zodResolver(cerrarCajaSchema),
-    defaultValues: {
-      montoCierre: 0,
-      observaciones: ''
-    }
-  })
 
   const handleAbrirCaja = async (data: AbrirCajaFormData) => {
     await onAbrirCaja(data.montoApertura, data.montoAperturaUsd, data.tasaDia)
     abrirForm.reset()
   }
 
-  const handleCerrarCaja = async (data: CerrarCajaFormData) => {
-    await onCerrarCaja(data.montoCierre, data.observaciones)
-    cerrarForm.reset()
+  const handleCerrarCaja = async (data: CierreCajaFormData) => {
+    await onCerrarCaja(data)
     setShowCerrarForm(false)
   }
 
@@ -347,55 +335,15 @@ export const CajaControl: React.FC<CajaControlProps> = ({
 
         {/* Formulario para cerrar caja */}
         {showCerrarForm ? (
-          <form onSubmit={cerrarForm.handleSubmit(handleCerrarCaja)} className="space-y-4 border-t pt-4">
-            <h4 className="font-medium">Cerrar Caja</h4>
-            
-            <Input
-              label="Monto de Cierre (Bs)"
-              type="number"
-              step="0.01"
-              {...cerrarForm.register('montoCierre', { valueAsNumber: true })}
-              error={cerrarForm.formState.errors.montoCierre?.message}
-              disabled={loading}
-              placeholder="0.00"
+          <div className="border-t pt-4">
+            <h4 className="font-medium mb-4">Cerrar Caja</h4>
+            <CierreCajaForm
+              caja={caja}
+              onSubmit={handleCerrarCaja}
+              onCancel={() => setShowCerrarForm(false)}
+              loading={loading}
             />
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Observaciones (Opcional)
-              </label>
-              <textarea
-                {...cerrarForm.register('observaciones')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                rows={3}
-                placeholder="Alguna observación sobre el cierre..."
-                disabled={loading}
-              />
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowCerrarForm(false)
-                  cerrarForm.reset()
-                }}
-                disabled={loading}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                variant="danger"
-                disabled={loading}
-                className="flex items-center"
-              >
-                <LockClosedIcon className="h-4 w-4 mr-2" />
-                {loading ? 'Cerrando...' : 'Cerrar Caja'}
-              </Button>
-            </div>
-          </form>
+          </div>
         ) : (
           <div className="flex justify-end border-t pt-4">
             <Button

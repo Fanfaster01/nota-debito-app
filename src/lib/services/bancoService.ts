@@ -20,6 +20,21 @@ export class BancoService {
     }
   }
 
+  // Obtener lista simplificada de bancos
+  async getBancos(): Promise<{ data: Array<{ id: string; nombre: string; codigo: string }> | null, error: any }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('bancos')
+        .select('id, nombre, codigo')
+        .eq('is_active', true)
+        .order('codigo')
+
+      return { data, error }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
   // Buscar banco por código
   async getBancoByCodigo(codigo: string): Promise<{ data: Banco | null, error: any }> {
     try {

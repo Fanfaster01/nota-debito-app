@@ -17,7 +17,7 @@ import CreditoCajaForm from '@/components/cajas/CreditoCajaForm'
 import CreditoCajaList from '@/components/cajas/CreditoCajaList'
 import { TicketModal } from '@/components/cajas/TicketModal'
 import { cajaService } from '@/lib/services/cajaService'
-import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, ReporteCaja } from '@/types/caja'
+import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, ReporteCaja, CierreCajaFormData } from '@/types/caja'
 import { 
   DocumentArrowDownIcon,
   ExclamationTriangleIcon,
@@ -126,7 +126,7 @@ export default function CajasPage() {
     }
   }
 
-  const handleCerrarCaja = async (montoCierre: number, observaciones?: string) => {
+  const handleCerrarCaja = async (data: CierreCajaFormData) => {
     if (!caja?.id) return
 
     setLoading(true)
@@ -134,10 +134,19 @@ export default function CajasPage() {
     setSuccessMessage(null)
 
     try {
+      // Calcular el monto total de cierre
+      const totalEfectivoBs = data.efectivoBs + 
+        (data.efectivoDolares * caja.tasaDia) + 
+        (data.efectivoEuros * caja.tasaDia * 1.1) // Asumiendo tasa EUR/USD de 1.1
+      
+      const totalPuntoVentaBs = data.cierresPuntoVenta.reduce((sum, cv) => sum + cv.montoBs, 0)
+      const montoCierre = totalEfectivoBs + totalPuntoVentaBs
+
       const { data: cajaCerrada, error: cerrarError } = await cajaService.cerrarCaja(
         caja.id,
         montoCierre,
-        observaciones
+        data.observaciones,
+        data // Pasar todos los datos del cierre para almacenarlos si es necesario
       )
 
       if (cerrarError) {
@@ -696,6 +705,12 @@ export default function CajasPage() {
           setReporteActual(null)
         }}
         reporte={reporteActual}
+        allowEdit={caja?.estado === 'abierta'}
+        onEditCierre={() => {
+          setShowTicketModal(false)
+          setReporteActual(null)
+          // El formulario de cierre ya debería estar visible
+        }}
       />
     </MainLayout>
   )

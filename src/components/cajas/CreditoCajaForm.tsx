@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,8 @@ import { cajaService } from '@/lib/services/cajaService'
 import { useAuth } from '@/contexts/AuthContext'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { ClienteSearch } from '@/components/forms/ClienteSearch'
+import { ClienteUI } from '@/lib/services/clienteService'
 import type { CreditoCajaUI } from '@/types/caja'
 
 const creditoCajaSchema = z.object({
@@ -37,11 +39,13 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
   const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
     reset
   } = useForm<CreditoCajaFormData>({
@@ -53,6 +57,14 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
       montoBs: 0
     }
   })
+
+  // Cuando se selecciona un cliente, actualizar los campos del formulario
+  useEffect(() => {
+    if (selectedCliente) {
+      setValue('nombreCliente', selectedCliente.nombre)
+      setValue('telefonoCliente', selectedCliente.telefono || '')
+    }
+  }, [selectedCliente, setValue])
 
   const montoBs = watch('montoBs')
   const montoUsd = montoBs && tasaDia > 0 ? (montoBs / tasaDia).toFixed(2) : '0.00'
@@ -66,6 +78,7 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
     try {
       const nuevoCredito: Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'montoUsd' | 'tasa' | 'estado'> = {
         cajaId,
+        clienteId: selectedCliente?.id || null,
         numeroFactura: data.numeroFactura,
         nombreCliente: data.nombreCliente,
         telefonoCliente: data.telefonoCliente,
@@ -100,6 +113,12 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
         </div>
       )}
 
+      {/* Búsqueda de cliente */}
+      <ClienteSearch
+        onClienteSelect={(cliente) => setSelectedCliente(cliente)}
+        disabled={isSubmitting}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="Nro de Factura"
@@ -107,24 +126,6 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
           placeholder="00000"
           {...register('numeroFactura')}
           error={errors.numeroFactura?.message}
-        />
-
-        <Input
-          label="Cliente"
-          type="text"
-          placeholder="Nombre del cliente"
-          {...register('nombreCliente')}
-          error={errors.nombreCliente?.message}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input
-          label="Teléfono del Cliente"
-          type="text"
-          placeholder="0414-1234567"
-          {...register('telefonoCliente')}
-          error={errors.telefonoCliente?.message}
         />
 
         <Input

@@ -1,7 +1,7 @@
 // src/lib/services/cajaService.ts
 import { createClient } from '@/utils/supabase/client'
-import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, TablesInsert, TablesUpdate, User } from '@/types/database'
-import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, FiltrosCaja, ReporteCaja } from '@/types/caja'
+import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, CierreCaja, CierrePuntoVenta, TablesInsert, TablesUpdate, User } from '@/types/database'
+import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, FiltrosCaja, ReporteCaja, CierreCajaFormData } from '@/types/caja'
 import { format } from 'date-fns'
 
 export interface CajaWithRelations extends Caja {
@@ -106,10 +106,19 @@ export class CajaService {
   }
 
   // Mapear Crédito de Caja de DB a UI
-  private mapCreditoCajaFromDB(creditoDB: CreditoCaja): CreditoCajaUI {
+  private mapCreditoCajaFromDB(creditoDB: CreditoCaja & { cliente?: any }): CreditoCajaUI {
     return {
       id: creditoDB.id,
       cajaId: creditoDB.caja_id,
+      clienteId: creditoDB.cliente_id,
+      cliente: creditoDB.cliente ? {
+        id: creditoDB.cliente.id,
+        tipoDocumento: creditoDB.cliente.tipo_documento,
+        numeroDocumento: creditoDB.cliente.numero_documento,
+        nombre: creditoDB.cliente.nombre,
+        telefono: creditoDB.cliente.telefono,
+        direccion: creditoDB.cliente.direccion
+      } : undefined,
       numeroFactura: creditoDB.numero_factura,
       nombreCliente: creditoDB.nombre_cliente,
       telefonoCliente: creditoDB.telefono_cliente,
@@ -123,11 +132,48 @@ export class CajaService {
     }
   }
 
-  // Verificar si hay una caja abierta para el usuario en la fecha actual
-  async verificarCajaAbierta(userId: string, fecha?: Date): Promise<{ data: CajaUI | null, error: any }> {
+  // Verificar si hay una caja abierta para el usuario (sin importar la fecha)
+  async verificarCajaAbierta(userId: string): Promise<{ data: CajaUI | null, error: any }> {
     try {
-      const fechaBusqueda = fecha || new Date()
-      const fechaString = format(fechaBusqueda, 'yyyy-MM-dd')
+      // Buscar cualquier caja abierta del usuario, sin importar la fecha
+      const { data, error } = await this.supabase
+        .from('cajas')
+        .select(`
+          *,
+          users:user_id (
+            id,
+            full_name,
+            email
+          ),
+          companies:company_id (
+            id,
+            name,
+            rif
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('estado', 'abierta')
+        .order('fecha', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
+        return { data: null, error }
+      }
+
+      return { 
+        data: data ? this.mapCajaFromDB(data as CajaWithRelations) : null, 
+        error: null 
+      }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Verificar si ya existe una caja para una fecha específica
+  async verificarCajaDelDia(userId: string, fecha: Date): Promise<{ data: CajaUI | null, error: any }> {
+    try {
+      const fechaString = format(fecha, 'yyyy-MM-dd')
 
       const { data, error } = await this.supabase
         .from('cajas')
@@ -164,13 +210,23 @@ export class CajaService {
   // Abrir caja
   async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, montoAperturaUsd: number = 0, tasaDia: number): Promise<{ data: CajaUI | null, error: any }> {
     try {
-      // Verificar si ya existe una caja abierta
-      const { data: cajaExistente } = await this.verificarCajaAbierta(userId)
+      // Verificar si ya existe una caja abierta (sin importar la fecha)
+      const { data: cajaAbierta } = await this.verificarCajaAbierta(userId)
       
-      if (cajaExistente) {
+      if (cajaAbierta) {
         return { 
           data: null, 
-          error: new Error('Ya existe una caja abierta para el día de hoy') 
+          error: new Error('Ya existe una caja abierta. Debe cerrarla antes de abrir una nueva') 
+        }
+      }
+
+      // Verificar si ya existe una caja para hoy (abierta o cerrada)
+      const { data: cajaDelDia } = await this.verificarCajaDelDia(userId, new Date())
+      
+      if (cajaDelDia) {
+        return { 
+          data: null, 
+          error: new Error('Ya existe una caja para el día de hoy') 
         }
       }
 
@@ -222,8 +278,9 @@ export class CajaService {
   }
 
   // Cerrar caja
-  async cerrarCaja(cajaId: string, montoCierre: number, observaciones?: string): Promise<{ data: CajaUI | null, error: any }> {
+  async cerrarCaja(cajaId: string, montoCierre: number, observaciones?: string, datosCompletos?: CierreCajaFormData): Promise<{ data: CajaUI | null, error: any }> {
     try {
+      // Iniciar transacción
       const updates: TablesUpdate<'cajas'> = {
         hora_cierre: new Date().toISOString(),
         monto_cierre: montoCierre,
@@ -231,7 +288,8 @@ export class CajaService {
         observaciones: observaciones || null
       }
 
-      const { data, error } = await this.supabase
+      // Actualizar la caja
+      const { data: cajaData, error: cajaError } = await this.supabase
         .from('cajas')
         .update(updates)
         .eq('id', cajaId)
@@ -251,9 +309,141 @@ export class CajaService {
         `)
         .single()
 
-      if (error) return { data: null, error }
+      if (cajaError) return { data: null, error: cajaError }
 
-      return { data: this.mapCajaFromDB(data as CajaWithRelations), error: null }
+      // Si se proporcionaron datos completos, guardarlos
+      if (datosCompletos) {
+        // Guardar detalles del efectivo
+        const cierreEfectivoData: TablesInsert<'cierres_caja'> = {
+          caja_id: cajaId,
+          efectivo_dolares: datosCompletos.efectivoDolares || 0,
+          efectivo_euros: datosCompletos.efectivoEuros || 0,
+          efectivo_bs: datosCompletos.efectivoBs || 0,
+          reporte_z: datosCompletos.reporteZ || 0,
+          fondo_caja_dolares: datosCompletos.fondoCajaDolares || 0,
+          fondo_caja_bs: datosCompletos.fondoCajaBs || 0
+        }
+
+        const { error: efectivoError } = await this.supabase
+          .from('cierres_caja')
+          .insert(cierreEfectivoData)
+
+        if (efectivoError) {
+          console.error('Error guardando detalles de efectivo:', efectivoError)
+        }
+
+        // Guardar cierres de punto de venta
+        if (datosCompletos.cierresPuntoVenta && datosCompletos.cierresPuntoVenta.length > 0) {
+          const cierresPvData: TablesInsert<'cierres_punto_venta'>[] = datosCompletos.cierresPuntoVenta.map(cv => ({
+            caja_id: cajaId,
+            banco_id: cv.bancoId,
+            monto_bs: cv.montoBs,
+            monto_usd: cv.montoUsd,
+            numero_lote: cv.numeroLote
+          }))
+
+          const { error: pvError } = await this.supabase
+            .from('cierres_punto_venta')
+            .insert(cierresPvData)
+
+          if (pvError) {
+            console.error('Error guardando cierres de punto de venta:', pvError)
+          }
+        }
+      }
+
+      return { data: this.mapCajaFromDB(cajaData as CajaWithRelations), error: null }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Obtener detalles de cierre de una caja
+  async getDetallesCierre(cajaId: string): Promise<{ 
+    data: { 
+      efectivo: CierreCaja | null, 
+      puntoVenta: (CierrePuntoVenta & { banco: { nombre: string, codigo: string } })[] 
+    } | null, 
+    error: any 
+  }> {
+    try {
+      // Obtener detalles del efectivo
+      const { data: efectivoData, error: efectivoError } = await this.supabase
+        .from('cierres_caja')
+        .select('*')
+        .eq('caja_id', cajaId)
+        .single()
+
+      if (efectivoError && efectivoError.code !== 'PGRST116') {
+        return { data: null, error: efectivoError }
+      }
+
+      // Obtener cierres de punto de venta con información del banco
+      const { data: pvData, error: pvError } = await this.supabase
+        .from('cierres_punto_venta')
+        .select(`
+          *,
+          banco:banco_id (
+            nombre,
+            codigo
+          )
+        `)
+        .eq('caja_id', cajaId)
+
+      if (pvError) {
+        return { data: null, error: pvError }
+      }
+
+      return {
+        data: {
+          efectivo: efectivoData || null,
+          puntoVenta: pvData || []
+        },
+        error: null
+      }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Obtener todas las cajas con sus detalles de cierre para reportes
+  async getCajasConDetalles(companyId: string, filtros?: FiltrosCaja): Promise<{
+    data: Array<{
+      caja: CajaUI,
+      detallesEfectivo: CierreCaja | null,
+      detallesPuntoVenta: (CierrePuntoVenta & { banco: { nombre: string, codigo: string } })[]
+    }> | null,
+    error: any
+  }> {
+    try {
+      // Primero obtener las cajas
+      const { data: cajas, error: cajasError } = await this.getCajas(companyId, filtros)
+      
+      if (cajasError || !cajas) {
+        return { data: null, error: cajasError }
+      }
+
+      // Para cada caja cerrada, obtener sus detalles de cierre
+      const cajasConDetalles = await Promise.all(
+        cajas.map(async (caja) => {
+          if (caja.estado === 'cerrada') {
+            const { data: detalles } = await this.getDetallesCierre(caja.id!)
+            return {
+              caja,
+              detallesEfectivo: detalles?.efectivo || null,
+              detallesPuntoVenta: detalles?.puntoVenta || []
+            }
+          } else {
+            return {
+              caja,
+              detallesEfectivo: null,
+              detallesPuntoVenta: []
+            }
+          }
+        })
+      )
+
+      return { data: cajasConDetalles, error: null }
     } catch (error) {
       return { data: null, error }
     }
@@ -329,7 +519,17 @@ export class CajaService {
           pagos_movil (*),
           pagos_zelle (*),
           notas_credito_caja (*),
-          creditos_caja (*)
+          creditos_caja (
+            *,
+            cliente:cliente_id (
+              id,
+              tipo_documento,
+              numero_documento,
+              nombre,
+              telefono,
+              direccion
+            )
+          )
         `)
         .eq('id', cajaId)
         .single()
@@ -934,6 +1134,7 @@ export class CajaService {
       // Insertar el crédito
       const nuevoCredito: TablesInsert<'creditos_caja'> = {
         caja_id: credito.cajaId,
+        cliente_id: credito.clienteId || null,
         numero_factura: credito.numeroFactura,
         nombre_cliente: credito.nombreCliente,
         telefono_cliente: credito.telefonoCliente,
@@ -948,7 +1149,17 @@ export class CajaService {
       const { data: creditoCreado, error: creditoError } = await this.supabase
         .from('creditos_caja')
         .insert(nuevoCredito)
-        .select()
+        .select(`
+          *,
+          cliente:cliente_id (
+            id,
+            tipo_documento,
+            numero_documento,
+            nombre,
+            telefono,
+            direccion
+          )
+        `)
         .single()
 
       if (creditoError) return { data: null, error: creditoError }

@@ -5,6 +5,7 @@ import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { LoginForm } from '@/components/auth/LoginForm'
+import NotificationCenter from '@/components/notifications/NotificationCenter'
 import { 
   HomeIcon, 
   BuildingOfficeIcon, 
@@ -14,7 +15,9 @@ import {
   Bars3Icon,
   XMarkIcon,
   BuildingStorefrontIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  CreditCardIcon,
+  DocumentChartBarIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -31,10 +34,16 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
+  { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
+  { name: 'Estado de Cuenta', href: '/ventas-credito/estado-cuenta', icon: UsersIcon },
+  { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },
 ]
 
 const masterNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
+  { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
+  { name: 'Estado de Cuenta', href: '/ventas-credito/estado-cuenta', icon: UsersIcon },
+  { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },
   { name: 'Compañías', href: '/admin/companies', icon: BuildingOfficeIcon },
   { name: 'Usuarios', href: '/admin/users', icon: UsersIcon },
   { name: 'Configuración', href: '/admin/settings', icon: CogIcon },
@@ -211,6 +220,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               )}
             </div>
             <div className="flex items-center gap-x-4 lg:gap-x-6">
+              <NotificationCenter />
               <div className="text-sm text-gray-600">
                 <span className="font-medium">{user.full_name || user.email}</span>
                 <span className="ml-2 text-gray-400">({user.role})</span>

@@ -18,6 +18,10 @@ export type PagoMovil = Tables<'pagos_movil'>
 export type PagoZelle = Tables<'pagos_zelle'>
 export type NotaCreditoCaja = Tables<'notas_credito_caja'>
 export type CreditoCaja = Tables<'creditos_caja'>
+export type CierreCaja = Tables<'cierres_caja'>
+export type CierrePuntoVenta = Tables<'cierres_punto_venta'>
+export type Cliente = Tables<'clientes'>
+export type AbonoCredito = Tables<'abonos_credito'>
 
 export type Json =
   | string
@@ -813,6 +817,7 @@ export type Database = {
         Row: {
           id: string
           caja_id: string
+          cliente_id: string | null
           numero_factura: string
           nombre_cliente: string
           telefono_cliente: string
@@ -829,6 +834,7 @@ export type Database = {
         Insert: {
           id?: string
           caja_id: string
+          cliente_id?: string | null
           numero_factura: string
           nombre_cliente: string
           telefono_cliente: string
@@ -845,6 +851,7 @@ export type Database = {
         Update: {
           id?: string
           caja_id?: string
+          cliente_id?: string | null
           numero_factura?: string
           nombre_cliente?: string
           telefono_cliente?: string
@@ -875,6 +882,235 @@ export type Database = {
           },
           {
             foreignKeyName: "creditos_caja_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "creditos_caja_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      cierres_caja: {
+        Row: {
+          id: string
+          caja_id: string
+          efectivo_dolares: number
+          efectivo_euros: number
+          efectivo_bs: number
+          reporte_z: number
+          fondo_caja_dolares: number
+          fondo_caja_bs: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          caja_id: string
+          efectivo_dolares?: number
+          efectivo_euros?: number
+          efectivo_bs?: number
+          reporte_z?: number
+          fondo_caja_dolares?: number
+          fondo_caja_bs?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          caja_id?: string
+          efectivo_dolares?: number
+          efectivo_euros?: number
+          efectivo_bs?: number
+          reporte_z?: number
+          fondo_caja_dolares?: number
+          fondo_caja_bs?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cierres_caja_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      cierres_punto_venta: {
+        Row: {
+          id: string
+          caja_id: string
+          banco_id: string
+          monto_bs: number
+          monto_usd: number
+          numero_lote: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          caja_id: string
+          banco_id: string
+          monto_bs: number
+          monto_usd: number
+          numero_lote: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          caja_id?: string
+          banco_id?: string
+          monto_bs?: number
+          monto_usd?: number
+          numero_lote?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cierres_punto_venta_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cierres_punto_venta_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "bancos"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      clientes: {
+        Row: {
+          id: string
+          tipo_documento: 'V' | 'E' | 'J' | 'G' | 'P'
+          numero_documento: string
+          nombre: string
+          telefono: string | null
+          direccion: string | null
+          created_at: string
+          updated_at: string
+          created_by: string
+          is_active: boolean
+        }
+        Insert: {
+          id?: string
+          tipo_documento: 'V' | 'E' | 'J' | 'G' | 'P'
+          numero_documento: string
+          nombre: string
+          telefono?: string | null
+          direccion?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by: string
+          is_active?: boolean
+        }
+        Update: {
+          id?: string
+          tipo_documento?: 'V' | 'E' | 'J' | 'G' | 'P'
+          numero_documento?: string
+          nombre?: string
+          telefono?: string | null
+          direccion?: string | null
+          created_at?: string
+          updated_at?: string
+          created_by?: string
+          is_active?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      abonos_credito: {
+        Row: {
+          id: string
+          credito_id: string
+          monto_bs: number
+          monto_usd: number
+          tasa: number
+          metodo_pago: 'efectivo' | 'transferencia' | 'pago_movil' | 'zelle' | 'punto_venta' | 'deposito'
+          referencia: string | null
+          banco_id: string | null
+          observaciones: string | null
+          fecha_pago: string
+          user_id: string
+          company_id: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          credito_id: string
+          monto_bs: number
+          monto_usd: number
+          tasa: number
+          metodo_pago: 'efectivo' | 'transferencia' | 'pago_movil' | 'zelle' | 'punto_venta' | 'deposito'
+          referencia?: string | null
+          banco_id?: string | null
+          observaciones?: string | null
+          fecha_pago: string
+          user_id: string
+          company_id: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          credito_id?: string
+          monto_bs?: number
+          monto_usd?: number
+          tasa?: number
+          metodo_pago?: 'efectivo' | 'transferencia' | 'pago_movil' | 'zelle' | 'punto_venta' | 'deposito'
+          referencia?: string | null
+          banco_id?: string | null
+          observaciones?: string | null
+          fecha_pago?: string
+          user_id?: string
+          company_id?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "abonos_credito_credito_id_fkey"
+            columns: ["credito_id"]
+            isOneToOne: false
+            referencedRelation: "creditos_caja"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abonos_credito_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "bancos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abonos_credito_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "abonos_credito_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"

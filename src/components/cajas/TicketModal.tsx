@@ -6,20 +6,23 @@ import { TicketCaja } from './TicketCaja'
 import { ReporteCaja } from '@/types/caja'
 import { 
   XMarkIcon, 
-  PrinterIcon,
-  DocumentArrowDownIcon 
+  PrinterIcon 
 } from '@heroicons/react/24/outline'
 
 interface TicketModalProps {
   isOpen: boolean
   onClose: () => void
   reporte: ReporteCaja | null
+  onEditCierre?: () => void
+  allowEdit?: boolean
 }
 
 export const TicketModal: React.FC<TicketModalProps> = ({
   isOpen,
   onClose,
-  reporte
+  reporte,
+  onEditCierre,
+  allowEdit = false
 }) => {
   const componentRef = useRef<HTMLDivElement>(null)
 
@@ -69,21 +72,35 @@ export const TicketModal: React.FC<TicketModalProps> = ({
         </div>
 
         {/* Footer con botones */}
-        <div className="flex justify-end space-x-3 p-4 border-t no-print">
-          <Button
-            variant="outline"
-            onClick={onClose}
-          >
-            Cerrar
-          </Button>
+        <div className="flex justify-between p-4 border-t no-print">
+          <div>
+            {allowEdit && onEditCierre && (
+              <Button
+                variant="outline"
+                onClick={onEditCierre}
+                className="flex items-center"
+              >
+                Editar Cierre
+              </Button>
+            )}
+          </div>
           
-          <Button 
-            onClick={handlePrint}
-            className="flex items-center"
-          >
-            <PrinterIcon className="h-4 w-4 mr-2" />
-            Imprimir
-          </Button>
+          <div className="flex space-x-3">
+            <Button
+              variant="outline"
+              onClick={onClose}
+            >
+              Cerrar
+            </Button>
+            
+            <Button 
+              onClick={handlePrint}
+              className="flex items-center"
+            >
+              <PrinterIcon className="h-4 w-4 mr-2" />
+              Imprimir
+            </Button>
+          </div>
         </div>
       </div>
     </div>
