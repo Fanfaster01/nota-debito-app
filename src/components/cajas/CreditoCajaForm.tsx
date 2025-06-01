@@ -70,7 +70,11 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
   const montoUsd = montoBs && tasaDia > 0 ? (montoBs / tasaDia).toFixed(2) : '0.00'
 
   const onSubmit = async (data: CreditoCajaFormData) => {
-    if (!user) return
+    if (!user || !user.id || !user.company_id) {
+      setError('Usuario no autenticado correctamente. Por favor, recarga la página.')
+      console.error('Usuario incompleto:', user)
+      return
+    }
 
     setIsSubmitting(true)
     setError(null)
@@ -90,6 +94,7 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
       const { data: creditoCreado, error: createError } = await cajaService.agregarCreditoCaja(nuevoCredito)
 
       if (createError) {
+        console.error('Error al crear crédito:', createError)
         setError(createError.message || 'Error al crear el crédito')
         return
       }
