@@ -553,6 +553,7 @@ export default function CajasPage() {
               onCerrarCaja={handleCerrarCaja}
               onActualizarTasa={handleActualizarTasa}
               loading={loading}
+              userName={user?.full_name || user?.email}
             />
 
             {/* Contenido principal - solo si la caja está abierta */}

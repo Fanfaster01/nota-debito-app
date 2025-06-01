@@ -38,6 +38,7 @@ interface CajaControlProps {
   onCerrarCaja: (data: CierreCajaFormData) => Promise<void>
   onActualizarTasa?: (nuevaTasa: number) => Promise<void>
   loading?: boolean
+  userName?: string | null
 }
 
 export const CajaControl: React.FC<CajaControlProps> = ({
@@ -45,7 +46,8 @@ export const CajaControl: React.FC<CajaControlProps> = ({
   onAbrirCaja,
   onCerrarCaja,
   onActualizarTasa,
-  loading
+  loading,
+  userName
 }) => {
   const [showCerrarForm, setShowCerrarForm] = useState(false)
   const [editandoTasa, setEditandoTasa] = useState(false)
@@ -184,7 +186,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
               <p className="text-sm font-medium text-gray-700">Cajero</p>
             </div>
             <p className="text-lg font-semibold">
-              {caja.usuario?.full_name || caja.usuario?.email || 'Usuario'}
+              {userName || caja.usuario?.full_name || caja.usuario?.email || 'Usuario'}
             </p>
           </div>
 
