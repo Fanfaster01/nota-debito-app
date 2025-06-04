@@ -132,9 +132,9 @@ export default function DashboardCierres() {
           const dia = tendenciasMap.get(fechaKey)
           dia.totalCierres++
           dia.montoTotal += cierre.resumen.totalSistemico
-          dia.sumaDiscrepancias += Math.abs(cierre.resumen.discrepanciaTotal)
+          dia.sumaDiscrepancias += cierre.resumen.discrepanciaReporteZUsd || 0
           
-          if (Math.abs(cierre.resumen.discrepanciaTotal) >= 1) {
+          if ((cierre.resumen.discrepanciaReporteZUsd || 0) >= 1) {
             dia.cierresConDiscrepancias++
           }
         }
@@ -186,9 +186,9 @@ export default function DashboardCierres() {
         
         const stats = cajeroMap.get(cajero)
         stats.cierres++
-        stats.sumaDiscrepancias += Math.abs(cierre.resumen.discrepanciaTotal)
+        stats.sumaDiscrepancias += cierre.resumen.discrepanciaReporteZUsd || 0
         
-        if (Math.abs(cierre.resumen.discrepanciaTotal) >= 1) {
+        if ((cierre.resumen.discrepanciaReporteZUsd || 0) >= 1) {
           stats.discrepanciasTotal++
         }
       })
@@ -208,7 +208,7 @@ export default function DashboardCierres() {
           
           const stats = cajeroMapAnterior.get(cajero)
           stats.cierres++
-          stats.sumaDiscrepancias += Math.abs(cierre.resumen.discrepanciaTotal)
+          stats.sumaDiscrepancias += cierre.resumen.discrepanciaReporteZUsd || 0
         })
 
         // Calcular promedios anteriores
@@ -228,8 +228,8 @@ export default function DashboardCierres() {
           const statsAnterior = cajeroMapAnterior.get(cajero)
           if (statsAnterior && statsAnterior.cierres > 0) {
             const diferencia = promedioDiscrepancia - statsAnterior.promedioDiscrepancia
-            if (diferencia < -5) tendencia = 'mejorando'
-            else if (diferencia > 5) tendencia = 'empeorando'
+            if (diferencia < -1) tendencia = 'mejorando'   // Mejor si discrepancia baja más de 1 USD
+            else if (diferencia > 1) tendencia = 'empeorando'  // Peor si discrepancia sube más de 1 USD
           }
 
           return {
@@ -259,21 +259,19 @@ export default function DashboardCierres() {
 
     if (cierres) {
       const rangos = {
-        'Cuadrados (< Bs 1)': 0,
-        'Leves (Bs 1-10)': 0,
-        'Moderadas (Bs 10-50)': 0,
-        'Altas (Bs 50-100)': 0,
-        'Críticas (> Bs 100)': 0
+        'Cuadrados (< $1)': 0,
+        'Leves ($1-5)': 0,
+        'Medias ($5-15)': 0,
+        'Altas (> $15)': 0
       }
 
       cierres.forEach(cierre => {
-        const discrepancia = Math.abs(cierre.resumen.discrepanciaTotal)
+        const discrepanciaUsd = cierre.resumen.discrepanciaReporteZUsd || 0
         
-        if (discrepancia < 1) rangos['Cuadrados (< Bs 1)']++
-        else if (discrepancia < 10) rangos['Leves (Bs 1-10)']++
-        else if (discrepancia < 50) rangos['Moderadas (Bs 10-50)']++
-        else if (discrepancia < 100) rangos['Altas (Bs 50-100)']++
-        else rangos['Críticas (> Bs 100)']++
+        if (discrepanciaUsd < 1) rangos['Cuadrados (< $1)']++
+        else if (discrepanciaUsd < 5) rangos['Leves ($1-5)']++
+        else if (discrepanciaUsd < 15) rangos['Medias ($5-15)']++
+        else rangos['Altas (> $15)']++
       })
 
       const distribucion = Object.entries(rangos).map(([rango, cantidad]) => ({
@@ -287,7 +285,7 @@ export default function DashboardCierres() {
   }
 
   const loadAlertas = async () => {
-    const { data } = await cierresCajaService.getAlertasDiscrepancias(companyId, 50)
+    const { data } = await cierresCajaService.getAlertasDiscrepancias(companyId, 0) // Obtener todas las alertas
     if (data) {
       setAlertas(data.slice(0, 10)) // Solo las 10 más importantes
     }
@@ -569,7 +567,7 @@ export default function DashboardCierres() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {format(alerta.cierre.caja.fecha, 'dd/MM/yyyy')} - {alerta.cierre.caja.usuario?.full_name}
+                      {format(alerta.cierre.caja.fecha, 'dd/MM/yyyy')} - {alerta.cierre.caja.usuario?.full_name || 'Sin cajero'}
                     </p>
                     <p className="text-sm text-gray-600">{alerta.mensaje}</p>
                   </div>

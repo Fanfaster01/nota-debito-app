@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { PencilIcon, TrashIcon, DocumentMinusIcon } from '@heroicons/react/24/outline'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { cajaService } from '@/lib/services/cajaService'
 import type { NotaCreditoCajaUI } from '@/types/caja'
 
@@ -21,6 +22,7 @@ export default function NotaCreditoCajaList({
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [formData, setFormData] = useState<Record<string, any>>({})
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const iniciarEdicion = (nota: NotaCreditoCajaUI) => {
@@ -73,8 +75,6 @@ export default function NotaCreditoCajaList({
   }
 
   const eliminarNota = async (notaId: string) => {
-    if (!confirm('¿Está seguro de eliminar esta nota de crédito?')) return
-
     setEliminandoId(notaId)
     setError(null)
 
@@ -87,6 +87,7 @@ export default function NotaCreditoCajaList({
       }
 
       onNotaEliminada(notaId)
+      setDeleteConfirm(null)
     } catch (err) {
       setError('Error inesperado al eliminar la nota de crédito')
     } finally {
@@ -258,7 +259,7 @@ export default function NotaCreditoCajaList({
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => eliminarNota(nota.id!)}
+                          onClick={() => setDeleteConfirm(nota.id!)}
                           disabled={eliminandoId === nota.id}
                           className="text-red-600 hover:text-red-900 disabled:opacity-50"
                           title="Eliminar"
@@ -292,6 +293,36 @@ export default function NotaCreditoCajaList({
           <strong className="ml-2">Monto Total:</strong> Bs {calcularTotal().toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </p>
       </div>
+
+      {/* Modal de confirmación de eliminación */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">
+              ¿Eliminar Nota de Crédito?
+            </h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Esta acción no se puede deshacer. La nota de crédito será eliminada permanentemente.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setDeleteConfirm(null)}
+                disabled={eliminandoId === deleteConfirm}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => eliminarNota(deleteConfirm)}
+                disabled={eliminandoId === deleteConfirm}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

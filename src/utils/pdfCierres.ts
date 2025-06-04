@@ -1,15 +1,9 @@
 // src/utils/pdfCierres.ts
 import jsPDF from 'jspdf'
-import 'jspdf-autotable'
+import autoTable from 'jspdf-autotable'
 import { CierreDetalladoUI, ResumenCierres } from '@/lib/services/cierresCajaService'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
-
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF
-  }
-}
 
 const formatMoney = (amount: number) => {
   return new Intl.NumberFormat('es-VE', {
@@ -51,7 +45,7 @@ export const generateCierresListPDF = (
   ])
 
   // Crear tabla
-  doc.autoTable({
+  autoTable(doc, {
     head: [['Fecha', 'Cajero', 'Total Sistema', 'Total Contado', 'Discrepancia', 'Estado']],
     body: tableData,
     startY: companyName ? 56 : 48,
@@ -147,7 +141,7 @@ export const generateCierreDetallePDF = (
     ['Estado', Math.abs(cierre.resumen.discrepanciaTotal) < 1 ? 'Cuadrado' : 'Con Discrepancia']
   ]
 
-  doc.autoTable({
+  autoTable(doc, {
     body: resumenData,
     startY: yPos,
     styles: { fontSize: 10 },
@@ -171,7 +165,7 @@ export const generateCierreDetallePDF = (
     ['Créditos', cierre.caja.cantidadCreditos.toString(), `Bs ${formatMoney(cierre.caja.totalCreditosBs)}`]
   ]
 
-  doc.autoTable({
+  autoTable(doc, {
     head: [['Tipo de Transacción', 'Cantidad', 'Monto']],
     body: transaccionesData,
     startY: yPos,
@@ -209,7 +203,7 @@ export const generateCierreDetallePDF = (
       ['Report Z', '', `Bs ${formatMoney(cierre.detallesEfectivo.reporte_z || 0)}`]
     ]
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Tipo', 'Cantidad Original', 'Equivalente Bs']],
       body: efectivoData,
       startY: yPos,
@@ -247,7 +241,7 @@ export const generateCierreDetallePDF = (
       pv.numero_lote || 'N/A'
     ])
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Banco', 'Código', 'Monto USD', 'Monto Bs', 'Lote']],
       body: pvData,
       startY: yPos,
@@ -320,7 +314,7 @@ export const generateResumenCierresPDF = (
     ['Monto Total Cierres', `Bs ${formatMoney(resumen.montoTotalCierres)}`]
   ]
 
-  doc.autoTable({
+  autoTable(doc, {
     body: metricas,
     startY: yPos,
     styles: { fontSize: 11 },
@@ -347,7 +341,7 @@ export const generateResumenCierresPDF = (
       usuario.promedioDiscrepancia < 50 ? 'Buena' : 'Requiere Mejora'
     ])
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [['#', 'Nombre', 'Cierres', 'Promedio Discrepancia', 'Calificación']],
       body: usuariosData,
       startY: yPos,

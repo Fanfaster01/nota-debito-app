@@ -1,5 +1,5 @@
 // src/components/cajas/CierreCajaForm.tsx
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -67,6 +67,16 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
     }
   })
 
+  // Watchear todos los campos para que el resumen se actualice en tiempo real
+  const watchedValues = form.watch([
+    'efectivoDolares',
+    'efectivoEuros', 
+    'efectivoBs',
+    'reporteZ',
+    'fondoCajaDolares',
+    'fondoCajaBs'
+  ])
+
   useEffect(() => {
     cargarBancos()
   }, [])
@@ -132,12 +142,13 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
   }
 
   const calcularTotales = () => {
-    const totalEfectivoBs = form.getValues('efectivoBs')
-    const totalEfectivoDolares = form.getValues('efectivoDolares')
-    const totalEfectivoEuros = form.getValues('efectivoEuros')
-    const reporteZ = form.getValues('reporteZ')
-    const fondoCajaDolares = form.getValues('fondoCajaDolares')
-    const fondoCajaBs = form.getValues('fondoCajaBs')
+    const [efectivoDolares, efectivoEuros, efectivoBs, reporteZ, fondoCajaDolares, fondoCajaBs] = watchedValues
+    const totalEfectivoBs = efectivoBs || 0
+    const totalEfectivoDolares = efectivoDolares || 0
+    const totalEfectivoEuros = efectivoEuros || 0
+    const reporteZValue = reporteZ || 0
+    const fondoCajaDolaresValue = fondoCajaDolares || 0
+    const fondoCajaBsValue = fondoCajaBs || 0
     const totalPuntoVentaBs = cierresPuntoVenta.reduce((sum, cv) => sum + cv.montoBs, 0)
     const totalPuntoVentaUsd = cierresPuntoVenta.reduce((sum, cv) => sum + cv.montoUsd, 0)
     
@@ -151,7 +162,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
       totalEfectivoEnBs + totalPuntoVentaBs
     
     // Diferencia entre total calculado y reporte Z
-    const diferencia = totalCalculadoBs - reporteZ
+    const diferencia = totalCalculadoBs - reporteZValue
     
     return {
       totalEfectivoBs,
@@ -160,9 +171,9 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
       totalPuntoVentaBs,
       totalPuntoVentaUsd,
       totalEfectivoEnBs,
-      reporteZ,
-      fondoCajaDolares,
-      fondoCajaBs,
+      reporteZ: reporteZValue,
+      fondoCajaDolares: fondoCajaDolaresValue,
+      fondoCajaBs: fondoCajaBsValue,
       totalCalculadoBs,
       diferencia
     }
@@ -176,7 +187,10 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
     await onSubmit(formData)
   }
 
-  const totales = calcularTotales()
+  // Usar useMemo para recalcular totales cuando cambien los valores watched o cierres PV
+  const totales = useMemo(() => {
+    return calcularTotales()
+  }, [watchedValues, cierresPuntoVenta, caja.tasaDia, caja.totalPagosMovil, caja.totalZelleBs, caja.totalCreditosBs, caja.totalNotasCredito])
   const formatMonto = (monto: number) => {
     return new Intl.NumberFormat('es-VE', {
       minimumFractionDigits: 2,

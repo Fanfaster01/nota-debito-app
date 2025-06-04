@@ -13,6 +13,7 @@ export interface CierreDetalladoUI {
     totalPuntoVenta: number
     totalSistemico: number
     discrepanciaReporteZ: number
+    discrepanciaReporteZUsd: number
     discrepanciaTotal: number
   }
 }
@@ -60,6 +61,11 @@ export class CierresCajaService {
             id,
             name,
             rif
+          ),
+          users:user_id (
+            id,
+            full_name,
+            email
           ),
           cierres_caja (*),
           cierres_punto_venta (
@@ -126,7 +132,7 @@ export class CierresCajaService {
           cantidadCreditos: cajaData.cantidad_creditos || 0,
           estado: cajaData.estado,
           observaciones: cajaData.observaciones,
-          usuario: undefined,
+          usuario: cajaData.users,
           company: cajaData.companies
         }
 
@@ -142,7 +148,12 @@ export class CierresCajaService {
 
         const totalSistemico = caja.totalPagosMovil + caja.totalZelleBs + caja.totalNotasCredito + caja.totalCreditosBs
 
-        const discrepanciaReporteZ = detallesEfectivo?.reporte_z ? totalSistemico - detallesEfectivo.reporte_z : 0
+        // Discrepancia principal: diferencia entre sistema y reporte Z (convertir a USD para los rangos)
+        const reporteZ = detallesEfectivo?.reporte_z || 0
+        const discrepanciaReporteZ = reporteZ > 0 ? totalSistemico - reporteZ : 0
+        const discrepanciaReporteZUsd = Math.abs(discrepanciaReporteZ) / caja.tasaDia
+        
+        // Discrepancia total (efectivo contado vs sistema) - para referencia
         const discrepanciaTotal = totalSistemico - (totalEfectivoContado + totalPuntoVenta)
 
         const resumen = {
@@ -150,11 +161,12 @@ export class CierresCajaService {
           totalPuntoVenta,
           totalSistemico,
           discrepanciaReporteZ,
+          discrepanciaReporteZUsd,
           discrepanciaTotal
         }
 
-        // Aplicar filtro de discrepancias si está activo
-        if (filtros?.conDiscrepancias && Math.abs(discrepanciaTotal) < 1) {
+        // Aplicar filtro de discrepancias si está activo (usar discrepancia reporte Z)
+        if (filtros?.conDiscrepancias && discrepanciaReporteZUsd < 1) {
           continue // Saltar cierres sin discrepancias significativas
         }
 
@@ -200,10 +212,11 @@ export class CierresCajaService {
       }
 
       const totalCierres = cierres.length
-      const cierresConDiscrepancias = cierres.filter(c => Math.abs(c.resumen.discrepanciaTotal) >= 1).length
+      // Usar discrepancia de reporte Z para contar discrepancias
+      const cierresConDiscrepancias = cierres.filter(c => c.resumen.discrepanciaReporteZUsd >= 1).length
       
       const promedioDiscrepancia = totalCierres > 0 
-        ? cierres.reduce((sum, c) => sum + Math.abs(c.resumen.discrepanciaTotal), 0) / totalCierres 
+        ? cierres.reduce((sum, c) => sum + c.resumen.discrepanciaReporteZUsd, 0) / totalCierres 
         : 0
 
       const totalEfectivoContado = cierres.reduce((sum, c) => sum + c.resumen.totalEfectivoContado, 0)
@@ -215,7 +228,7 @@ export class CierresCajaService {
       const usuarioStats = new Map()
       cierres.forEach(cierre => {
         const userId = cierre.caja.userId
-        const nombreUsuario = 'Usuario ' + userId // Since we don't have user details
+        const nombreUsuario = cierre.caja.usuario?.full_name || 'Sin nombre'
         
         if (userId) {
           if (!usuarioStats.has(userId)) {
@@ -229,7 +242,7 @@ export class CierresCajaService {
           
           const stats = usuarioStats.get(userId)
           stats.cantidadCierres++
-          stats.totalDiscrepancias += Math.abs(cierre.resumen.discrepanciaTotal)
+          stats.totalDiscrepancias += cierre.resumen.discrepanciaReporteZUsd
         }
       })
 
@@ -307,12 +320,12 @@ export class CierresCajaService {
     }
   }
 
-  // Obtener alertas de discrepancias
-  async getAlertasDiscrepancias(companyId?: string, umbral: number = 50): Promise<{ 
+  // Obtener alertas de discrepancias usando nuevos rangos (0-5$ leve, 5-15$ media, 15+ alta)
+  async getAlertasDiscrepancias(companyId?: string, umbral: number = 5): Promise<{ 
     data: Array<{
       cierre: CierreDetalladoUI,
       tipoAlerta: 'discrepancia_alta' | 'discrepancia_reporte_z' | 'sin_detalles',
-      severidad: 'baja' | 'media' | 'alta',
+      severidad: 'leve' | 'media' | 'alta',
       mensaje: string
     }> | null, 
     error: any 
@@ -330,23 +343,30 @@ export class CierresCajaService {
       const alertas = []
 
       for (const cierre of cierres) {
-        // Alerta por discrepancia alta en total
-        if (Math.abs(cierre.resumen.discrepanciaTotal) > umbral) {
-          alertas.push({
-            cierre,
-            tipoAlerta: 'discrepancia_alta' as const,
-            severidad: Math.abs(cierre.resumen.discrepanciaTotal) > umbral * 2 ? 'alta' as const : 'media' as const,
-            mensaje: `Discrepancia de Bs ${cierre.resumen.discrepanciaTotal.toFixed(2)} entre sistema y conteo`
-          })
-        }
+        const discrepanciaUsd = cierre.resumen.discrepanciaReporteZUsd
+        const cajeroNombre = cierre.caja.usuario?.full_name || 'Sin cajero'
 
-        // Alerta por discrepancia con Report Z
-        if (Math.abs(cierre.resumen.discrepanciaReporteZ) > umbral) {
+        // Alerta por discrepancia sistema vs reporte Z
+        if (discrepanciaUsd > 0) {
+          let severidad: 'leve' | 'media' | 'alta'
+          let mensaje: string
+
+          if (discrepanciaUsd <= 5) {
+            severidad = 'leve'
+            mensaje = `Discrepancia leve de $${discrepanciaUsd.toFixed(2)} USD entre sistema y Reporte Z - Cajero: ${cajeroNombre}`
+          } else if (discrepanciaUsd <= 15) {
+            severidad = 'media'
+            mensaje = `Discrepancia media de $${discrepanciaUsd.toFixed(2)} USD entre sistema y Reporte Z - Cajero: ${cajeroNombre}`
+          } else {
+            severidad = 'alta'
+            mensaje = `Discrepancia alta de $${discrepanciaUsd.toFixed(2)} USD entre sistema y Reporte Z - Cajero: ${cajeroNombre}`
+          }
+
           alertas.push({
             cierre,
             tipoAlerta: 'discrepancia_reporte_z' as const,
-            severidad: 'media' as const,
-            mensaje: `Discrepancia de Bs ${cierre.resumen.discrepanciaReporteZ.toFixed(2)} entre sistema y Report Z`
+            severidad,
+            mensaje
           })
         }
 
@@ -355,15 +375,15 @@ export class CierresCajaService {
           alertas.push({
             cierre,
             tipoAlerta: 'sin_detalles' as const,
-            severidad: 'baja' as const,
-            mensaje: 'Cierre sin detalles de efectivo registrados'
+            severidad: 'leve' as const,
+            mensaje: `Cierre sin detalles de efectivo registrados - Cajero: ${cajeroNombre}`
           })
         }
       }
 
       // Ordenar por severidad
       alertas.sort((a, b) => {
-        const severidadOrden = { alta: 3, media: 2, baja: 1 }
+        const severidadOrden = { alta: 3, media: 2, leve: 1 }
         return severidadOrden[b.severidad] - severidadOrden[a.severidad]
       })
 

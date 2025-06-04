@@ -30,6 +30,20 @@ const userUpdateSchema = z.object({
 
 type UserUpdateFormData = z.infer<typeof userUpdateSchema>
 
+const userCreateSchema = z.object({
+  full_name: z.string().min(1, 'El nombre es requerido'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  confirmPassword: z.string(),
+  role: z.enum(['master', 'admin', 'user']),
+  company_id: z.string().nullable().optional(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: 'Las contraseñas no coinciden',
+  path: ['confirmPassword'],
+})
+
+type UserCreateFormData = z.infer<typeof userCreateSchema>
+
 interface UserWithCompany extends User {
   companies?: Company
 }
@@ -44,6 +58,7 @@ export default function UsersPage() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [editingUser, setEditingUser] = useState<UserWithCompany | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const {
     register,
@@ -56,7 +71,21 @@ export default function UsersPage() {
     resolver: zodResolver(userUpdateSchema),
   })
 
+  const {
+    register: registerCreate,
+    handleSubmit: handleSubmitCreate,
+    formState: { errors: errorsCreate },
+    reset: resetCreate,
+    watch: watchCreate
+  } = useForm<UserCreateFormData>({
+    resolver: zodResolver(userCreateSchema),
+    defaultValues: {
+      role: 'user'
+    }
+  })
+
   const selectedRole = watch('role')
+  const selectedRoleCreate = watchCreate('role')
 
   useEffect(() => {
     if (currentUser?.role !== 'master') {
@@ -182,6 +211,46 @@ export default function UsersPage() {
     setSuccessMessage(null)
   }
 
+  const handleCreateUser = async (data: UserCreateFormData) => {
+    setSaving(true)
+    setError(null)
+    setSuccessMessage(null)
+
+    try {
+      const { data: newUser, error: createError } = await adminUserService.createUser({
+        email: data.email,
+        password: data.password,
+        fullName: data.full_name,
+        role: data.role,
+        companyId: data.company_id || null
+      })
+
+      if (createError) {
+        setError('Error al crear usuario: ' + createError.message)
+        return
+      }
+
+      setSuccessMessage('Usuario creado exitosamente')
+      setShowCreateModal(false)
+      resetCreate()
+      await loadData()
+      
+      // Limpiar mensaje de éxito después de 3 segundos
+      setTimeout(() => setSuccessMessage(null), 3000)
+    } catch (err: any) {
+      setError('Error al crear usuario: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleCancelCreate = () => {
+    setShowCreateModal(false)
+    resetCreate()
+    setError(null)
+    setSuccessMessage(null)
+  }
+
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
       case 'master':
@@ -239,6 +308,13 @@ export default function UsersPage() {
               Administra los usuarios del sistema y sus permisos
             </p>
           </div>
+          <Button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2"
+          >
+            <UserPlusIcon className="h-5 w-5" />
+            <span>Crear Usuario</span>
+          </Button>
         </div>
 
         {/* Messages */}
@@ -258,6 +334,115 @@ export default function UsersPage() {
           <div className="p-4 bg-green-50 border border-green-200 rounded-md">
             <p className="text-green-600">{successMessage}</p>
           </div>
+        )}
+
+        {/* Create User Modal */}
+        {showCreateModal && (
+          <Card title="Crear Nuevo Usuario">
+            <form onSubmit={handleSubmitCreate(handleCreateUser)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Nombre Completo"
+                  {...registerCreate('full_name')}
+                  error={errorsCreate.full_name?.message}
+                  disabled={saving}
+                />
+                <Input
+                  label="Email"
+                  type="email"
+                  {...registerCreate('email')}
+                  error={errorsCreate.email?.message}
+                  disabled={saving}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Input
+                  label="Contraseña"
+                  type="password"
+                  {...registerCreate('password')}
+                  error={errorsCreate.password?.message}
+                  disabled={saving}
+                />
+                <Input
+                  label="Confirmar Contraseña"
+                  type="password"
+                  {...registerCreate('confirmPassword')}
+                  error={errorsCreate.confirmPassword?.message}
+                  disabled={saving}
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rol
+                  </label>
+                  <select
+                    {...registerCreate('role')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={saving}
+                  >
+                    <option value="user">Usuario</option>
+                    <option value="admin">Administrador</option>
+                    <option value="master">Master</option>
+                  </select>
+                  {errorsCreate.role && <p className="mt-1 text-sm text-red-600">{errorsCreate.role.message}</p>}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Compañía {selectedRoleCreate === 'master' && <span className="text-gray-400">(Opcional para Master)</span>}
+                  </label>
+                  <select
+                    {...registerCreate('company_id')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    disabled={saving}
+                  >
+                    <option value="">Sin compañía asignada</option>
+                    {companies.filter(c => c.is_active).map((company) => (
+                      <option key={company.id} value={company.id}>
+                        {company.name} ({company.rif})
+                      </option>
+                    ))}
+                  </select>
+                  {errorsCreate.company_id && <p className="mt-1 text-sm text-red-600">{errorsCreate.company_id.message}</p>}
+                  {selectedRoleCreate !== 'master' && !watchCreate('company_id') && (
+                    <p className="mt-1 text-sm text-yellow-600">
+                      ⚠️ Este usuario no podrá acceder al sistema sin una compañía asignada
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 p-4 rounded-md">
+                <p className="text-sm text-blue-800">
+                  <strong>Información importante:</strong>
+                  <br />• El usuario será creado con la contraseña especificada
+                  <br />• No necesitará verificar su email ni cambiar la contraseña
+                  <br />• Podrá iniciar sesión inmediatamente
+                  <br />• Asegúrate de comunicar la contraseña de forma segura
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleCancelCreate}
+                  disabled={saving}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  type="submit"
+                  disabled={saving}
+                >
+                  {saving ? 'Creando...' : 'Crear Usuario'}
+                </Button>
+              </div>
+            </form>
+          </Card>
         )}
 
         {/* Edit User Modal */}

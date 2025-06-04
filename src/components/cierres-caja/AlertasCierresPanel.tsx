@@ -22,7 +22,7 @@ interface AlertaCierre {
   id: string
   cierre: CierreDetalladoUI
   tipoAlerta: 'discrepancia_alta' | 'discrepancia_reporte_z' | 'sin_detalles' | 'patron_sospechoso' | 'tendencia_negativa'
-  severidad: 'baja' | 'media' | 'alta' | 'critica'
+  severidad: 'leve' | 'media' | 'alta' | 'critica'
   mensaje: string
   fechaCreacion: Date
   leida: boolean
@@ -30,7 +30,7 @@ interface AlertaCierre {
 }
 
 interface ConfiguracionAlertas {
-  umbraldiscrepanciaBaja: number
+  umbraldiscrepanciaLeve: number
   umbraldiscrepanciaMedia: number
   umbraldiscrepanciaAlta: number
   alertasPatrones: boolean
@@ -52,9 +52,9 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
   const [filtroTipo, setFiltroTipo] = useState<string>('todos')
   const [soloNoLeidas, setSoloNoLeidas] = useState(false)
   const [configuracion, setConfiguracion] = useState<ConfiguracionAlertas>({
-    umbraldiscrepanciaBaja: 10,
-    umbraldiscrepanciaMedia: 50,
-    umbraldiscrepanciaAlta: 100,
+    umbraldiscrepanciaLeve: 5,    // 0-5$ USD = leve
+    umbraldiscrepanciaMedia: 15,  // 5-15$ USD = media
+    umbraldiscrepanciaAlta: 15,   // 15+ USD = alta
     alertasPatrones: true,
     alertasTendencias: true,
     notificacionesEmail: false,
@@ -77,10 +77,10 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
     setLoading(true)
     
     try {
-      // Cargar alertas básicas del servicio
+      // Cargar alertas básicas del servicio (umbral en USD para discrepancias leves)
       const { data: alertasBasicas } = await cierresCajaService.getAlertasDiscrepancias(
         companyId, 
-        configuracion.umbraldiscrepanciaMedia
+        0 // Obtener todas las alertas, el filtrado por severidad se hace en el servicio
       )
 
       if (alertasBasicas) {
@@ -109,7 +109,7 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
 
         // Ordenar por severidad y fecha
         todasLasAlertas.sort((a, b) => {
-          const severidadOrden = { critica: 4, alta: 3, media: 2, baja: 1 }
+          const severidadOrden = { critica: 4, alta: 3, media: 2, leve: 1 }
           const ordenA = severidadOrden[a.severidad]
           const ordenB = severidadOrden[b.severidad]
           
@@ -150,8 +150,8 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
     cierresPorCajero.forEach((cierresCajero, cajeroId) => {
       if (cierresCajero.length < 3) return // Necesitamos al menos 3 cierres para detectar patrones
 
-      // Patrón 1: Discrepancias consistentemente altas
-      const discrepanciasAltas = cierresCajero.filter(c => Math.abs(c.resumen.discrepanciaTotal) > configuracion.umbraldiscrepanciaMedia)
+      // Patrón 1: Discrepancias consistentemente altas (usar discrepancia reporte Z en USD)
+      const discrepanciasAltas = cierresCajero.filter(c => c.resumen.discrepanciaReporteZUsd > configuracion.umbraldiscrepanciaMedia)
       if (discrepanciasAltas.length / cierresCajero.length > 0.6) {
         const ultimoCierre = cierresCajero[cierresCajero.length - 1]
         alertasPatrones.push({
@@ -166,9 +166,9 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
         })
       }
 
-      // Patrón 2: Siempre faltante o sobrante
-      const faltantes = cierresCajero.filter(c => c.resumen.discrepanciaTotal > 1)
-      const sobrantes = cierresCajero.filter(c => c.resumen.discrepanciaTotal < -1)
+      // Patrón 2: Siempre faltante o sobrante (usar discrepancia reporte Z)
+      const faltantes = cierresCajero.filter(c => c.resumen.discrepanciaReporteZ > 0 && c.resumen.discrepanciaReporteZUsd > 1)
+      const sobrantes = cierresCajero.filter(c => c.resumen.discrepanciaReporteZ < 0 && c.resumen.discrepanciaReporteZUsd > 1)
       
       if (faltantes.length / cierresCajero.length > 0.8 || sobrantes.length / cierresCajero.length > 0.8) {
         const ultimoCierre = cierresCajero[cierresCajero.length - 1]
@@ -191,7 +191,7 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
         let tendenciaAscendente = true
         
         for (let i = 1; i < ultimos5.length; i++) {
-          if (Math.abs(ultimos5[i].resumen.discrepanciaTotal) <= Math.abs(ultimos5[i-1].resumen.discrepanciaTotal)) {
+          if (ultimos5[i].resumen.discrepanciaReporteZUsd <= ultimos5[i-1].resumen.discrepanciaReporteZUsd) {
             tendenciaAscendente = false
             break
           }
@@ -235,7 +235,7 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
         promedioPorDia.set(dia, { total: 0, count: 0 })
       }
       const stats = promedioPorDia.get(dia)!
-      stats.total += Math.abs(cierre.resumen.discrepanciaTotal)
+      stats.total += cierre.resumen.discrepanciaReporteZUsd
       stats.count++
     })
 
@@ -258,7 +258,7 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
         }
       }
 
-      if (tendenciaAscendente && ultimos3[ultimos3.length - 1].promedio > configuracion.umbraldiscrepanciaMedia) {
+      if (tendenciaAscendente && ultimos3[ultimos3.length - 1].promedio > configuracion.umbraldiscrepanciaLeve) {
         const ultimoCierre = cierres[cierres.length - 1]
         alertasTendencias.push({
           id: 'tendencia-general-negativa',
@@ -336,7 +336,8 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
       case 'critica': return 'bg-red-100 text-red-800 border-red-200'
       case 'alta': return 'bg-orange-100 text-orange-800 border-orange-200'
       case 'media': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
-      default: return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'leve': return 'bg-blue-100 text-blue-800 border-blue-200'
+      default: return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
 
@@ -345,7 +346,8 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
       case 'critica': return <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
       case 'alta': return <ExclamationTriangleIcon className="h-5 w-5 text-orange-600" />
       case 'media': return <ClockIcon className="h-5 w-5 text-yellow-600" />
-      default: return <BellIcon className="h-5 w-5 text-blue-600" />
+      case 'leve': return <BellIcon className="h-5 w-5 text-blue-600" />
+      default: return <BellIcon className="h-5 w-5 text-gray-600" />
     }
   }
 
@@ -437,25 +439,42 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Umbral Discrepancia Media (Bs)
+                Umbral Discrepancia Leve (USD)
+              </label>
+              <input
+                type="number"
+                value={configuracion.umbraldiscrepanciaLeve}
+                onChange={(e) => setConfiguracion(prev => ({ ...prev, umbraldiscrepanciaLeve: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="5"
+              />
+              <p className="text-xs text-gray-500 mt-1">0-5$ USD = Leve</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Umbral Discrepancia Media (USD)
               </label>
               <input
                 type="number"
                 value={configuracion.umbraldiscrepanciaMedia}
                 onChange={(e) => setConfiguracion(prev => ({ ...prev, umbraldiscrepanciaMedia: Number(e.target.value) }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="15"
               />
+              <p className="text-xs text-gray-500 mt-1">5-15$ USD = Media</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Umbral Discrepancia Alta (Bs)
+                Umbral Discrepancia Alta (USD)
               </label>
               <input
                 type="number"
                 value={configuracion.umbraldiscrepanciaAlta}
                 onChange={(e) => setConfiguracion(prev => ({ ...prev, umbraldiscrepanciaAlta: Number(e.target.value) }))}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                placeholder="15"
               />
+              <p className="text-xs text-gray-500 mt-1">15+ USD = Alta</p>
             </div>
             <div className="flex items-center">
               <input
@@ -495,7 +514,7 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
             <option value="critica">Críticas</option>
             <option value="alta">Altas</option>
             <option value="media">Medias</option>
-            <option value="baja">Bajas</option>
+            <option value="leve">Leves</option>
           </select>
 
           <select
