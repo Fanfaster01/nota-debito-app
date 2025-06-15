@@ -17,7 +17,8 @@ import {
   BuildingStorefrontIcon,
   BanknotesIcon,
   CreditCardIcon,
-  DocumentChartBarIcon
+  DocumentChartBarIcon,
+  BuildingLibraryIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -36,6 +37,7 @@ const adminNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
   { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
   { name: 'Estado de Cuenta', href: '/ventas-credito/estado-cuenta', icon: UsersIcon },
+  { name: 'Depósitos Bancarios', href: '/depositos-bancarios', icon: BuildingLibraryIcon },
   { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },
 ]
 
@@ -43,6 +45,7 @@ const masterNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
   { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
   { name: 'Estado de Cuenta', href: '/ventas-credito/estado-cuenta', icon: UsersIcon },
+  { name: 'Depósitos Bancarios', href: '/depositos-bancarios', icon: BuildingLibraryIcon },
   { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },
   { name: 'Compañías', href: '/admin/companies', icon: BuildingOfficeIcon },
   { name: 'Usuarios', href: '/admin/users', icon: UsersIcon },
@@ -207,15 +210,10 @@ export function MainLayout({ children }: MainLayoutProps) {
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div className="flex flex-1 items-center">
-              {company && user.role !== 'master' && (
+              {company && (
                 <div className="text-sm text-gray-600">
                   <span className="font-medium">{company.name}</span>
                   <span className="ml-2 text-gray-400">({company.rif})</span>
-                </div>
-              )}
-              {user.role === 'master' && (
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">Administrador Master</span>
                 </div>
               )}
             </div>

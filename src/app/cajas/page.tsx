@@ -89,7 +89,7 @@ export default function CajasPage() {
     }
   }
 
-  const handleAbrirCaja = async (montoApertura: number, montoAperturaUsd: number, tasaDia: number) => {
+  const handleAbrirCaja = async (montoApertura: number, montoAperturaUsd: number, tasaDia: number, tipoMoneda: 'USD' | 'EUR') => {
     if (!user || !company) return
 
     setLoading(true)
@@ -102,7 +102,8 @@ export default function CajasPage() {
         company.id,
         montoApertura,
         montoAperturaUsd,
-        tasaDia
+        tasaDia,
+        tipoMoneda
       )
 
       if (abrirError) {
@@ -500,7 +501,7 @@ export default function CajasPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Gestión de Caja</h1>
             <p className="mt-1 text-sm text-gray-500">
-              Control de pagos móviles y Zelle del día
+              Control de pagos móviles, transferencias en moneda extranjera, créditos y notas de crédito
             </p>
           </div>
           

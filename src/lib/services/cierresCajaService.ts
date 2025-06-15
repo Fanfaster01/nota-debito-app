@@ -5,6 +5,7 @@ import { CajaUI } from '@/types/caja'
 import { CierreCaja, CierrePuntoVenta } from '@/types/database'
 
 export interface CierreDetalladoUI {
+  id: string // ID del cierre (puede ser del cierre_caja o de la caja si no hay cierre_caja)
   caja: CajaUI
   detallesEfectivo: CierreCaja | null
   detallesPuntoVenta: (CierrePuntoVenta & { banco: { nombre: string, codigo: string } })[]
@@ -176,7 +177,11 @@ export class CierresCajaService {
           if (filtros.rangoMonto.max && totalSistemico > filtros.rangoMonto.max) continue
         }
 
+        // Generar ID único para el cierre (usar ID del cierre_caja o ID de la caja como fallback)
+        const cierreId = detallesEfectivo?.id || caja.id
+
         cierresDetallados.push({
+          id: cierreId,
           caja,
           detallesEfectivo,
           detallesPuntoVenta,

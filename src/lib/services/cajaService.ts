@@ -10,6 +10,11 @@ export interface CajaWithRelations extends Caja {
     name: string
     rif: string
   }
+  users_view?: {
+    id: string
+    full_name: string | null
+    email: string
+  }
   pagos_movil?: PagoMovil[]
   pagos_zelle?: PagoZelle[]
   notas_credito_caja?: NotaCreditoCaja[]
@@ -32,6 +37,7 @@ export class CajaService {
       montoAperturaUsd: cajaDB.monto_apertura_usd || 0,
       montoCierre: cajaDB.monto_cierre,
       tasaDia: cajaDB.tasa_dia || 0,
+      tipoMoneda: (cajaDB.tipo_moneda as 'USD' | 'EUR') || 'USD',
       totalPagosMovil: cajaDB.total_pagos_movil,
       cantidadPagosMovil: cajaDB.cantidad_pagos_movil,
       totalZelleUsd: cajaDB.total_zelle_usd || 0,
@@ -44,7 +50,11 @@ export class CajaService {
       cantidadCreditos: cajaDB.cantidad_creditos || 0,
       estado: cajaDB.estado,
       observaciones: cajaDB.observaciones,
-      usuario: undefined,
+      usuario: cajaDB.users_view ? {
+        id: cajaDB.users_view.id,
+        full_name: cajaDB.users_view.full_name,
+        email: cajaDB.users_view.email
+      } : undefined,
       company: cajaDB.companies,
       pagosMovil: cajaDB.pagos_movil?.map(pm => this.mapPagoMovilFromDB(pm)),
       pagosZelle: cajaDB.pagos_zelle?.map(pz => this.mapPagoZelleFromDB(pz)),
@@ -139,6 +149,11 @@ export class CajaService {
             id,
             name,
             rif
+          ),
+          users_view:user_id (
+            id,
+            full_name,
+            email
           )
         `)
         .eq('user_id', userId)
@@ -193,7 +208,7 @@ export class CajaService {
   }
 
   // Abrir caja
-  async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, montoAperturaUsd: number = 0, tasaDia: number): Promise<{ data: CajaUI | null, error: any }> {
+  async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, montoAperturaUsd: number = 0, tasaDia: number, tipoMoneda: 'USD' | 'EUR' = 'USD'): Promise<{ data: CajaUI | null, error: any }> {
     try {
       // Verificar si ya existe una caja abierta (sin importar la fecha)
       const { data: cajaAbierta } = await this.verificarCajaAbierta(userId)
@@ -223,6 +238,7 @@ export class CajaService {
         monto_apertura: montoApertura,
         monto_apertura_usd: montoAperturaUsd,
         tasa_dia: tasaDia,
+        tipo_moneda: tipoMoneda,
         total_pagos_movil: 0,
         cantidad_pagos_movil: 0,
         total_zelle_usd: 0,
@@ -480,6 +496,11 @@ export class CajaService {
             id,
             name,
             rif
+          ),
+          users_view:user_id (
+            id,
+            full_name,
+            email
           ),
           pagos_movil (*),
           pagos_zelle (*),

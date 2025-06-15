@@ -26,7 +26,8 @@ import { formatearFecha } from '@/utils/dateUtils'
 const abrirCajaSchema = z.object({
   montoApertura: z.number().min(0, 'El monto no puede ser negativo'),
   montoAperturaUsd: z.number().min(0, 'El monto no puede ser negativo'),
-  tasaDia: z.number().positive('La tasa debe ser mayor a 0')
+  tasaDia: z.number().positive('La tasa debe ser mayor a 0'),
+  tipoMoneda: z.enum(['USD', 'EUR'])
 })
 
 
@@ -34,7 +35,7 @@ type AbrirCajaFormData = z.infer<typeof abrirCajaSchema>
 
 interface CajaControlProps {
   caja: CajaUI | null
-  onAbrirCaja: (montoApertura: number, montoAperturaUsd: number, tasaDia: number) => Promise<void>
+  onAbrirCaja: (montoApertura: number, montoAperturaUsd: number, tasaDia: number, tipoMoneda: 'USD' | 'EUR') => Promise<void>
   onCerrarCaja: (data: CierreCajaFormData) => Promise<void>
   onActualizarTasa?: (nuevaTasa: number) => Promise<void>
   loading?: boolean
@@ -58,13 +59,14 @@ export const CajaControl: React.FC<CajaControlProps> = ({
     defaultValues: {
       montoApertura: 0,
       montoAperturaUsd: 0,
-      tasaDia: 0
+      tasaDia: 0,
+      tipoMoneda: 'USD'
     }
   })
 
 
   const handleAbrirCaja = async (data: AbrirCajaFormData) => {
-    await onAbrirCaja(data.montoApertura, data.montoAperturaUsd, data.tasaDia)
+    await onAbrirCaja(data.montoApertura, data.montoAperturaUsd, data.tasaDia, data.tipoMoneda)
     abrirForm.reset()
   }
 
@@ -85,6 +87,17 @@ export const CajaControl: React.FC<CajaControlProps> = ({
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(monto)
+  }
+
+  const formatMoneda = (monto: number, moneda: 'USD' | 'EUR') => {
+    return new Intl.NumberFormat('es-VE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(monto) + (moneda === 'USD' ? ' USD' : ' EUR')
+  }
+
+  const getMonedaSymbol = (moneda: 'USD' | 'EUR') => {
+    return moneda === 'USD' ? '$' : '€'
   }
 
   // Si no hay caja abierta, mostrar formulario para abrir
@@ -123,19 +136,40 @@ export const CajaControl: React.FC<CajaControlProps> = ({
             />
           </div>
 
-          <Input
-            label="Tasa del Día (Bs/USD)"
-            type="number"
-            step="0.01"
-            {...abrirForm.register('tasaDia', { valueAsNumber: true })}
-            error={abrirForm.formState.errors.tasaDia?.message}
-            disabled={loading}
-            placeholder="0.00"
-          />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Moneda
+              </label>
+              <select
+                {...abrirForm.register('tipoMoneda')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                disabled={loading}
+              >
+                <option value="USD">Dólar Estadounidense (USD)</option>
+                <option value="EUR">Euro (EUR)</option>
+              </select>
+              {abrirForm.formState.errors.tipoMoneda && (
+                <p className="mt-1 text-sm text-red-600">
+                  {abrirForm.formState.errors.tipoMoneda.message}
+                </p>
+              )}
+            </div>
+
+            <Input
+              label={`Tasa del Día (Bs/${abrirForm.watch('tipoMoneda') || 'USD'})`}
+              type="number"
+              step="0.01"
+              {...abrirForm.register('tasaDia', { valueAsNumber: true })}
+              error={abrirForm.formState.errors.tasaDia?.message}
+              disabled={loading}
+              placeholder="0.00"
+            />
+          </div>
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
             <p className="text-sm text-yellow-800">
-              <strong>Importante:</strong> La tasa del día se utilizará para calcular el monto en bolívares de los pagos en Zelle.
+              <strong>Importante:</strong> La tasa del día se utilizará para calcular el monto en bolívares de los pagos en moneda extranjera.
             </p>
           </div>
 
@@ -159,45 +193,51 @@ export const CajaControl: React.FC<CajaControlProps> = ({
     <Card title="Caja Abierta">
       <div className="space-y-4">
         {/* Información de la caja */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-gray-50 p-4 rounded-md">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="bg-gray-50 p-3 rounded-md">
             <div className="flex items-center mb-2">
-              <CalendarIcon className="h-5 w-5 text-gray-500 mr-2" />
-              <p className="text-sm font-medium text-gray-700">Fecha</p>
+              <CalendarIcon className="h-4 w-4 text-gray-500 mr-2" />
+              <p className="text-xs font-medium text-gray-700">Fecha</p>
             </div>
-            <p className="text-lg font-semibold">
+            <p className="text-sm font-semibold">
               {formatearFecha(caja.fecha)}
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-gray-50 p-3 rounded-md">
             <div className="flex items-center mb-2">
-              <ClockIcon className="h-5 w-5 text-gray-500 mr-2" />
-              <p className="text-sm font-medium text-gray-700">Hora de Apertura</p>
+              <ClockIcon className="h-4 w-4 text-gray-500 mr-2" />
+              <p className="text-xs font-medium text-gray-700">Hora de Apertura</p>
             </div>
-            <p className="text-lg font-semibold">
+            <p className="text-sm font-semibold">
               {format(caja.horaApertura, 'HH:mm', { locale: es })}
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
+          <div className="bg-gray-50 p-3 rounded-md">
             <div className="flex items-center mb-2">
-              <UserIcon className="h-5 w-5 text-gray-500 mr-2" />
-              <p className="text-sm font-medium text-gray-700">Cajero</p>
+              <UserIcon className="h-4 w-4 text-gray-500 mr-2" />
+              <p className="text-xs font-medium text-gray-700">Cajero</p>
             </div>
-            <p className="text-lg font-semibold">
+            <p className="text-sm font-semibold truncate" title={userName || caja.usuario?.full_name || caja.usuario?.email || 'Usuario'}>
               {userName || caja.usuario?.full_name || caja.usuario?.email || 'Usuario'}
             </p>
           </div>
 
-          <div className="bg-gray-50 p-4 rounded-md">
-            <p className="text-sm font-medium text-gray-700 mb-2">Monto de Apertura</p>
-            <p className="text-lg font-semibold">
-              Bs. {formatMonto(caja.montoApertura)}
-            </p>
-            {caja.montoAperturaUsd > 0 && (
-              <p className="text-sm text-gray-600 mt-1">
-                $ {formatMonto(caja.montoAperturaUsd)}
+          <div className="bg-gray-50 p-3 rounded-md">
+            <p className="text-xs font-medium text-gray-700 mb-2">Monto de Apertura</p>
+            {caja.montoAperturaUsd > 0 ? (
+              <>
+                <p className="text-sm font-bold text-blue-600">
+                  {getMonedaSymbol(caja.tipoMoneda || 'USD')} {formatMonto(caja.montoAperturaUsd)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Bs. {formatMonto(caja.montoApertura)}
+                </p>
+              </>
+            ) : (
+              <p className="text-sm font-semibold">
+                Bs. {formatMonto(caja.montoApertura)}
               </p>
             )}
           </div>
@@ -241,7 +281,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
                   </div>
                 ) : (
                   <p className="text-xl font-bold text-blue-800">
-                    Bs. {formatMonto(caja.tasaDia)} / USD
+                    Bs. {formatMonto(caja.tasaDia)} / {caja.tipoMoneda || 'USD'}
                   </p>
                 )}
               </div>
@@ -279,13 +319,13 @@ export const CajaControl: React.FC<CajaControlProps> = ({
             <div className="bg-blue-50 p-4 rounded-md">
               <div className="flex items-center mb-2">
                 <CurrencyDollarIcon className="h-5 w-5 text-blue-600 mr-2" />
-                <p className="text-sm font-medium text-blue-700">Pagos Zelle</p>
+                <p className="text-sm font-medium text-blue-700">Pagos {caja.tipoMoneda || 'USD'}</p>
               </div>
               <p className="text-2xl font-bold text-blue-800">
                 {caja.cantidadZelle}
               </p>
               <div className="text-sm text-blue-600 mt-1">
-                <p>$ {formatMonto(caja.totalZelleUsd)}</p>
+                <p>{getMonedaSymbol(caja.tipoMoneda || 'USD')} {formatMonto(caja.totalZelleUsd)}</p>
                 <p>Bs. {formatMonto(caja.totalZelleBs)}</p>
               </div>
             </div>
@@ -300,7 +340,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
               </p>
               <div className="text-sm text-amber-600 mt-1">
                 <p>Bs. {formatMonto(caja.totalCreditosBs || 0)}</p>
-                <p>$ {formatMonto(caja.totalCreditosUsd || 0)}</p>
+                <p>{getMonedaSymbol(caja.tipoMoneda || 'USD')} {formatMonto(caja.totalCreditosUsd || 0)}</p>
               </div>
             </div>
 
@@ -329,7 +369,7 @@ export const CajaControl: React.FC<CajaControlProps> = ({
                 {caja.cantidadPagosMovil + caja.cantidadZelle + (caja.cantidadCreditos || 0) + (caja.cantidadNotasCredito || 0)} operaciones
               </p>
               <p className="text-sm text-purple-600">
-                Total USD: $ {formatMonto((caja.totalZelleUsd || 0) + (caja.totalCreditosUsd || 0))}
+                Total {caja.tipoMoneda || 'USD'}: {getMonedaSymbol(caja.tipoMoneda || 'USD')} {formatMonto((caja.totalZelleUsd || 0) + (caja.totalCreditosUsd || 0))}
               </p>
             </div>
           </div>

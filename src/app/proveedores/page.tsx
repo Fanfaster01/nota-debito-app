@@ -251,25 +251,25 @@ export default function ProveedoresPage() {
           ) : proveedores.length > 0 ? (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 table-fixed">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                         Proveedor
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
                         RIF
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
                         Contacto
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Información Bancaria
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">
+                        Info. Bancaria
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                         Retención
                       </th>
-                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                         Acciones
                       </th>
                     </tr>
@@ -277,77 +277,79 @@ export default function ProveedoresPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {proveedores.map((proveedor) => (
                       <tr key={proveedor.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4">
                           <div className="flex items-center">
-                            <BuildingStorefrontIcon className="h-8 w-8 text-gray-400 mr-3" />
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
+                            <BuildingStorefrontIcon className="h-6 w-6 text-gray-400 mr-2 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-sm font-medium text-gray-900 truncate">
                                 {proveedor.nombre}
                               </div>
-                              <div className="text-sm text-gray-500">
+                              <div className="text-xs text-gray-500 truncate" title={proveedor.direccion}>
                                 {proveedor.direccion}
                               </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {proveedor.rif}
+                        <td className="px-4 py-4">
+                          <div className="text-sm text-gray-900 truncate">
+                            {proveedor.rif}
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                        <td className="px-4 py-4">
+                          <div className="text-sm text-gray-900 space-y-1">
                             {proveedor.contacto && (
-                              <div className="flex items-center">
-                                <UserIcon className="h-4 w-4 text-gray-400 mr-1" />
-                                {proveedor.contacto}
+                              <div className="flex items-center truncate">
+                                <UserIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
+                                <span className="truncate">{proveedor.contacto}</span>
                               </div>
                             )}
                             {proveedor.telefono && (
-                              <div className="flex items-center">
-                                <PhoneIcon className="h-4 w-4 text-gray-400 mr-1" />
-                                {proveedor.telefono}
+                              <div className="flex items-center truncate">
+                                <PhoneIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
+                                <span className="truncate">{proveedor.telefono}</span>
                               </div>
                             )}
                             {proveedor.email && (
-                              <div className="flex items-center">
-                                <EnvelopeIcon className="h-4 w-4 text-gray-400 mr-1" />
-                                {proveedor.email}
+                              <div className="flex items-center truncate">
+                                <EnvelopeIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
+                                <span className="truncate">{proveedor.email}</span>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                        <td className="px-4 py-4">
+                          <div className="text-sm text-gray-900 space-y-1">
                             {proveedor.bancos && (
-                              <div className="flex items-center">
-                                <BanknotesIcon className="h-4 w-4 text-gray-400 mr-1" />
-                                {proveedor.bancos.nombre}
+                              <div className="flex items-center truncate">
+                                <BanknotesIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
+                                <span className="truncate">{proveedor.bancos.nombre}</span>
                               </div>
                             )}
                             {proveedor.numero_cuenta && (
-                              <div className="flex items-center">
-                                <CreditCardIcon className="h-4 w-4 text-gray-400 mr-1" />
-                                {proveedor.numero_cuenta}
+                              <div className="flex items-center truncate">
+                                <CreditCardIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
+                                <span className="truncate">{proveedor.numero_cuenta}</span>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-4 text-center">
                           <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
                             {proveedor.porcentaje_retencion}%
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center space-x-2">
+                        <td className="px-4 py-4 text-center">
+                          <div className="flex items-center justify-center space-x-2">
                             <button
                               onClick={() => handleEditProveedor(proveedor)}
-                              className="text-indigo-600 hover:text-indigo-900"
+                              className="text-indigo-600 hover:text-indigo-900 p-1"
                               title="Editar proveedor"
                             >
                               <PencilIcon className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => setDeleteConfirm(proveedor.id)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-red-600 hover:text-red-900 p-1"
                               title="Eliminar proveedor"
                             >
                               <TrashIcon className="h-4 w-4" />

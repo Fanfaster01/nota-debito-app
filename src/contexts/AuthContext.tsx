@@ -30,14 +30,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Obtener sesión inicial
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      setAuthUser(session?.user ?? null)
-      
-      if (session?.user) {
-        await loadUserData(session.user.id)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+        
+        if (error) {
+          console.error('Session error:', error)
+          // Si hay error de token, limpiar la sesión
+          if (error.message?.includes('refresh_token_not_found') || error.message?.includes('Invalid Refresh Token')) {
+            await supabase.auth.signOut()
+            setAuthUser(null)
+            setUser(null)
+            setCompany(null)
+            setLoading(false)
+            return
+          }
+        }
+        
+        setAuthUser(session?.user ?? null)
+        
+        if (session?.user) {
+          await loadUserData(session.user.id)
+        }
+        
+        setLoading(false)
+      } catch (error) {
+        console.error('Error getting initial session:', error)
+        setLoading(false)
       }
-      
-      setLoading(false)
     }
 
     getInitialSession()
@@ -45,13 +64,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          setAuthUser(null)
+          setUser(null)
+          setCompany(null)
+          setLoading(false)
+          return
+        }
+        
         setAuthUser(session?.user ?? null)
         
         if (session?.user) {
           await loadUserData(session.user.id)
-        } else {
-          setUser(null)
-          setCompany(null)
         }
         
         setLoading(false)
@@ -60,6 +84,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const createUserProfile = async (userId: string) => {
+    try {
+      // Obtener información del usuario de auth
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      
+      if (!authUser) return
+
+      // Crear perfil en la tabla users
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          id: userId,
+          email: authUser.email!,
+          full_name: authUser.user_metadata?.full_name || null,
+          role: 'user', // rol por defecto
+          is_active: true
+        })
+        .select()
+        .single()
+
+      if (error) {
+        console.error('Error creating user profile:', error)
+        return
+      }
+
+      setUser(data)
+    } catch (error) {
+      console.error('Error in createUserProfile:', error)
+    }
+  }
 
   const loadUserData = async (userId: string) => {
     try {
@@ -71,6 +126,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (userError) {
+        // Si el usuario no existe en la tabla users, crearlo
+        if (userError.code === 'PGRST116') { // No rows returned
+          await createUserProfile(userId)
+          return
+        }
         console.error('Error loading user data:', userError)
         return
       }
@@ -84,6 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .eq('id', userData.company_id)
           .single()
+
 
         if (!companyError && companyData) {
           setCompany(companyData)

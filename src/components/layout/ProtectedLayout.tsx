@@ -61,45 +61,10 @@ export function ProtectedLayout({ children }: ProtectedLayoutProps) {
     )
   }
 
-  // Usuario autenticado y con acceso, mostrar header y contenido
+  // Usuario autenticado y con acceso, mostrar solo el contenido
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">
-                Generador de Notas de Débito
-              </h1>
-              {company && (
-                <span className="ml-4 text-sm text-gray-500">
-                  {company.name}
-                </span>
-              )}
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium">{user.full_name || user.email}</span>
-                <span className="ml-2 text-gray-400">({user.role})</span>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => signOut()}
-              >
-                Cerrar Sesión
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Contenido principal */}
-      <main>
-        {children}
-      </main>
-    </div>
+    <>
+      {children}
+    </>
   )
 }

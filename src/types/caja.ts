@@ -11,6 +11,7 @@ export interface CajaUI {
     montoAperturaUsd: number
     montoCierre?: number | null
     tasaDia: number // Nueva propiedad
+    tipoMoneda: 'USD' | 'EUR' // Tipo de moneda para la tasa
     totalPagosMovil: number
     cantidadPagosMovil: number
     totalZelleUsd: number // Nueva propiedad

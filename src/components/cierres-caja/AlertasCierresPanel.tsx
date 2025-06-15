@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cierresCajaService, CierreDetalladoUI } from '@/lib/services/cierresCajaService'
+import { alertasLeidasService } from '@/lib/services/alertasLeidasService'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { 
@@ -64,14 +65,88 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
 
   const isMaster = user?.role === 'master'
   const companyId = isMaster ? undefined : user?.company_id || undefined
+  
+  // Estado para almacenar las alertas leídas
+  const [alertasLeidas, setAlertasLeidas] = useState<Set<string>>(new Set())
+  const [alertasLeidasLoaded, setAlertasLeidasLoaded] = useState(false)
 
+  // Cargar alertas leídas desde la base de datos PRIMERO
   useEffect(() => {
-    loadAlertas()
-  }, [user])
+    if (user) {
+      loadAlertasLeidasFromDB()
+    }
+  }, [user, companyId])
+
+  // Luego cargar las alertas DESPUÉS de tener las alertas leídas
+  useEffect(() => {
+    if (user && alertasLeidasLoaded) {
+      loadAlertas()
+    }
+  }, [user, alertasLeidasLoaded])
 
   useEffect(() => {
     aplicarFiltros()
   }, [alertas, filtroSeveridad, filtroTipo, soloNoLeidas])
+
+  const loadAlertasLeidasFromDB = async () => {
+    if (!user) return
+    
+    try {
+      const { data: alertasLeidasArray, error } = await alertasLeidasService.getAlertasLeidas(
+        user.id, 
+        companyId
+      )
+      
+      if (error) {
+        console.error('Error loading read alerts from database:', error)
+        return
+      }
+      
+      if (alertasLeidasArray) {
+        setAlertasLeidas(new Set(alertasLeidasArray))
+      }
+      setAlertasLeidasLoaded(true)
+    } catch (error) {
+      console.error('Error loading read alerts from database:', error)
+      setAlertasLeidasLoaded(true) // Marcar como cargado incluso si hay error
+    }
+  }
+
+  const saveAlertaLeidaToDB = async (alertaId: string) => {
+    if (!user) return
+    
+    try {
+      const { error } = await alertasLeidasService.marcarAlertaLeida(
+        user.id,
+        alertaId,
+        companyId
+      )
+      
+      if (error) {
+        console.error('Error saving read alert to database:', error)
+      }
+    } catch (error) {
+      console.error('Error saving read alert to database:', error)
+    }
+  }
+
+  const saveMultiplesAlertasLeidasToDB = async (alertasIds: string[]) => {
+    if (!user) return
+    
+    try {
+      const { error } = await alertasLeidasService.marcarMultiplesAlertasLeidas(
+        user.id,
+        alertasIds,
+        companyId
+      )
+      
+      if (error) {
+        console.error('Error saving multiple read alerts to database:', error)
+      }
+    } catch (error) {
+      console.error('Error saving multiple read alerts to database:', error)
+    }
+  }
 
   const loadAlertas = async () => {
     setLoading(true)
@@ -84,16 +159,28 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
       )
 
       if (alertasBasicas) {
-        let todasLasAlertas: AlertaCierre[] = alertasBasicas.map((alerta, index) => ({
-          id: `${alerta.cierre.caja.id}-${alerta.tipoAlerta}`,
-          cierre: alerta.cierre,
-          tipoAlerta: alerta.tipoAlerta,
-          severidad: alerta.severidad,
-          mensaje: alerta.mensaje,
-          fechaCreacion: alerta.cierre.caja.horaCierre || alerta.cierre.caja.horaApertura,
-          leida: false,
-          acciones: generarAcciones(alerta.tipoAlerta, alerta.severidad)
-        }))
+        let todasLasAlertas: AlertaCierre[] = alertasBasicas
+          .filter(alerta => alerta.cierre.id) // Filtrar cierres sin ID
+          .map((alerta, index) => {
+            // Usar el ID del cierre para hacer la alerta única, con fallback
+            const cierreId = alerta.cierre.id || `temp-${index}`
+            const alertaId = `${cierreId}-${alerta.tipoAlerta}`
+            // Verificar si la alerta está marcada como leída
+            const isRead = alertasLeidas.has(alertaId)
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Alert ID generated:', alertaId, 'Is read:', isRead)
+            }
+            return {
+              id: alertaId,
+              cierre: alerta.cierre,
+              tipoAlerta: alerta.tipoAlerta,
+              severidad: alerta.severidad,
+              mensaje: alerta.mensaje,
+              fechaCreacion: alerta.cierre.caja.horaCierre || alerta.cierre.caja.horaApertura,
+              leida: isRead,
+              acciones: generarAcciones(alerta.tipoAlerta, alerta.severidad)
+            }
+          })
 
         // Agregar alertas de patrones si está habilitado
         if (configuracion.alertasPatrones) {
@@ -106,6 +193,12 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
           const alertasTendencias = await detectarTendenciasNegativas()
           todasLasAlertas = [...todasLasAlertas, ...alertasTendencias]
         }
+
+        // Actualizar estado de lectura basado en alertasLeidas actual
+        todasLasAlertas = todasLasAlertas.map(alerta => ({
+          ...alerta,
+          leida: alertasLeidas.has(alerta.id)
+        }))
 
         // Ordenar por severidad y fecha
         todasLasAlertas.sort((a, b) => {
@@ -154,16 +247,19 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
       const discrepanciasAltas = cierresCajero.filter(c => c.resumen.discrepanciaReporteZUsd > configuracion.umbraldiscrepanciaMedia)
       if (discrepanciasAltas.length / cierresCajero.length > 0.6) {
         const ultimoCierre = cierresCajero[cierresCajero.length - 1]
-        alertasPatrones.push({
-          id: `patron-discrepancias-${cajeroId}`,
-          cierre: ultimoCierre,
-          tipoAlerta: 'patron_sospechoso',
-          severidad: 'alta',
-          mensaje: `Patrón de discrepancias altas detectado: ${discrepanciasAltas.length} de ${cierresCajero.length} cierres`,
-          fechaCreacion: new Date(),
-          leida: false,
-          acciones: ['revisar_capacitacion', 'supervision_directa', 'auditoria_cierres']
-        })
+        if (ultimoCierre.id) { // Solo procesar si tiene ID
+          const alertaId = `${ultimoCierre.id}-patron-discrepancias`
+          alertasPatrones.push({
+            id: alertaId,
+            cierre: ultimoCierre,
+            tipoAlerta: 'patron_sospechoso',
+            severidad: 'alta',
+            mensaje: `Patrón de discrepancias altas detectado: ${discrepanciasAltas.length} de ${cierresCajero.length} cierres`,
+            fechaCreacion: new Date(),
+            leida: alertasLeidas.has(alertaId),
+            acciones: ['revisar_capacitacion', 'supervision_directa', 'auditoria_cierres']
+          })
+        }
       }
 
       // Patrón 2: Siempre faltante o sobrante (usar discrepancia reporte Z)
@@ -172,17 +268,20 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
       
       if (faltantes.length / cierresCajero.length > 0.8 || sobrantes.length / cierresCajero.length > 0.8) {
         const ultimoCierre = cierresCajero[cierresCajero.length - 1]
-        const tipo = faltantes.length > sobrantes.length ? 'faltantes' : 'sobrantes'
-        alertasPatrones.push({
-          id: `patron-${tipo}-${cajeroId}`,
-          cierre: ultimoCierre,
-          tipoAlerta: 'patron_sospechoso',
-          severidad: 'media',
-          mensaje: `Patrón de ${tipo} consistentes detectado en los últimos cierres`,
-          fechaCreacion: new Date(),
-          leida: false,
-          acciones: ['verificar_procedimientos', 'capacitacion_conteo']
-        })
+        if (ultimoCierre.id) { // Solo procesar si tiene ID
+          const tipo = faltantes.length > sobrantes.length ? 'faltantes' : 'sobrantes'
+          const alertaId = `${ultimoCierre.id}-patron-${tipo}`
+          alertasPatrones.push({
+            id: alertaId,
+            cierre: ultimoCierre,
+            tipoAlerta: 'patron_sospechoso',
+            severidad: 'media',
+            mensaje: `Patrón de ${tipo} consistentes detectado en los últimos cierres`,
+            fechaCreacion: new Date(),
+            leida: alertasLeidas.has(alertaId),
+            acciones: ['verificar_procedimientos', 'capacitacion_conteo']
+          })
+        }
       }
 
       // Patrón 3: Incremento progresivo de discrepancias
@@ -199,16 +298,19 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
 
         if (tendenciaAscendente) {
           const ultimoCierre = ultimos5[ultimos5.length - 1]
-          alertasPatrones.push({
-            id: `tendencia-ascendente-${cajeroId}`,
-            cierre: ultimoCierre,
-            tipoAlerta: 'tendencia_negativa',
-            severidad: 'alta',
-            mensaje: 'Tendencia ascendente en discrepancias detectada en los últimos 5 cierres',
-            fechaCreacion: new Date(),
-            leida: false,
-            acciones: ['intervencion_inmediata', 'revision_procedimientos']
-          })
+          if (ultimoCierre.id) { // Solo procesar si tiene ID
+            const alertaId = `${ultimoCierre.id}-tendencia-ascendente`
+            alertasPatrones.push({
+              id: alertaId,
+              cierre: ultimoCierre,
+              tipoAlerta: 'tendencia_negativa',
+              severidad: 'alta',
+              mensaje: 'Tendencia ascendente en discrepancias detectada en los últimos 5 cierres',
+              fechaCreacion: new Date(),
+              leida: alertasLeidas.has(alertaId),
+              acciones: ['intervencion_inmediata', 'revision_procedimientos']
+            })
+          }
         }
       }
     })
@@ -260,16 +362,19 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
 
       if (tendenciaAscendente && ultimos3[ultimos3.length - 1].promedio > configuracion.umbraldiscrepanciaLeve) {
         const ultimoCierre = cierres[cierres.length - 1]
-        alertasTendencias.push({
-          id: 'tendencia-general-negativa',
-          cierre: ultimoCierre,
-          tipoAlerta: 'tendencia_negativa',
-          severidad: 'alta',
-          mensaje: 'Tendencia general negativa detectada: incremento progresivo de discrepancias',
-          fechaCreacion: new Date(),
-          leida: false,
-          acciones: ['revision_procesos', 'capacitacion_general', 'auditoria_sistemas']
-        })
+        if (ultimoCierre.id) { // Solo procesar si tiene ID
+          const alertaId = `${ultimoCierre.id}-tendencia-general-negativa`
+          alertasTendencias.push({
+            id: alertaId,
+            cierre: ultimoCierre,
+            tipoAlerta: 'tendencia_negativa',
+            severidad: 'alta',
+            mensaje: 'Tendencia general negativa detectada: incremento progresivo de discrepancias',
+            fechaCreacion: new Date(),
+            leida: alertasLeidas.has(alertaId),
+            acciones: ['revision_procesos', 'capacitacion_general', 'auditoria_sistemas']
+          })
+        }
       }
     }
 
@@ -321,13 +426,27 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
     setAlertasFiltradas(filtradas)
   }
 
-  const marcarComoLeida = (alertaId: string) => {
+  const marcarComoLeida = async (alertaId: string) => {
+    const nuevasAlertasLeidas = new Set(alertasLeidas)
+    nuevasAlertasLeidas.add(alertaId)
+    setAlertasLeidas(nuevasAlertasLeidas)
+    
+    // Guardar en base de datos
+    await saveAlertaLeidaToDB(alertaId)
+    
     setAlertas(prev => prev.map(alerta => 
       alerta.id === alertaId ? { ...alerta, leida: true } : alerta
     ))
   }
 
-  const marcarTodasComoLeidas = () => {
+  const marcarTodasComoLeidas = async () => {
+    const todasLasAlertasIds = alertas.map(alerta => alerta.id)
+    const nuevasAlertasLeidas = new Set([...alertasLeidas, ...todasLasAlertasIds])
+    setAlertasLeidas(nuevasAlertasLeidas)
+    
+    // Guardar en base de datos
+    await saveMultiplesAlertasLeidasToDB(todasLasAlertasIds)
+    
     setAlertas(prev => prev.map(alerta => ({ ...alerta, leida: true })))
   }
 
@@ -424,7 +543,11 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
           </Button>
           <Button
             size="sm"
-            onClick={loadAlertas}
+            onClick={async () => {
+              setAlertasLeidasLoaded(false)
+              await loadAlertasLeidasFromDB()
+              // loadAlertas se ejecutará automáticamente cuando alertasLeidasLoaded sea true
+            }}
           >
             <ArrowPathIcon className="h-4 w-4 mr-2" />
             Actualizar
