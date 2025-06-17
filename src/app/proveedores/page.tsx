@@ -8,8 +8,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Pagination } from '@/components/ui/Pagination'
-import { ProveedorModal } from '@/components/forms/ProveedorModal'
-import { proveedorService, ProveedorWithBanco } from '@/lib/services/proveedorService'
+import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
+import { proveedorService, ProveedorWithBanco, ProveedorFormData } from '@/lib/services/proveedorService'
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -91,7 +91,7 @@ export default function ProveedoresPage() {
     setShowModal(true)
   }
 
-  const handleSaveProveedor = async (data: any) => {
+  const handleSaveProveedor = async (data: ProveedorFormData) => {
     setError(null)
     
     try {
@@ -105,7 +105,7 @@ export default function ProveedoresPage() {
           }
         }
 
-        const { error: updateError } = await proveedorService.updateProveedor(
+        const { error: updateError } = await proveedorService.updateProveedorWithCuentas(
           editingProveedor.id,
           data
         )
@@ -124,7 +124,7 @@ export default function ProveedoresPage() {
           return
         }
 
-        const { error: createError } = await proveedorService.createProveedor(data)
+        const { error: createError } = await proveedorService.createProveedorWithCuentas(data)
 
         if (createError) {
           setError('Error al crear proveedor: ' + createError.message)
@@ -415,7 +415,7 @@ export default function ProveedoresPage() {
         )}
 
         {/* Proveedor Modal */}
-        <ProveedorModal
+        <ProveedorModalNew
           isOpen={showModal}
           onClose={() => {
             setShowModal(false)

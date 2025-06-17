@@ -43,6 +43,7 @@ export interface Factura {
   }
   
   export interface NotaDebito {
+    id?: string;                       // ID de la base de datos (opcional para nuevas notas)
     numero: string;
     fecha: Date;
     factura: Factura;
@@ -55,4 +56,40 @@ export interface Factura {
     ivaDiferencial: number;             // IVA extraído del diferencial
     retencionIVADiferencial: number;    // Retención de IVA sobre el diferencial
     montoNetoPagarNotaDebito: number;   // Monto neto a pagar después de retención
+    diferencial?: number;              // Campo para compatibilidad con QuickSummary
+  }
+
+  // Tipo para tipos de cambio
+  export type TipoCambio = 'USD' | 'EUR' | 'PAR';
+
+  // Interfaz para cuenta bancaria de proveedor (para pagos de facturas)
+  export interface ProveedorCuentaBancaria {
+    id?: string;
+    proveedor_id: string;
+    banco_nombre: string;
+    numero_cuenta: string;
+    titular_cuenta?: string;
+    es_favorita: boolean;
+    activo: boolean;
+    created_at?: string;
+    updated_at?: string;
+  }
+
+  // Interfaz extendida para Proveedor
+  export interface Proveedor {
+    id: string;
+    nombre: string;
+    rif: string;
+    direccion: string;
+    telefono?: string;
+    email?: string;
+    contacto?: string;
+    porcentaje_retencion: number;
+    tipo_cambio: TipoCambio;
+    company_id: string;
+    created_by?: string;
+    created_at: string;
+    updated_at: string;
+    is_active: boolean;
+    cuentas_bancarias?: ProveedorCuentaBancaria[];
   }

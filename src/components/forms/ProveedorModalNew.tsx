@@ -1,4 +1,4 @@
-// src/components/forms/ProveedorModal.tsx
+// src/components/forms/ProveedorModalNew.tsx
 import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -6,13 +6,10 @@ import { z } from 'zod'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
-import { bancoService } from '@/lib/services/bancoService'
-import { Banco } from '@/types/database'
-import { TipoCambio, CuentaBancariaProveedor } from '@/types/index'
+import { TipoCambio, ProveedorCuentaBancaria } from '@/types/index'
 
 const cuentaBancariaSchema = z.object({
   banco_nombre: z.string().min(1, 'El nombre del banco es requerido'),
-  tipo_cuenta: z.enum(['corriente', 'ahorro'], { required_error: 'Seleccione el tipo de cuenta' }),
   numero_cuenta: z.string().min(1, 'El número de cuenta es requerido'),
   titular_cuenta: z.string().optional(),
   es_favorita: z.boolean().default(false)
@@ -26,7 +23,7 @@ const proveedorSchema = z.object({
   email: z.string().email('Email inválido').optional().or(z.literal('')),
   contacto: z.string().optional(),
   porcentaje_retencion: z.number().min(0).max(100, 'El porcentaje debe estar entre 0 y 100'),
-  tipo_cambio: z.enum(['VES', 'USD', 'EUR'], { required_error: 'Seleccione el tipo de cambio' }),
+  tipo_cambio: z.enum(['USD', 'EUR', 'PAR'], { required_error: 'Seleccione el tipo de cambio' }),
   cuentas_bancarias: z.array(cuentaBancariaSchema).min(0, 'Debe agregar al menos una cuenta bancaria')
 })
 
@@ -40,20 +37,14 @@ interface ProveedorModalProps {
   editingProveedor?: any
 }
 
-export const ProveedorModal: React.FC<ProveedorModalProps> = ({
+export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
   isOpen,
   onClose,
   onSave,
   initialRif,
   editingProveedor
 }) => {
-  const [bancos, setBancos] = useState<Banco[]>([])
-  const [loadingBancos, setLoadingBancos] = useState(false)
-  const [showBancoForm, setShowBancoForm] = useState(false)
-  const [newBancoNombre, setNewBancoNombre] = useState('')
-  const [newBancoCodigo, setNewBancoCodigo] = useState('')
-  const [bancoError, setBancoError] = useState('')
-  const [cuentasBancarias, setCuentasBancarias] = useState<CuentaBancariaProveedor[]>(
+  const [cuentasBancarias, setCuentasBancarias] = useState<ProveedorCuentaBancaria[]>(
     editingProveedor?.cuentas_bancarias || []
   )
 
@@ -74,27 +65,22 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
       email: editingProveedor?.email || '',
       contacto: editingProveedor?.contacto || '',
       porcentaje_retencion: editingProveedor?.porcentaje_retencion || 75,
-      tipo_cambio: editingProveedor?.tipo_cambio || 'VES',
+      tipo_cambio: editingProveedor?.tipo_cambio || 'PAR',
       cuentas_bancarias: editingProveedor?.cuentas_bancarias || []
     }
   })
 
   const tiposCambio: { value: TipoCambio; label: string }[] = [
-    { value: 'VES', label: 'Bolívares (VES)' },
     { value: 'USD', label: 'Dólares (USD)' },
-    { value: 'EUR', label: 'Euros (EUR)' }
+    { value: 'EUR', label: 'Euros (EUR)' },
+    { value: 'PAR', label: 'Paralelo (PAR)' }
   ]
 
-  const tiposCuenta = [
-    { value: 'corriente', label: 'Corriente' },
-    { value: 'ahorro', label: 'Ahorro' }
-  ]
 
   const agregarCuentaBancaria = () => {
-    const nuevaCuenta: CuentaBancariaProveedor = {
+    const nuevaCuenta: ProveedorCuentaBancaria = {
       proveedor_id: editingProveedor?.id || '',
       banco_nombre: '',
-      tipo_cuenta: 'corriente',
       numero_cuenta: '',
       titular_cuenta: '',
       es_favorita: cuentasBancarias.length === 0,
@@ -108,7 +94,7 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
     setCuentasBancarias(nuevasCuentas)
   }
 
-  const actualizarCuentaBancaria = (index: number, campo: keyof CuentaBancariaProveedor, valor: any) => {
+  const actualizarCuentaBancaria = (index: number, campo: keyof ProveedorCuentaBancaria, valor: any) => {
     const nuevasCuentas = [...cuentasBancarias]
     ;(nuevasCuentas[index] as any)[campo] = valor
     setCuentasBancarias(nuevasCuentas)
@@ -122,74 +108,8 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
     setCuentasBancarias(nuevasCuentas)
   }
 
-  useEffect(() => {
-    if (isOpen) {
-      loadBancos()
-    }
-  }, [isOpen])
-
-  const loadBancos = async () => {
-    setLoadingBancos(true)
-    try {
-      const { data, error } = await bancoService.getAllBancos()
-      if (!error && data) {
-        setBancos(data)
-      }
-    } catch (error) {
-      console.error('Error cargando bancos:', error)
-    } finally {
-      setLoadingBancos(false)
-    }
-  }
-
-  const handleCreateBanco = async () => {
-    setBancoError('')
-    
-    if (!newBancoNombre.trim()) {
-      setBancoError('El nombre del banco es requerido')
-      return
-    }
-    
-    if (!newBancoCodigo.match(/^\d{4}$/)) {
-      setBancoError('El código debe tener exactamente 4 dígitos')
-      return
-    }
-
-    try {
-      const exists = await bancoService.checkCodigoExists(newBancoCodigo)
-      if (exists) {
-        setBancoError('Ya existe un banco con ese código')
-        return
-      }
-
-      const { data, error } = await bancoService.createBanco({
-        nombre: newBancoNombre.trim(),
-        codigo: newBancoCodigo
-      })
-
-      if (error) {
-        setBancoError('Error al crear el banco')
-        return
-      }
-
-      if (data) {
-        await loadBancos()
-        setValue('banco_id', data.id)
-        setNewBancoNombre('')
-        setNewBancoCodigo('')
-        setShowBancoForm(false)
-      }
-    } catch (error) {
-      setBancoError('Error al crear el banco')
-    }
-  }
-
   const handleClose = () => {
     reset()
-    setShowBancoForm(false)
-    setNewBancoNombre('')
-    setNewBancoCodigo('')
-    setBancoError('')
     setCuentasBancarias([])
     onClose()
   }
@@ -207,7 +127,7 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
-      <div className="bg-white p-6 rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white p-6 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-medium text-gray-900">
             {editingProveedor ? 'Editar Proveedor' : 'Agregar Nuevo Proveedor'}
@@ -220,7 +140,8 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Información básica */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
               label="Nombre del Proveedor"
@@ -260,7 +181,7 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
               label="Persona de Contacto"
               {...register('contacto')}
@@ -275,55 +196,108 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
               error={errors.porcentaje_retencion?.message}
               placeholder="75"
             />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de Cambio
+              </label>
+              <select
+                {...register('tipo_cambio')}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              >
+                {tiposCambio.map((tipo) => (
+                  <option key={tipo.value} value={tipo.value}>
+                    {tipo.label}
+                  </option>
+                ))}
+              </select>
+              {errors.tipo_cambio && (
+                <p className="mt-1 text-sm text-red-600">{errors.tipo_cambio.message}</p>
+              )}
+            </div>
           </div>
 
-          <div className="border-t pt-4">
-            <h4 className="font-medium mb-3">Información Bancaria</h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Número de Cuenta"
-                {...register('numero_cuenta')}
-                error={errors.numero_cuenta?.message}
-                placeholder="01340123456789012345"
-              />
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Banco
-                </label>
-                {loadingBancos ? (
-                  <div className="text-sm text-gray-500">Cargando bancos...</div>
-                ) : (
-                  <>
-                    <select
-                      {...register('banco_id')}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                      disabled={showBancoForm}
-                    >
-                      <option value="">Seleccione un banco</option>
-                      {bancos.map((banco) => (
-                        <option key={banco.id} value={banco.id}>
-                          {banco.codigo} - {banco.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    
-                    {!showBancoForm && (
-                      <button
-                        type="button"
-                        onClick={() => setShowBancoForm(true)}
-                        className="mt-2 text-sm text-blue-600 hover:text-blue-800 flex items-center"
-                      >
-                        <PlusIcon className="h-4 w-4 mr-1" />
-                        Agregar nuevo banco
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
+          {/* Cuentas bancarias */}
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-medium text-lg">Cuentas Bancarias</h4>
+              <Button
+                type="button"
+                size="sm"
+                onClick={agregarCuentaBancaria}
+                className="flex items-center"
+              >
+                <PlusIcon className="h-4 w-4 mr-1" />
+                Agregar Cuenta
+              </Button>
             </div>
-
+            
+            {cuentasBancarias.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
+                <p className="text-lg mb-2">No hay cuentas bancarias agregadas</p>
+                <p className="text-sm">Haz clic en "Agregar Cuenta" para añadir una cuenta bancaria</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {cuentasBancarias.map((cuenta, index) => (
+                  <div key={index} className="border rounded-lg p-4 bg-gray-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h5 className="font-medium text-sm">
+                        Cuenta {index + 1}
+                        {cuenta.es_favorita && (
+                          <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                            Favorita
+                          </span>
+                        )}
+                      </h5>
+                      <div className="flex items-center space-x-2">
+                        {!cuenta.es_favorita && (
+                          <button
+                            type="button"
+                            onClick={() => marcarComoFavorita(index)}
+                            className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 border border-blue-200 rounded"
+                          >
+                            Marcar como favorita
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => eliminarCuentaBancaria(index)}
+                          className="text-red-600 hover:text-red-800 p-1"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <Input
+                        label="Nombre del Banco"
+                        value={cuenta.banco_nombre}
+                        onChange={(e) => actualizarCuentaBancaria(index, 'banco_nombre', e.target.value)}
+                        placeholder="Banco de Venezuela"
+                        required
+                      />
+                      
+                      <Input
+                        label="Número de Cuenta"
+                        value={cuenta.numero_cuenta}
+                        onChange={(e) => actualizarCuentaBancaria(index, 'numero_cuenta', e.target.value)}
+                        placeholder="01340123456789012345"
+                        required
+                      />
+                      
+                      <Input
+                        label="Titular de la Cuenta (Opcional)"
+                        value={cuenta.titular_cuenta || ''}
+                        onChange={(e) => actualizarCuentaBancaria(index, 'titular_cuenta', e.target.value)}
+                        placeholder="Nombre del titular"
+                        className="md:col-span-2"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             
             {cuentasBancarias.length > 0 && (
               <div className="mt-4 p-3 bg-blue-50 rounded-md">
@@ -334,7 +308,7 @@ export const ProveedorModal: React.FC<ProveedorModalProps> = ({
             )}
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="flex justify-end space-x-3 pt-6 border-t">
             <Button
               type="button"
               variant="outline"

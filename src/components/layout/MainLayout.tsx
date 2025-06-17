@@ -18,7 +18,8 @@ import {
   BanknotesIcon,
   CreditCardIcon,
   DocumentChartBarIcon,
-  BuildingLibraryIcon
+  BuildingLibraryIcon,
+  ReceiptPercentIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -35,16 +36,16 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
+  { name: 'Cuentas por Pagar', href: '/cuentas-por-pagar', icon: ReceiptPercentIcon },
   { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
-  { name: 'Estado de Cuenta', href: '/ventas-credito/estado-cuenta', icon: UsersIcon },
   { name: 'Depósitos Bancarios', href: '/depositos-bancarios', icon: BuildingLibraryIcon },
   { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },
 ]
 
 const masterNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
+  { name: 'Cuentas por Pagar', href: '/cuentas-por-pagar', icon: ReceiptPercentIcon },
   { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
-  { name: 'Estado de Cuenta', href: '/ventas-credito/estado-cuenta', icon: UsersIcon },
   { name: 'Depósitos Bancarios', href: '/depositos-bancarios', icon: BuildingLibraryIcon },
   { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },
   { name: 'Compañías', href: '/admin/companies', icon: BuildingOfficeIcon },

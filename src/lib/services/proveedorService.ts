@@ -1,6 +1,8 @@
 // src/lib/services/proveedorService.ts
 import { createClient } from '@/utils/supabase/client'
 import { Proveedor, TablesInsert } from '@/types/database'
+import { ProveedorCuentaBancaria, TipoCambio } from '@/types/index'
+import { proveedorCuentasBancariasService } from './proveedorCuentasBancariasService'
 
 export interface ProveedorWithBanco extends Proveedor {
   bancos?: {
@@ -8,6 +10,22 @@ export interface ProveedorWithBanco extends Proveedor {
     nombre: string
     codigo: string
   } | null
+}
+
+export interface ProveedorWithCuentas extends Proveedor {
+  cuentas_bancarias?: ProveedorCuentaBancaria[]
+}
+
+export interface ProveedorFormData {
+  nombre: string
+  rif: string
+  direccion: string
+  telefono?: string
+  email?: string
+  contacto?: string
+  porcentaje_retencion: number
+  tipo_cambio: TipoCambio
+  cuentas_bancarias: ProveedorCuentaBancaria[]
 }
 
 export class ProveedorService {
@@ -57,6 +75,34 @@ export class ProveedorService {
       return { data, error }
     } catch (error) {
       return { data: null, error }
+    }
+  }
+
+  // Buscar proveedores específicamente por RIF para autocompletar
+  async searchProveedoresByRif(rif: string): Promise<{ success: boolean, data?: ProveedorWithBanco[], error?: string }> {
+    try {
+      const { data, error } = await this.supabase
+        .from('proveedores')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `)
+        .eq('is_active', true)
+        .ilike('rif', `%${rif}%`)
+        .limit(5)
+        .order('nombre')
+
+      if (error) {
+        return { success: false, error: error.message }
+      }
+
+      return { success: true, data: data || [] }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
     }
   }
 
@@ -206,6 +252,188 @@ export class ProveedorService {
       return !error && !!data
     } catch (error) {
       return false
+    }
+  }
+
+  // Crear proveedor con cuentas bancarias
+  async createProveedorWithCuentas(formData: ProveedorFormData): Promise<{ data: ProveedorWithCuentas | null, error: any }> {
+    try {
+      // Obtener el usuario actual
+      const { data: { user } } = await this.supabase.auth.getUser()
+      
+      if (!user) {
+        return { data: null, error: new Error('Usuario no autenticado') }
+      }
+
+      // Obtener company_id del usuario
+      const { data: profile } = await this.supabase
+        .from('user_profiles')
+        .select('company_id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!profile?.company_id) {
+        return { data: null, error: new Error('Usuario sin compañía asignada') }
+      }
+
+      // Crear proveedor
+      const proveedorData = {
+        nombre: formData.nombre,
+        rif: formData.rif.toUpperCase(),
+        direccion: formData.direccion,
+        telefono: formData.telefono,
+        email: formData.email,
+        contacto: formData.contacto,
+        porcentaje_retencion: formData.porcentaje_retencion || 75,
+        tipo_cambio: formData.tipo_cambio,
+        company_id: profile.company_id,
+        created_by: user.id
+      }
+
+      const { data: proveedor, error: proveedorError } = await this.supabase
+        .from('proveedores')
+        .insert(proveedorData)
+        .select()
+        .single()
+
+      if (proveedorError || !proveedor) {
+        return { data: null, error: proveedorError }
+      }
+
+      // Crear cuentas bancarias si las hay
+      if (formData.cuentas_bancarias && formData.cuentas_bancarias.length > 0) {
+        const cuentasData = formData.cuentas_bancarias.map(cuenta => ({
+          proveedor_id: proveedor.id,
+          banco_nombre: cuenta.banco_nombre,
+          numero_cuenta: cuenta.numero_cuenta,
+          titular_cuenta: cuenta.titular_cuenta,
+          es_favorita: cuenta.es_favorita,
+          activo: true
+        }))
+
+        const { data: cuentas, error: cuentasError } = await proveedorCuentasBancariasService.createMultipleCuentas(cuentasData)
+
+        if (cuentasError) {
+          console.error('Error creando cuentas bancarias:', cuentasError)
+        }
+
+        return { 
+          data: { 
+            ...proveedor, 
+            cuentas_bancarias: cuentas || [] 
+          } as ProveedorWithCuentas, 
+          error: null 
+        }
+      }
+
+      return { 
+        data: { 
+          ...proveedor, 
+          cuentas_bancarias: [] 
+        } as ProveedorWithCuentas, 
+        error: null 
+      }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Actualizar proveedor con cuentas bancarias
+  async updateProveedorWithCuentas(id: string, formData: ProveedorFormData): Promise<{ data: ProveedorWithCuentas | null, error: any }> {
+    try {
+      // Actualizar datos del proveedor
+      const proveedorUpdates = {
+        nombre: formData.nombre,
+        rif: formData.rif.toUpperCase(),
+        direccion: formData.direccion,
+        telefono: formData.telefono,
+        email: formData.email,
+        contacto: formData.contacto,
+        porcentaje_retencion: formData.porcentaje_retencion,
+        tipo_cambio: formData.tipo_cambio,
+        updated_at: new Date().toISOString()
+      }
+
+      const { data: proveedor, error: proveedorError } = await this.supabase
+        .from('proveedores')
+        .update(proveedorUpdates)
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (proveedorError || !proveedor) {
+        return { data: null, error: proveedorError }
+      }
+
+      // Desactivar todas las cuentas bancarias existentes
+      await this.supabase
+        .from('proveedores_cuentas_bancarias')
+        .update({ activo: false })
+        .eq('proveedor_id', id)
+
+      // Crear nuevas cuentas bancarias
+      if (formData.cuentas_bancarias && formData.cuentas_bancarias.length > 0) {
+        const cuentasData = formData.cuentas_bancarias.map(cuenta => ({
+          proveedor_id: id,
+          banco_nombre: cuenta.banco_nombre,
+          numero_cuenta: cuenta.numero_cuenta,
+          titular_cuenta: cuenta.titular_cuenta,
+          es_favorita: cuenta.es_favorita,
+          activo: true
+        }))
+
+        const { data: cuentas, error: cuentasError } = await proveedorCuentasBancariasService.createMultipleCuentas(cuentasData)
+
+        if (cuentasError) {
+          console.error('Error actualizando cuentas bancarias:', cuentasError)
+        }
+
+        return { 
+          data: { 
+            ...proveedor, 
+            cuentas_bancarias: cuentas || [] 
+          } as ProveedorWithCuentas, 
+          error: null 
+        }
+      }
+
+      return { 
+        data: { 
+          ...proveedor, 
+          cuentas_bancarias: [] 
+        } as ProveedorWithCuentas, 
+        error: null 
+      }
+    } catch (error) {
+      return { data: null, error }
+    }
+  }
+
+  // Obtener proveedor con sus cuentas bancarias
+  async getProveedorWithCuentas(id: string): Promise<{ data: ProveedorWithCuentas | null, error: any }> {
+    try {
+      const { data: proveedor, error: proveedorError } = await this.supabase
+        .from('proveedores')
+        .select('*')
+        .eq('id', id)
+        .eq('is_active', true)
+        .single()
+
+      if (proveedorError || !proveedor) {
+        return { data: null, error: proveedorError }
+      }
+
+      const { data: cuentas, error: cuentasError } = await proveedorCuentasBancariasService.getCuentasByProveedorId(id)
+
+      return { 
+        data: { 
+          ...proveedor, 
+          cuentas_bancarias: cuentas || [] 
+        } as ProveedorWithCuentas, 
+        error: null 
+      }
+    } catch (error) {
+      return { data: null, error }
     }
   }
 }

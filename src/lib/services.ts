@@ -576,6 +576,135 @@ export class NotaDebitoService {
       return { data: null, error };
     }
   }
+
+  // Método específico para el componente NotasDebitoContent
+  async searchNotasDebitoForComponent(
+    companyId: string,
+    filters: {
+      fechaDesde?: string;
+      fechaHasta?: string;
+      proveedor?: string;
+      numeroNota?: string;
+      numeroFactura?: string;
+    },
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{ 
+    success: boolean;
+    data?: {
+      notasDebito: NotaDebito[];
+      total: number;
+    };
+    error?: string;
+  }> {
+    try {
+      // Convertir filtros de string a Date si es necesario
+      const searchFilters: {
+        fechaDesde?: Date;
+        fechaHasta?: Date;
+        proveedorId?: string;
+        numeroNota?: string;
+        numeroFactura?: string;
+      } = {};
+
+      if (filters.fechaDesde) {
+        searchFilters.fechaDesde = new Date(filters.fechaDesde);
+      }
+      if (filters.fechaHasta) {
+        searchFilters.fechaHasta = new Date(filters.fechaHasta);
+      }
+      if (filters.proveedor) {
+        searchFilters.proveedorId = filters.proveedor;
+      }
+      if (filters.numeroNota) {
+        searchFilters.numeroNota = filters.numeroNota;
+      }
+      if (filters.numeroFactura) {
+        searchFilters.numeroFactura = filters.numeroFactura;
+      }
+
+      // Buscar notas de débito
+      const { data: notasDebito, error } = await this.searchNotasDebito(companyId, searchFilters);
+      
+      if (error) {
+        return { success: false, error: error.message || 'Error al buscar notas de débito' };
+      }
+
+      if (!notasDebito) {
+        return { success: true, data: { notasDebito: [], total: 0 } };
+      }
+
+      // Mapear los datos para incluir el campo 'diferencial' para compatibilidad
+      const notasDebitoMapped = notasDebito.map(nota => ({
+        ...nota,
+        diferencial: nota.diferencialCambiarioConIVA
+      }));
+
+      // Aplicar paginación
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedNotas = notasDebitoMapped.slice(startIndex, endIndex);
+
+      return {
+        success: true,
+        data: {
+          notasDebito: paginatedNotas,
+          total: notasDebitoMapped.length
+        }
+      };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      };
+    }
+  }
+
+  // Método para actualizar nota de débito con formato esperado por el componente
+  async updateNotaDebitoForComponent(
+    id: string,
+    notaDebito: NotaDebito,
+    companyId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data, error } = await this.updateNotaDebito(id, {
+        fecha: notaDebito.fecha,
+        tasaCambioPago: notaDebito.tasaCambioPago
+      });
+
+      if (error) {
+        return { success: false, error: error.message || 'Error al actualizar nota de débito' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      };
+    }
+  }
+
+  // Método para eliminar nota de débito con formato esperado por el componente
+  async deleteNotaDebitoForComponent(
+    id: string,
+    companyId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { error } = await this.deleteNotaDebito(id);
+
+      if (error) {
+        return { success: false, error: error.message || 'Error al eliminar nota de débito' };
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Error desconocido'
+      };
+    }
+  }
 }
 
 // Servicio para gestionar usuarios y compañías
