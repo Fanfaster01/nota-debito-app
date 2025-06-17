@@ -233,7 +233,7 @@ class FormatosTxtService {
             valor = proveedor.bancoFavorito?.banco?.codigo || ''
             break
           case 'banco_nombre':
-            valor = proveedor.bancoFavorito?.banco?.nombre || ''
+            valor = proveedor.bancoFavorito?.bancoNombre || proveedor.bancoFavorito?.banco?.nombre || ''
             break
           case 'fecha':
             valor = new Date().toISOString().split('T')[0].replace(/-/g, '')

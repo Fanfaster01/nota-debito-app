@@ -56,6 +56,7 @@ export function ModalGenerarRecibo({
   // Datos adicionales
   const [formatosTxt, setFormatosTxt] = useState<FormatoTxtBancario[]>([])
   const [proveedoresConTipoPAR, setProveedoresConTipoPAR] = useState<string[]>([])
+  const [proveedoresSinCuenta, setProveedoresSinCuenta] = useState<{ rif: string; nombre: string }[]>([])
   const [reciboGenerado, setReciboGenerado] = useState<GenerarReciboResponse | null>(null)
   const [generandoPDF, setGenerandoPDF] = useState(false)
 
@@ -73,25 +74,33 @@ export function ModalGenerarRecibo({
     setError(null)
 
     try {
+      // Validar facturas para pago
       const result = await cuentasPorPagarService.validarFacturasParaPago(facturasIds)
       if (result.error) {
         setError(result.error)
       } else if (result.data) {
-        setValidacion(result.data)
-        
-        // Verificar si hay proveedores con tipo PAR
-        const proveedoresPAR = result.data.validas
-          .filter(f => f.proveedorRif) // Aquí necesitaríamos el tipo de cambio del proveedor
-          .map(f => f.proveedorRif)
-        setProveedoresConTipoPAR(proveedoresPAR)
-        
-        // Si hay errores críticos, mostrarlos
-        if (result.data.invalidas.length > 0) {
-          setError(`Facturas inválidas: ${result.data.invalidas.map(i => i.motivo).join(', ')}`)
-        } else if (result.data.tiposPagoMezclados) {
-          setError('No se pueden mezclar facturas con diferentes tipos de pago')
+        // Validar cuentas bancarias
+        const cuentasResult = await cuentasPorPagarService.validarCuentasBancarias(facturasIds)
+        if (cuentasResult.error) {
+          setError(cuentasResult.error)
         } else {
-          setStep('configuracion')
+          setProveedoresSinCuenta(cuentasResult.proveedoresSinCuenta)
+          setValidacion(result.data)
+          
+          // Verificar si hay proveedores con tipo PAR
+          const proveedoresPAR = result.data.validas
+            .filter(f => f.proveedorRif) // Aquí necesitaríamos el tipo de cambio del proveedor
+            .map(f => f.proveedorRif)
+          setProveedoresConTipoPAR(proveedoresPAR)
+          
+          // Si hay errores críticos, mostrarlos
+          if (result.data.invalidas.length > 0) {
+            setError(`Facturas inválidas: ${result.data.invalidas.map(i => i.motivo).join(', ')}`)
+          } else if (result.data.tiposPagoMezclados) {
+            setError('No se pueden mezclar facturas con diferentes tipos de pago')
+          } else {
+            setStep('configuracion')
+          }
         }
       }
     } catch (err) {
@@ -520,6 +529,35 @@ export function ModalGenerarRecibo({
             </div>
           )}
 
+          {/* Validación de cuentas bancarias */}
+          {proveedoresSinCuenta.length > 0 && (
+            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+              <div className="flex">
+                <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400 mr-3 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-medium text-yellow-800">
+                    Proveedores sin cuenta bancaria favorita
+                  </h4>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    Los siguientes proveedores no tienen una cuenta bancaria favorita configurada. 
+                    No se podrán generar archivos TXT para estos proveedores:
+                  </p>
+                  <ul className="mt-2 text-sm text-yellow-700 list-disc list-inside">
+                    {proveedoresSinCuenta.map((proveedor, index) => (
+                      <li key={index}>
+                        {proveedor.nombre} ({proveedor.rif})
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="text-sm text-yellow-700 mt-2">
+                    <strong>Solución:</strong> Ve a la sección de Proveedores y configura las cuentas bancarias 
+                    para estos proveedores antes de generar el archivo TXT.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Botones */}
           <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
             <Button variant="outline" onClick={onClose}>
@@ -618,13 +656,28 @@ export function ModalGenerarRecibo({
             )}
             
             {/* Archivo TXT */}
-            {tipoPago === 'deposito' && reciboGenerado?.archivoTxt && (
-              <div className="bg-green-50 p-4 rounded-lg">
+            {tipoPago === 'deposito' && (
+              <div className={`p-4 rounded-lg ${
+                reciboGenerado?.archivoTxt ? 'bg-green-50' : 'bg-gray-50'
+              }`}>
                 <h4 className="font-medium text-gray-900 mb-3">🏦 Archivo Bancario</h4>
-                <Button variant="outline" onClick={handleDescargarArchivoTXT} className="w-full">
-                  <BanknotesIcon className="h-4 w-4 mr-2" />
-                  Descargar TXT
-                </Button>
+                {reciboGenerado?.archivoTxt ? (
+                  <Button variant="outline" onClick={handleDescargarArchivoTXT} className="w-full">
+                    <BanknotesIcon className="h-4 w-4 mr-2" />
+                    Descargar TXT
+                  </Button>
+                ) : (
+                  <div className="text-center py-2">
+                    <p className="text-sm text-gray-600 mb-2">
+                      No se pudo generar el archivo TXT
+                    </p>
+                    {proveedoresSinCuenta.length > 0 && (
+                      <p className="text-xs text-yellow-700">
+                        Algunos proveedores no tienen cuenta bancaria favorita configurada
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             

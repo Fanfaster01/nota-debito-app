@@ -174,9 +174,11 @@ export interface ProveedorConBanco {
 export interface BancoProveedor {
   id: string
   proveedorId: string
-  bancoId: string
+  bancoId?: string
+  bancoNombre: string
   numeroCuenta: string
-  tipoCuenta: string
+  tipoCuenta?: string
+  titularCuenta?: string
   esFavorita: boolean
   banco?: {
     id: string

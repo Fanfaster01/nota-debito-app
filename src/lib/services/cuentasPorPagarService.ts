@@ -493,6 +493,47 @@ class CuentasPorPagarService {
   /**
    * Validar facturas para pago
    */
+  async validarCuentasBancarias(facturasIds: string[]): Promise<{ 
+    proveedoresSinCuenta: { rif: string; nombre: string }[], 
+    error: string | null 
+  }> {
+    try {
+      // Obtener facturas
+      const { data: facturas, error } = await this.getFacturasByIds(facturasIds)
+      if (error || !facturas) {
+        return { proveedoresSinCuenta: [], error: 'Error obteniendo facturas' }
+      }
+
+      // Obtener proveedores únicos
+      const rifsProveedores = [...new Set(facturas.map(f => f.proveedorRif))]
+      const proveedoresSinCuenta: { rif: string; nombre: string }[] = []
+
+      for (const rif of rifsProveedores) {
+        // Obtener proveedor
+        const { proveedorService } = await import('./proveedorService')
+        const { data: proveedor } = await proveedorService.getProveedorByRif(rif)
+        
+        if (!proveedor) {
+          proveedoresSinCuenta.push({ rif, nombre: 'Proveedor no encontrado' })
+          continue
+        }
+
+        // Verificar cuenta favorita
+        const { proveedorCuentasBancariasService } = await import('./proveedorCuentasBancariasService')
+        const { data: cuentaFavorita } = await proveedorCuentasBancariasService.getCuentaFavorita(proveedor.id)
+        
+        if (!cuentaFavorita) {
+          proveedoresSinCuenta.push({ rif, nombre: proveedor.nombre })
+        }
+      }
+
+      return { proveedoresSinCuenta, error: null }
+    } catch (error) {
+      console.error('Error validando cuentas bancarias:', error)
+      return { proveedoresSinCuenta: [], error: 'Error validando cuentas bancarias' }
+    }
+  }
+
   async validarFacturasParaPago(facturasIds: string[]): Promise<{ data: ValidacionPagoFacturas | null; error: string | null }> {
     try {
       const { data: facturas, error } = await supabase
@@ -855,8 +896,90 @@ class CuentasPorPagarService {
   }
 
   private async generarArchivoTxt(facturas: FacturaCuentaPorPagar[], formatoTxtId: string): Promise<string> {
-    // TODO: Implementar generación de archivo TXT según formato del banco
-    return ''
+    try {
+      // Obtener proveedores únicos de las facturas
+      const rifsProveedores = [...new Set(facturas.map(f => f.proveedorRif))]
+      const proveedoresConCuentas = await this.obtenerProveedoresConCuentasFavoritas(rifsProveedores)
+      
+      // Usar el servicio de formatos TXT
+      const { formatosTxtService } = await import('./formatosTxtService')
+      const { data, error } = await formatosTxtService.generarArchivoTxt(
+        formatoTxtId,
+        facturas,
+        proveedoresConCuentas
+      )
+      
+      if (error) {
+        console.error('Error generando archivo TXT:', error)
+        return ''
+      }
+      
+      return data || ''
+    } catch (error) {
+      console.error('Error en generarArchivoTxt:', error)
+      return ''
+    }
+  }
+
+  private async obtenerProveedoresConCuentasFavoritas(rifs: string[]): Promise<import('@/types/cuentasPorPagar').ProveedorConBanco[]> {
+    try {
+      const { proveedorService } = await import('./proveedorService')
+      const { proveedorCuentasBancariasService } = await import('./proveedorCuentasBancariasService')
+      
+      const proveedoresConCuentas: import('@/types/cuentasPorPagar').ProveedorConBanco[] = []
+      
+      for (const rif of rifs) {
+        // Obtener proveedor por RIF
+        const { data: proveedor, error } = await proveedorService.getProveedorByRif(rif)
+        
+        if (error || !proveedor) {
+          console.warn(`Proveedor con RIF ${rif} no encontrado`)
+          continue
+        }
+        
+        // Obtener cuenta favorita
+        const { data: cuentaFavorita } = await proveedorCuentasBancariasService.getCuentaFavorita(proveedor.id)
+        
+        if (!cuentaFavorita) {
+          console.warn(`Proveedor ${rif} no tiene cuenta bancaria favorita`)
+          continue
+        }
+        
+        // Mapear a la estructura esperada
+        const proveedorConBanco: import('@/types/cuentasPorPagar').ProveedorConBanco = {
+          id: proveedor.id,
+          nombre: proveedor.nombre,
+          rif: proveedor.rif,
+          direccion: proveedor.direccion,
+          contacto: proveedor.contacto || undefined,
+          telefono: proveedor.telefono || undefined,
+          email: proveedor.email || undefined,
+          porcentajeRetencion: proveedor.porcentaje_retencion,
+          tipoCambio: proveedor.tipo_cambio as any,
+          companyId: proveedor.company_id,
+          bancoFavorito: {
+            id: cuentaFavorita.id!,
+            proveedorId: cuentaFavorita.proveedor_id,
+            bancoNombre: cuentaFavorita.banco_nombre,
+            numeroCuenta: cuentaFavorita.numero_cuenta,
+            titularCuenta: cuentaFavorita.titular_cuenta,
+            esFavorita: cuentaFavorita.es_favorita,
+            banco: {
+              id: '',
+              nombre: cuentaFavorita.banco_nombre,
+              codigo: ''
+            }
+          }
+        }
+        
+        proveedoresConCuentas.push(proveedorConBanco)
+      }
+      
+      return proveedoresConCuentas
+    } catch (error) {
+      console.error('Error obteniendo proveedores con cuentas favoritas:', error)
+      return []
+    }
   }
 }
 

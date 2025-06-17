@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Pagination } from '@/components/ui/Pagination'
 import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
+import { ProveedorDetailModal } from '@/components/proveedores/ProveedorDetailModal'
 import { proveedorService, ProveedorWithBanco, ProveedorFormData } from '@/lib/services/proveedorService'
 import { 
   PlusIcon, 
@@ -20,7 +21,8 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   BanknotesIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 
 export default function ProveedoresPage() {
@@ -32,6 +34,8 @@ export default function ProveedoresPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10)
   const [totalItems, setTotalItems] = useState(0)
   const [showModal, setShowModal] = useState(false)
+  const [showDetailModal, setShowDetailModal] = useState(false)
+  const [selectedProveedorId, setSelectedProveedorId] = useState<string | null>(null)
   const [editingProveedor, setEditingProveedor] = useState<ProveedorWithBanco | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -89,6 +93,11 @@ export default function ProveedoresPage() {
   const handleEditProveedor = (proveedor: ProveedorWithBanco) => {
     setEditingProveedor(proveedor)
     setShowModal(true)
+  }
+
+  const handleViewProveedor = (proveedorId: string) => {
+    setSelectedProveedorId(proveedorId)
+    setShowDetailModal(true)
   }
 
   const handleSaveProveedor = async (data: ProveedorFormData) => {
@@ -341,6 +350,13 @@ export default function ProveedoresPage() {
                         <td className="px-4 py-4 text-center">
                           <div className="flex items-center justify-center space-x-2">
                             <button
+                              onClick={() => handleViewProveedor(proveedor.id)}
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              title="Ver detalle y cuentas bancarias"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => handleEditProveedor(proveedor)}
                               className="text-indigo-600 hover:text-indigo-900 p-1"
                               title="Editar proveedor"
@@ -424,6 +440,19 @@ export default function ProveedoresPage() {
           onSave={handleSaveProveedor}
           editingProveedor={editingProveedor}
         />
+
+        {/* Proveedor Detail Modal */}
+        {selectedProveedorId && (
+          <ProveedorDetailModal
+            isOpen={showDetailModal}
+            onClose={() => {
+              setShowDetailModal(false)
+              setSelectedProveedorId(null)
+            }}
+            proveedorId={selectedProveedorId}
+            onProveedorUpdated={loadProveedores}
+          />
+        )}
       </div>
     </MainLayout>
   )
