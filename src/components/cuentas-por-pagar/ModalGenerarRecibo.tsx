@@ -18,6 +18,8 @@ import {
 } from '@heroicons/react/24/outline'
 import { cuentasPorPagarService } from '@/lib/services/cuentasPorPagarService'
 import { tasasCambioService } from '@/lib/services/tasasCambioService'
+import { proveedorCuentasBancariasService } from '@/lib/services/proveedorCuentasBancariasService'
+import { proveedorService } from '@/lib/services/proveedorService'
 import type { 
   FacturaCuentaPorPagar, 
   ValidacionPagoFacturas,
@@ -59,6 +61,8 @@ export function ModalGenerarRecibo({
   const [proveedoresSinCuenta, setProveedoresSinCuenta] = useState<{ rif: string; nombre: string }[]>([])
   const [reciboGenerado, setReciboGenerado] = useState<GenerarReciboResponse | null>(null)
   const [generandoPDF, setGenerandoPDF] = useState(false)
+  const [cuentasFavoritas, setCuentasFavoritas] = useState<Array<{proveedorRif: string, bancoNombre: string, numeroCuenta: string}>>([])
+  const [bancosUnicos, setBancosUnicos] = useState<string[]>([])
 
   useEffect(() => {
     if (companyId) {
@@ -66,6 +70,13 @@ export function ModalGenerarRecibo({
       cargarFormatosTxt()
     }
   }, [companyId, facturasIds])
+
+  // Cargar cuentas favoritas cuando se tengan las facturas válidas
+  useEffect(() => {
+    if (validacion?.validas) {
+      cargarCuentasFavoritas()
+    }
+  }, [validacion?.validas])
 
   const validarFacturas = async () => {
     if (!companyId) return
@@ -118,6 +129,53 @@ export function ModalGenerarRecibo({
       // setFormatosTxt(result.data || [])
     } catch (error) {
       console.warn('No se pudieron cargar los formatos TXT:', error)
+    }
+  }
+
+  const cargarCuentasFavoritas = async () => {
+    if (!validacion?.validas) return
+
+    try {
+      const cuentas: Array<{proveedorRif: string, bancoNombre: string, numeroCuenta: string}> = []
+      const proveedoresUnicos = new Set<string>()
+      
+      // Obtener RIFs únicos de proveedores
+      validacion.validas.forEach(factura => {
+        if (factura.proveedorRif) {
+          proveedoresUnicos.add(factura.proveedorRif)
+        }
+      })
+
+      // Buscar cuenta favorita para cada proveedor
+      for (const rif of proveedoresUnicos) {
+        // Primero buscar el proveedor por RIF para obtener su ID
+        const { data: proveedor } = await proveedorService.getProveedorByRif(rif)
+        if (proveedor) {
+          // Buscar su cuenta favorita
+          const { data: cuentaFavorita } = await proveedorCuentasBancariasService.getCuentaFavorita(proveedor.id)
+          if (cuentaFavorita) {
+            cuentas.push({
+              proveedorRif: rif,
+              bancoNombre: cuentaFavorita.banco_nombre,
+              numeroCuenta: cuentaFavorita.numero_cuenta
+            })
+          }
+        }
+      }
+
+      setCuentasFavoritas(cuentas)
+      
+      // Crear lista de bancos únicos para el selector
+      const bancosUnicos = [...new Set(cuentas.map(c => c.bancoNombre))].sort()
+      setBancosUnicos(bancosUnicos)
+      
+      // Si solo hay un banco, seleccionarlo automáticamente
+      if (bancosUnicos.length === 1) {
+        setBancoDestino(bancosUnicos[0])
+      }
+      
+    } catch (error) {
+      console.warn('Error cargando cuentas favoritas:', error)
     }
   }
 
@@ -434,12 +492,52 @@ export function ModalGenerarRecibo({
               {/* Configuración específica para depósito */}
               {tipoPago === 'deposito' && (
                 <div className="space-y-4">
-                  <Input
-                    label="Banco Destino"
-                    value={bancoDestino}
-                    onChange={(e) => setBancoDestino(e.target.value)}
-                    placeholder="Nombre del banco donde se realizará el depósito"
-                  />
+                  {/* Selector de banco con cuentas favoritas */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Banco Destino
+                    </label>
+                    {bancosUnicos.length > 0 ? (
+                      <div className="space-y-3">
+                        <select
+                          value={bancoDestino}
+                          onChange={(e) => setBancoDestino(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Seleccionar banco destino...</option>
+                          {bancosUnicos.map((banco) => (
+                            <option key={banco} value={banco}>
+                              {banco}
+                            </option>
+                          ))}
+                        </select>
+                        
+                        {/* Mostrar cuentas favoritas relacionadas */}
+                        {bancoDestino && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <h4 className="text-sm font-medium text-blue-800 mb-2">
+                              Cuentas favoritas de proveedores:
+                            </h4>
+                            <div className="space-y-1">
+                              {cuentasFavoritas
+                                .filter(cuenta => cuenta.bancoNombre === bancoDestino)
+                                .map((cuenta, index) => (
+                                  <div key={index} className="text-sm text-blue-700">
+                                    <span className="font-medium">{cuenta.proveedorRif}</span>: {cuenta.numeroCuenta}
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <Input
+                        value={bancoDestino}
+                        onChange={(e) => setBancoDestino(e.target.value)}
+                        placeholder="Nombre del banco donde se realizará el depósito"
+                      />
+                    )}
+                  </div>
 
                   {formatosTxt.length > 0 && (
                     <div>

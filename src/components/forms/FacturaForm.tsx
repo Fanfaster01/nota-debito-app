@@ -9,8 +9,8 @@ import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { useAuth } from '@/contexts/AuthContext';
-import { proveedorService, ProveedorWithBanco } from '@/lib/services/proveedorService';
-import { ProveedorModal } from './ProveedorModal';
+import { proveedorService, ProveedorWithCuentas, ProveedorFormData } from '@/lib/services/proveedorService';
+import { ProveedorModalNew } from './ProveedorModalNew';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import debounce from 'lodash/debounce';
 
@@ -24,7 +24,7 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
   const [showProveedorModal, setShowProveedorModal] = useState(false);
   const [searchingProveedor, setSearchingProveedor] = useState(false);
   const [proveedorFound, setProveedorFound] = useState(false);
-  const [proveedorSuggestions, setProveedorSuggestions] = useState<ProveedorWithBanco[]>([]);
+  const [proveedorSuggestions, setProveedorSuggestions] = useState<ProveedorWithCuentas[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   const {
@@ -186,9 +186,9 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
     setProveedorSuggestions([]);
   };
 
-  const handleSaveProveedor = async (proveedorData: any) => {
+  const handleSaveProveedor = async (proveedorData: ProveedorFormData) => {
     try {
-      const { data: nuevoProveedor, error } = await proveedorService.createProveedor(proveedorData);
+      const { error } = await proveedorService.createProveedorWithCuentas(proveedorData);
       
       if (error) {
         console.error('Error al crear proveedor:', error);
@@ -196,24 +196,23 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
         return;
       }
 
-      if (nuevoProveedor) {
-        // Autocompletar los campos con el nuevo proveedor
-        setValue('proveedor.nombre', nuevoProveedor.nombre);
-        setValue('proveedor.rif', nuevoProveedor.rif);
-        setValue('proveedor.direccion', nuevoProveedor.direccion);
-        
-        // TAMBIÉN ACTUALIZAR EL PORCENTAJE CUANDO SE CREA UN NUEVO PROVEEDOR
-        setValue('porcentajeRetencion', nuevoProveedor.porcentaje_retencion || 75);
-        
-        setProveedorFound(true);
-      }
+      // Autocompletar los campos con el nuevo proveedor
+      setValue('proveedor.nombre', proveedorData.nombre);
+      setValue('proveedor.rif', proveedorData.rif);
+      setValue('proveedor.direccion', proveedorData.direccion);
+      
+      // Actualizar el porcentaje de retención
+      setValue('porcentajeRetencion', proveedorData.porcentaje_retencion || 75);
+      
+      setProveedorFound(true);
+      setShowProveedorModal(false);
     } catch (error) {
       console.error('Error:', error);
       alert('Error al guardar el proveedor');
     }
   };
 
-  const selectProveedor = (proveedor: ProveedorWithBanco) => {
+  const selectProveedor = (proveedor: ProveedorWithCuentas) => {
     setValue('proveedor.nombre', proveedor.nombre);
     setValue('proveedor.rif', proveedor.rif);
     setValue('proveedor.direccion', proveedor.direccion);
@@ -474,11 +473,11 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
       </Card>
 
       {/* Modal para agregar proveedor */}
-      <ProveedorModal
+      <ProveedorModalNew
         isOpen={showProveedorModal}
         onClose={() => setShowProveedorModal(false)}
         onSave={handleSaveProveedor}
-        initialRif={getValues('proveedor.rif')}
+        editingProveedor={null}
       />
     </>
   );

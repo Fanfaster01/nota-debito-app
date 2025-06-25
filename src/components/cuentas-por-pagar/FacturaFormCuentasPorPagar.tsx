@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
-import { proveedorService, ProveedorWithBanco } from '@/lib/services/proveedorService'
+import { proveedorService, ProveedorWithCuentas, ProveedorFormData } from '@/lib/services/proveedorService'
 import { tasasCambioService } from '@/lib/services/tasasCambioService'
 import { cuentasPorPagarService } from '@/lib/services/cuentasPorPagarService'
-import { ProveedorModal } from '@/components/forms/ProveedorModal'
+import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
 import { 
   PlusIcon, 
   MagnifyingGlassIcon,
@@ -54,7 +54,7 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
   const [showProveedorModal, setShowProveedorModal] = useState(false)
   const [searchingProveedor, setSearchingProveedor] = useState(false)
   const [proveedorFound, setProveedorFound] = useState(false)
-  const [proveedorSuggestions, setProveedorSuggestions] = useState<ProveedorWithBanco[]>([])
+  const [proveedorSuggestions, setProveedorSuggestions] = useState<ProveedorWithCuentas[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -179,7 +179,7 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
   const montos = calcularMontos()
 
   // Seleccionar proveedor de las sugerencias
-  const selectProveedor = (proveedor: ProveedorWithBanco) => {
+  const selectProveedor = (proveedor: ProveedorWithCuentas) => {
     setValue('proveedorNombre', proveedor.nombre)
     setValue('proveedorRif', proveedor.rif)
     setValue('proveedorDireccion', proveedor.direccion)
@@ -233,9 +233,9 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
   }
 
   // Guardar nuevo proveedor
-  const handleSaveProveedor = async (proveedorData: any) => {
+  const handleSaveProveedor = async (proveedorData: ProveedorFormData) => {
     try {
-      const { data: nuevoProveedor, error } = await proveedorService.createProveedor(proveedorData)
+      const { error } = await proveedorService.createProveedorWithCuentas(proveedorData)
       
       if (error) {
         console.error('Error al crear proveedor:', error)
@@ -243,15 +243,13 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
         return
       }
 
-      if (nuevoProveedor) {
-        setValue('proveedorNombre', nuevoProveedor.nombre)
-        setValue('proveedorRif', nuevoProveedor.rif)
-        setValue('proveedorDireccion', nuevoProveedor.direccion)
-        setValue('porcentajeRetencion', nuevoProveedor.porcentaje_retencion || 75)
-        
-        setProveedorFound(true)
-        setShowProveedorModal(false)
-      }
+      setValue('proveedorNombre', proveedorData.nombre)
+      setValue('proveedorRif', proveedorData.rif)
+      setValue('proveedorDireccion', proveedorData.direccion)
+      setValue('porcentajeRetencion', proveedorData.porcentaje_retencion || 75)
+      
+      setProveedorFound(true)
+      setShowProveedorModal(false)
     } catch (error) {
       console.error('Error al guardar proveedor:', error)
       alert('Error al guardar el proveedor')
@@ -556,10 +554,11 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
 
       {/* Modal de nuevo proveedor - fuera del form */}
       {showProveedorModal && (
-        <ProveedorModal
+        <ProveedorModalNew
           isOpen={true}
           onClose={() => setShowProveedorModal(false)}
-          onProveedorSaved={handleSaveProveedor}
+          onSave={handleSaveProveedor}
+          editingProveedor={null}
         />
       )}
     </>

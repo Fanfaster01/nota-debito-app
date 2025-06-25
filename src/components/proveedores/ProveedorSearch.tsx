@@ -11,12 +11,11 @@ import {
   BuildingStorefrontIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline'
-import { proveedorService, ProveedorFormData } from '@/lib/services/proveedorService'
+import { proveedorService, ProveedorFormData, ProveedorWithCuentas } from '@/lib/services/proveedorService'
 import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
-import type { ProveedorWithBanco } from '@/types/database'
 
 interface ProveedorSearchProps {
-  onProveedorSelect: (proveedor: ProveedorWithBanco) => void
+  onProveedorSelect: (proveedor: ProveedorWithCuentas) => void
   onClose?: () => void
   defaultValue?: {
     rif?: string
@@ -30,7 +29,7 @@ interface ProveedorSearchProps {
   className?: string
 }
 
-interface ProveedorSuggestion extends ProveedorWithBanco {
+interface ProveedorSuggestion extends ProveedorWithCuentas {
   score: number // Para ordenar por relevancia
 }
 
@@ -47,7 +46,7 @@ export function ProveedorSearch({
 }: ProveedorSearchProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [suggestions, setSuggestions] = useState<ProveedorSuggestion[]>([])
-  const [selectedProveedor, setSelectedProveedor] = useState<ProveedorWithBanco | null>(null)
+  const [selectedProveedor, setSelectedProveedor] = useState<ProveedorWithCuentas | null>(null)
   const [loading, setLoading] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showProveedorModal, setShowProveedorModal] = useState(false)
@@ -55,7 +54,7 @@ export function ProveedorSearch({
 
   const searchInputRef = useRef<HTMLInputElement>(null)
   const suggestionsRef = useRef<HTMLDivElement>(null)
-  const debounceRef = useRef<NodeJS.Timeout>()
+  const debounceRef = useRef<NodeJS.Timeout | undefined>(undefined)
 
   // Inicializar con valor por defecto
   useEffect(() => {
@@ -143,7 +142,7 @@ export function ProveedorSearch({
     }
   }
 
-  const calculateRelevanceScore = (proveedor: ProveedorWithBanco, term: string): number => {
+  const calculateRelevanceScore = (proveedor: ProveedorWithCuentas, term: string): number => {
     const searchTerm = term.toLowerCase()
     let score = 0
 
@@ -204,7 +203,7 @@ export function ProveedorSearch({
     onProveedorSelect(proveedor)
   }
 
-  const handleProveedorCreated = (proveedor: ProveedorWithBanco) => {
+  const handleProveedorCreated = (proveedor: ProveedorWithCuentas) => {
     setShowProveedorModal(false)
     setSelectedProveedor(proveedor)
     setSearchTerm(proveedor.nombre)
@@ -296,9 +295,12 @@ export function ProveedorSearch({
               <p className="text-sm text-green-700">
                 RIF: {selectedProveedor.rif} • Retención: {selectedProveedor.porcentaje_retencion}%
               </p>
-              {selectedProveedor.bancos && (
+              {selectedProveedor.cuentas_bancarias && selectedProveedor.cuentas_bancarias.length > 0 && (
                 <p className="text-xs text-green-600">
-                  Banco: {selectedProveedor.bancos.nombre}
+                  {selectedProveedor.cuentas_bancarias.length === 1 
+                    ? `Banco: ${selectedProveedor.cuentas_bancarias[0].banco_nombre || 'N/A'}`
+                    : `${selectedProveedor.cuentas_bancarias.length} cuentas bancarias`
+                  }
                 </p>
               )}
             </div>

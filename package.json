@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^1.0.24",
+    "@anthropic-ai/claude-code": "^1.0.34",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.0.1",
     "@react-pdf/renderer": "^4.3.0",
@@ -29,7 +29,6 @@
     "react-hook-form": "^7.56.3",
     "react-to-print": "^3.1.0",
     "recharts": "^2.15.3",
-    "xlsx": "^0.18.5",
     "zod": "^3.24.4"
   },
   "devDependencies": {
@@ -44,6 +43,6 @@
     "eslint-config-next": "15.3.2",
     "supabase": "^2.24.3",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5.8.3"
   }
 }

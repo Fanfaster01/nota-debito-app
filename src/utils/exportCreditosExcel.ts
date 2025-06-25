@@ -1,64 +1,86 @@
 // src/utils/exportCreditosExcel.ts
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
 import { CreditoDetalladoUI } from '@/types/creditos'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-export const exportCreditosToExcel = (creditos: CreditoDetalladoUI[], filtros?: any) => {
-  // Datos principales de créditos
-  const creditosData = creditos.map(credito => ({
-    'Nro Factura': credito.numeroFactura,
-    'Cliente': credito.nombreCliente,
-    'Documento': credito.cliente ? `${credito.cliente.tipoDocumento}-${credito.cliente.numeroDocumento}` : '',
-    'Teléfono': credito.telefonoCliente,
-    'Fecha Crédito': format(credito.fechaHora, 'dd/MM/yyyy', { locale: es }),
-    'Fecha Vencimiento': credito.fechaVencimiento ? format(credito.fechaVencimiento, 'dd/MM/yyyy', { locale: es }) : '',
-    'Monto Total (Bs)': credito.montoBs,
-    'Monto USD': credito.montoUsd,
-    'Tasa': credito.tasa,
-    'Monto Abonado (Bs)': credito.montoAbonado,
-    'Saldo Pendiente (Bs)': credito.saldoPendiente,
-    'Estado': credito.estado === 'pendiente' ? 'Pendiente' : 'Pagado',
-    'Estado Vencimiento': credito.estadoVencimiento,
-    'Cantidad Abonos': credito.cantidadAbonos,
-    'Fecha Último Pago': credito.fechaUltimoPago ? format(credito.fechaUltimoPago, 'dd/MM/yyyy', { locale: es }) : '',
-    'Usuario': credito.usuario?.full_name || '',
-    'Empresa': credito.empresa?.name || '',
-    'Observaciones': credito.observaciones || ''
-  }))
-
-  // Crear libro de trabajo
-  const workbook = XLSX.utils.book_new()
+export const exportCreditosToExcel = async (creditos: CreditoDetalladoUI[], filtros?: any) => {
+  const workbook = new ExcelJS.Workbook()
+  
+  workbook.creator = 'Sistema de Créditos'
+  workbook.lastModifiedBy = 'Sistema'
+  workbook.created = new Date()
+  workbook.modified = new Date()
 
   // Hoja principal de créditos
-  const creditosSheet = XLSX.utils.json_to_sheet(creditosData)
-  
-  // Ajustar ancho de columnas
-  const creditosColWidths = [
-    { wch: 12 }, // Nro Factura
-    { wch: 25 }, // Cliente
-    { wch: 15 }, // Documento
-    { wch: 15 }, // Teléfono
-    { wch: 12 }, // Fecha Crédito
-    { wch: 15 }, // Fecha Vencimiento
-    { wch: 15 }, // Monto Total
-    { wch: 12 }, // Monto USD
-    { wch: 8 },  // Tasa
-    { wch: 15 }, // Monto Abonado
-    { wch: 15 }, // Saldo Pendiente
-    { wch: 10 }, // Estado
-    { wch: 15 }, // Estado Vencimiento
-    { wch: 12 }, // Cantidad Abonos
-    { wch: 15 }, // Fecha Último Pago
-    { wch: 20 }, // Usuario
-    { wch: 20 }, // Empresa
-    { wch: 30 }  // Observaciones
-  ]
-  creditosSheet['!cols'] = creditosColWidths
+  const creditosSheet = workbook.addWorksheet('Créditos', {
+    properties: { tabColor: { argb: '0066CC' } }
+  })
 
-  XLSX.utils.book_append_sheet(workbook, creditosSheet, 'Créditos')
+  creditosSheet.columns = [
+    { header: 'Nro Factura', key: 'numeroFactura', width: 12 },
+    { header: 'Cliente', key: 'nombreCliente', width: 25 },
+    { header: 'Documento', key: 'documento', width: 15 },
+    { header: 'Teléfono', key: 'telefonoCliente', width: 15 },
+    { header: 'Fecha Crédito', key: 'fechaCredito', width: 12 },
+    { header: 'Fecha Vencimiento', key: 'fechaVencimiento', width: 15 },
+    { header: 'Monto Total (Bs)', key: 'montoBs', width: 15 },
+    { header: 'Monto USD', key: 'montoUsd', width: 12 },
+    { header: 'Tasa', key: 'tasa', width: 8 },
+    { header: 'Monto Abonado (Bs)', key: 'montoAbonado', width: 15 },
+    { header: 'Saldo Pendiente (Bs)', key: 'saldoPendiente', width: 15 },
+    { header: 'Estado', key: 'estado', width: 10 },
+    { header: 'Estado Vencimiento', key: 'estadoVencimiento', width: 15 },
+    { header: 'Cantidad Abonos', key: 'cantidadAbonos', width: 12 },
+    { header: 'Fecha Último Pago', key: 'fechaUltimoPago', width: 15 },
+    { header: 'Usuario', key: 'usuario', width: 20 },
+    { header: 'Empresa', key: 'empresa', width: 20 },
+    { header: 'Observaciones', key: 'observaciones', width: 30 }
+  ]
+
+  creditos.forEach(credito => {
+    creditosSheet.addRow({
+      numeroFactura: credito.numeroFactura,
+      nombreCliente: credito.nombreCliente,
+      documento: credito.cliente ? `${credito.cliente.tipoDocumento}-${credito.cliente.numeroDocumento}` : '',
+      telefonoCliente: credito.telefonoCliente,
+      fechaCredito: format(credito.fechaHora, 'dd/MM/yyyy', { locale: es }),
+      fechaVencimiento: credito.fechaVencimiento ? format(credito.fechaVencimiento, 'dd/MM/yyyy', { locale: es }) : '',
+      montoBs: credito.montoBs,
+      montoUsd: credito.montoUsd,
+      tasa: credito.tasa,
+      montoAbonado: credito.montoAbonado,
+      saldoPendiente: credito.saldoPendiente,
+      estado: credito.estado === 'pendiente' ? 'Pendiente' : 'Pagado',
+      estadoVencimiento: credito.estadoVencimiento,
+      cantidadAbonos: credito.cantidadAbonos,
+      fechaUltimoPago: credito.fechaUltimoPago ? format(credito.fechaUltimoPago, 'dd/MM/yyyy', { locale: es }) : '',
+      usuario: credito.usuario?.full_name || '',
+      empresa: credito.empresa?.name || '',
+      observaciones: credito.observaciones || ''
+    })
+  })
+
+  creditosSheet.getRow(1).font = { bold: true }
+  creditosSheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
+
+  // Aplicar formato de número a columnas monetarias
+  creditosSheet.getColumn('montoBs').numFmt = '#,##0.00'
+  creditosSheet.getColumn('montoUsd').numFmt = '#,##0.00'
+  creditosSheet.getColumn('montoAbonado').numFmt = '#,##0.00'
+  creditosSheet.getColumn('saldoPendiente').numFmt = '#,##0.00'
+  creditosSheet.getColumn('tasa').numFmt = '#,##0.00'
 
   // Hoja de resumen
+  const resumenSheet = workbook.addWorksheet('Resumen', {
+    properties: { tabColor: { argb: '00CC66' } }
+  })
+
   const resumenData = [
     ['RESUMEN DE CRÉDITOS', ''],
     ['', ''],
@@ -76,74 +98,105 @@ export const exportCreditosToExcel = (creditos: CreditoDetalladoUI[], filtros?: 
     ['Reporte generado el', format(new Date(), 'dd/MM/yyyy HH:mm', { locale: es })]
   ]
 
-  const resumenSheet = XLSX.utils.aoa_to_sheet(resumenData)
-  resumenSheet['!cols'] = [{ wch: 25 }, { wch: 20 }]
-  
-  // Aplicar estilos al encabezado del resumen
-  if (resumenSheet['A1']) {
-    resumenSheet['A1'].s = {
-      font: { bold: true, sz: 14 },
-      alignment: { horizontal: 'center' }
-    }
-  }
+  resumenSheet.columns = [
+    { key: 'campo', width: 25 },
+    { key: 'valor', width: 20 }
+  ]
 
-  XLSX.utils.book_append_sheet(workbook, resumenSheet, 'Resumen')
+  resumenData.forEach(row => {
+    resumenSheet.addRow({ campo: row[0], valor: row[1] })
+  })
+
+  // Estilo para el título
+  resumenSheet.getRow(1).font = { bold: true, size: 14 }
+  resumenSheet.getRow(1).alignment = { horizontal: 'center' }
+  resumenSheet.mergeCells('A1:B1')
+
+  // Estilo para subtítulos
+  resumenSheet.getRow(3).font = { bold: true }
+  resumenSheet.getRow(8).font = { bold: true }
+
+  // Formato numérico para montos
+  resumenSheet.getCell('B8').numFmt = '#,##0.00'
+  resumenSheet.getCell('B9').numFmt = '#,##0.00'
+  resumenSheet.getCell('B10').numFmt = '#,##0.00'
 
   // Hoja de abonos detallados (si hay créditos con abonos)
   const creditosConAbonos = creditos.filter(c => c.abonos && c.abonos.length > 0)
   if (creditosConAbonos.length > 0) {
-    const abonosData: any[] = []
-    
+    const abonosSheet = workbook.addWorksheet('Historial Abonos', {
+      properties: { tabColor: { argb: 'CC0066' } }
+    })
+
+    abonosSheet.columns = [
+      { header: 'Nro Factura', key: 'numeroFactura', width: 12 },
+      { header: 'Cliente', key: 'nombreCliente', width: 25 },
+      { header: 'Fecha Abono', key: 'fechaAbono', width: 15 },
+      { header: 'Monto Abono (Bs)', key: 'montoBs', width: 15 },
+      { header: 'Monto USD', key: 'montoUsd', width: 12 },
+      { header: 'Tasa', key: 'tasa', width: 8 },
+      { header: 'Método de Pago', key: 'metodoPago', width: 15 },
+      { header: 'Referencia', key: 'referencia', width: 20 },
+      { header: 'Banco', key: 'banco', width: 20 },
+      { header: 'Usuario', key: 'usuario', width: 20 },
+      { header: 'Observaciones', key: 'observaciones', width: 30 }
+    ]
+
     creditosConAbonos.forEach(credito => {
       credito.abonos?.forEach(abono => {
-        abonosData.push({
-          'Nro Factura': credito.numeroFactura,
-          'Cliente': credito.nombreCliente,
-          'Fecha Abono': format(abono.fechaPago, 'dd/MM/yyyy HH:mm', { locale: es }),
-          'Monto Abono (Bs)': abono.montoBs,
-          'Monto USD': abono.montoUsd,
-          'Tasa': abono.tasa,
-          'Método de Pago': abono.metodoPago.replace('_', ' ').toUpperCase(),
-          'Referencia': abono.referencia || '',
-          'Banco': abono.banco?.nombre || '',
-          'Usuario': abono.usuario?.full_name || '',
-          'Observaciones': abono.observaciones || ''
+        abonosSheet.addRow({
+          numeroFactura: credito.numeroFactura,
+          nombreCliente: credito.nombreCliente,
+          fechaAbono: format(abono.fechaPago, 'dd/MM/yyyy HH:mm', { locale: es }),
+          montoBs: abono.montoBs,
+          montoUsd: abono.montoUsd,
+          tasa: abono.tasa,
+          metodoPago: abono.metodoPago.replace('_', ' ').toUpperCase(),
+          referencia: abono.referencia || '',
+          banco: abono.banco?.nombre || '',
+          usuario: abono.usuario?.full_name || '',
+          observaciones: abono.observaciones || ''
         })
       })
     })
 
-    const abonosSheet = XLSX.utils.json_to_sheet(abonosData)
-    abonosSheet['!cols'] = [
-      { wch: 12 }, // Nro Factura
-      { wch: 25 }, // Cliente
-      { wch: 15 }, // Fecha Abono
-      { wch: 15 }, // Monto Abono
-      { wch: 12 }, // Monto USD
-      { wch: 8 },  // Tasa
-      { wch: 15 }, // Método de Pago
-      { wch: 20 }, // Referencia
-      { wch: 20 }, // Banco
-      { wch: 20 }, // Usuario
-      { wch: 30 }  // Observaciones
-    ]
+    abonosSheet.getRow(1).font = { bold: true }
+    abonosSheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'CCCCCC' }
+    }
 
-    XLSX.utils.book_append_sheet(workbook, abonosSheet, 'Historial Abonos')
+    // Formato numérico para montos
+    abonosSheet.getColumn('montoBs').numFmt = '#,##0.00'
+    abonosSheet.getColumn('montoUsd').numFmt = '#,##0.00'
+    abonosSheet.getColumn('tasa').numFmt = '#,##0.00'
   }
 
-  // Generar nombre del archivo
+  // Generar y descargar archivo
+  const buffer = await workbook.xlsx.writeBuffer()
   const fechaActual = format(new Date(), 'yyyy-MM-dd_HH-mm')
   const fileName = `creditos_${fechaActual}.xlsx`
-
-  // Descargar archivo
-  XLSX.writeFile(workbook, fileName)
+  saveAs(new Blob([buffer]), fileName)
 }
 
-export const exportEstadoCuentaClienteToExcel = (
+export const exportEstadoCuentaClienteToExcel = async (
   cliente: any,
   creditos: CreditoDetalladoUI[],
   totales: any
 ) => {
-  // Datos del cliente
+  const workbook = new ExcelJS.Workbook()
+  
+  workbook.creator = 'Sistema de Créditos'
+  workbook.lastModifiedBy = 'Sistema'
+  workbook.created = new Date()
+  workbook.modified = new Date()
+
+  // Hoja de información del cliente
+  const clienteSheet = workbook.addWorksheet('Info Cliente', {
+    properties: { tabColor: { argb: '0066CC' } }
+  })
+
   const clienteData = [
     ['ESTADO DE CUENTA DEL CLIENTE', ''],
     ['', ''],
@@ -160,53 +213,74 @@ export const exportEstadoCuentaClienteToExcel = (
     ['Reporte generado el', format(new Date(), 'dd/MM/yyyy HH:mm', { locale: es })]
   ]
 
-  const workbook = XLSX.utils.book_new()
-
-  // Hoja de información del cliente
-  const clienteSheet = XLSX.utils.aoa_to_sheet(clienteData)
-  clienteSheet['!cols'] = [{ wch: 25 }, { wch: 20 }]
-  
-  if (clienteSheet['A1']) {
-    clienteSheet['A1'].s = {
-      font: { bold: true, sz: 14 },
-      alignment: { horizontal: 'center' }
-    }
-  }
-
-  XLSX.utils.book_append_sheet(workbook, clienteSheet, 'Info Cliente')
-
-  // Hoja de créditos del cliente
-  const creditosData = creditos.map(credito => ({
-    'Nro Factura': credito.numeroFactura,
-    'Fecha Crédito': format(credito.fechaHora, 'dd/MM/yyyy', { locale: es }),
-    'Fecha Vencimiento': credito.fechaVencimiento ? format(credito.fechaVencimiento, 'dd/MM/yyyy', { locale: es }) : '',
-    'Monto Total (Bs)': credito.montoBs,
-    'Monto Abonado (Bs)': credito.montoAbonado,
-    'Saldo Pendiente (Bs)': credito.saldoPendiente,
-    'Estado': credito.estado === 'pendiente' ? 'Pendiente' : 'Pagado',
-    'Estado Vencimiento': credito.estadoVencimiento,
-    'Observaciones': credito.observaciones || ''
-  }))
-
-  const creditosSheet = XLSX.utils.json_to_sheet(creditosData)
-  creditosSheet['!cols'] = [
-    { wch: 12 }, // Nro Factura
-    { wch: 12 }, // Fecha Crédito
-    { wch: 15 }, // Fecha Vencimiento
-    { wch: 15 }, // Monto Total
-    { wch: 15 }, // Monto Abonado
-    { wch: 15 }, // Saldo Pendiente
-    { wch: 10 }, // Estado
-    { wch: 15 }, // Estado Vencimiento
-    { wch: 30 }  // Observaciones
+  clienteSheet.columns = [
+    { key: 'campo', width: 25 },
+    { key: 'valor', width: 20 }
   ]
 
-  XLSX.utils.book_append_sheet(workbook, creditosSheet, 'Créditos')
+  clienteData.forEach(row => {
+    clienteSheet.addRow({ campo: row[0], valor: row[1] })
+  })
 
-  // Generar nombre del archivo
+  // Estilo para el título
+  clienteSheet.getRow(1).font = { bold: true, size: 14 }
+  clienteSheet.getRow(1).alignment = { horizontal: 'center' }
+  clienteSheet.mergeCells('A1:B1')
+
+  // Estilo para subtítulos
+  clienteSheet.getRow(3).font = { bold: true }
+  clienteSheet.getRow(8).font = { bold: true }
+
+  // Formato numérico para montos
+  clienteSheet.getCell('B10').numFmt = '#,##0.00'
+  clienteSheet.getCell('B11').numFmt = '#,##0.00'
+
+  // Hoja de créditos del cliente
+  const creditosSheet = workbook.addWorksheet('Créditos', {
+    properties: { tabColor: { argb: '00CC66' } }
+  })
+
+  creditosSheet.columns = [
+    { header: 'Nro Factura', key: 'numeroFactura', width: 12 },
+    { header: 'Fecha Crédito', key: 'fechaCredito', width: 12 },
+    { header: 'Fecha Vencimiento', key: 'fechaVencimiento', width: 15 },
+    { header: 'Monto Total (Bs)', key: 'montoBs', width: 15 },
+    { header: 'Monto Abonado (Bs)', key: 'montoAbonado', width: 15 },
+    { header: 'Saldo Pendiente (Bs)', key: 'saldoPendiente', width: 15 },
+    { header: 'Estado', key: 'estado', width: 10 },
+    { header: 'Estado Vencimiento', key: 'estadoVencimiento', width: 15 },
+    { header: 'Observaciones', key: 'observaciones', width: 30 }
+  ]
+
+  creditos.forEach(credito => {
+    creditosSheet.addRow({
+      numeroFactura: credito.numeroFactura,
+      fechaCredito: format(credito.fechaHora, 'dd/MM/yyyy', { locale: es }),
+      fechaVencimiento: credito.fechaVencimiento ? format(credito.fechaVencimiento, 'dd/MM/yyyy', { locale: es }) : '',
+      montoBs: credito.montoBs,
+      montoAbonado: credito.montoAbonado,
+      saldoPendiente: credito.saldoPendiente,
+      estado: credito.estado === 'pendiente' ? 'Pendiente' : 'Pagado',
+      estadoVencimiento: credito.estadoVencimiento,
+      observaciones: credito.observaciones || ''
+    })
+  })
+
+  creditosSheet.getRow(1).font = { bold: true }
+  creditosSheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
+
+  // Formato numérico para montos
+  creditosSheet.getColumn('montoBs').numFmt = '#,##0.00'
+  creditosSheet.getColumn('montoAbonado').numFmt = '#,##0.00'
+  creditosSheet.getColumn('saldoPendiente').numFmt = '#,##0.00'
+
+  // Generar y descargar archivo
+  const buffer = await workbook.xlsx.writeBuffer()
   const fechaActual = format(new Date(), 'yyyy-MM-dd_HH-mm')
   const fileName = `estado_cuenta_${cliente.numero_documento}_${fechaActual}.xlsx`
-
-  // Descargar archivo
-  XLSX.writeFile(workbook, fileName)
+  saveAs(new Blob([buffer]), fileName)
 }

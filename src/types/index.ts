@@ -66,7 +66,8 @@ export interface Factura {
   export interface ProveedorCuentaBancaria {
     id?: string;
     proveedor_id: string;
-    banco_nombre: string;
+    banco_id: string;
+    banco_nombre?: string; // Para mostrar el nombre cuando viene de la base de datos
     numero_cuenta: string;
     titular_cuenta?: string;
     es_favorita: boolean;

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { bancoService } from '@/lib/services/bancoService'
+import { BancoSelector } from '@/components/ui/BancoSelector'
 import { 
   CurrencyDollarIcon,
   CurrencyEuroIcon,
@@ -45,7 +46,6 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
   loading
 }) => {
   const [cierresPuntoVenta, setCierresPuntoVenta] = useState<CierrePuntoVentaUI[]>([])
-  const [bancos, setBancos] = useState<Array<{ id: string; nombre: string; codigo: string }>>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [cierrePvForm, setCierrePvForm] = useState<Omit<CierrePuntoVentaUI, 'id'>>({
     bancoId: '',
@@ -77,20 +77,13 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
     'fondoCajaBs'
   ])
 
-  useEffect(() => {
-    cargarBancos()
-  }, [])
 
-  const cargarBancos = async () => {
-    const { data, error } = await bancoService.getBancos()
-    if (!error && data) {
-      setBancos(data)
-    }
-  }
-
-  const handleAgregarCierrePv = () => {
+  const handleAgregarCierrePv = async () => {
     if (cierrePvForm.bancoId && cierrePvForm.montoBs > 0 && cierrePvForm.numeroLote) {
-      const banco = bancos.find(b => b.id === cierrePvForm.bancoId)
+      // Obtener información del banco
+      const { data: bancosData } = await bancoService.getBancos()
+      const banco = bancosData?.find(b => b.id === cierrePvForm.bancoId)
+      
       const nuevoCierre: CierrePuntoVentaUI = {
         ...cierrePvForm,
         id: `temp-${Date.now()}`,
@@ -256,24 +249,14 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
           {/* Formulario para agregar */}
           <div className="bg-gray-50 p-4 rounded-md">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Banco
-                </label>
-                <select
-                  value={cierrePvForm.bancoId}
-                  onChange={(e) => setCierrePvForm({ ...cierrePvForm, bancoId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  disabled={loading}
-                >
-                  <option value="">Seleccione banco</option>
-                  {bancos.map(banco => (
-                    <option key={banco.id} value={banco.id}>
-                      {banco.codigo} - {banco.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <BancoSelector
+                label="Banco"
+                value={cierrePvForm.bancoId}
+                onChange={(bancoId) => setCierrePvForm({ ...cierrePvForm, bancoId })}
+                placeholder="Seleccione banco"
+                disabled={loading}
+                required
+              />
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">

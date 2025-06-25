@@ -10,13 +10,26 @@ export class ProveedorCuentasBancariasService {
     try {
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
-        .select('*')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `)
         .eq('proveedor_id', proveedorId)
         .eq('activo', true)
         .order('es_favorita', { ascending: false })
         .order('created_at', { ascending: true })
 
-      return { data, error }
+      // Transformar los datos para incluir el nombre del banco
+      const transformedData = data?.map((cuenta: any) => ({
+        ...cuenta,
+        banco_nombre: cuenta.bancos?.nombre || cuenta.banco_nombre || 'Banco no encontrado'
+      })) || null
+
+      return { data: transformedData, error }
     } catch (error) {
       return { data: null, error }
     }
@@ -93,13 +106,26 @@ export class ProveedorCuentasBancariasService {
     try {
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
-        .select('*')
+        .select(`
+          *,
+          bancos (
+            id,
+            nombre,
+            codigo
+          )
+        `)
         .eq('proveedor_id', proveedorId)
         .eq('es_favorita', true)
         .eq('activo', true)
         .single()
 
-      return { data, error }
+      // Transformar los datos para incluir el nombre del banco
+      const transformedData = data ? {
+        ...data,
+        banco_nombre: data.bancos?.nombre || data.banco_nombre || 'Banco no encontrado'
+      } : null
+
+      return { data: transformedData, error }
     } catch (error) {
       return { data: null, error }
     }
@@ -108,13 +134,60 @@ export class ProveedorCuentasBancariasService {
   // Crear múltiples cuentas bancarias para un proveedor
   async createMultipleCuentas(cuentas: Omit<ProveedorCuentaBancaria, 'id' | 'created_at' | 'updated_at'>[]): Promise<{ data: ProveedorCuentaBancaria[] | null, error: any }> {
     try {
+      // Preparar las cuentas para inserción, manejando compatibilidad entre banco_id y banco_nombre
+      const cuentasParaInsertar = await Promise.all(cuentas.map(async (cuenta) => {
+        const cuentaData: any = {
+          proveedor_id: cuenta.proveedor_id,
+          numero_cuenta: cuenta.numero_cuenta,
+          titular_cuenta: cuenta.titular_cuenta,
+          es_favorita: cuenta.es_favorita,
+          activo: cuenta.activo
+        }
+
+        // Si tenemos banco_id, usamos ese y obtenemos el nombre del banco
+        if (cuenta.banco_id) {
+          cuentaData.banco_id = cuenta.banco_id
+          
+          // Intentar obtener el nombre del banco para compatibilidad (banco_nombre es NOT NULL)
+          try {
+            const { data: bancoData } = await this.supabase
+              .from('bancos')
+              .select('nombre')
+              .eq('id', cuenta.banco_id)
+              .single()
+            
+            if (bancoData) {
+              cuentaData.banco_nombre = bancoData.nombre
+            } else {
+              cuentaData.banco_nombre = cuenta.banco_nombre || 'Banco no encontrado'
+            }
+          } catch (bancoError) {
+            // banco_nombre es requerido, usar fallback
+            cuentaData.banco_nombre = cuenta.banco_nombre || 'Banco no especificado'
+          }
+        } else if (cuenta.banco_nombre) {
+          // Fallback para compatibilidad con estructura anterior
+          cuentaData.banco_nombre = cuenta.banco_nombre
+        } else {
+          // Si no hay ni banco_id ni banco_nombre, usar valor por defecto
+          cuentaData.banco_nombre = 'Banco no especificado'
+        }
+
+        return cuentaData
+      }))
+
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
-        .insert(cuentas)
+        .insert(cuentasParaInsertar)
         .select()
+
+      if (error) {
+        console.error('Error detallado en createMultipleCuentas:', error)
+      }
 
       return { data, error }
     } catch (error) {
+      console.error('Error catch en createMultipleCuentas:', error)
       return { data: null, error }
     }
   }

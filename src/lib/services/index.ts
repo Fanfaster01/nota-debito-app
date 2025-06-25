@@ -21,7 +21,7 @@ export {
   export {
     ProveedorService,
     proveedorService,
-    type ProveedorWithBanco
+    type ProveedorWithCuentas
   } from './proveedorService'
   
   // Servicio de bancos

@@ -1,5 +1,6 @@
 // Utilidades para exportación de archivos en diferentes formatos
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
 import type { 
   FacturaCuentaPorPagar, 
   ReciboPago, 
@@ -10,43 +11,92 @@ import type {
 /**
  * Exportar facturas a Excel
  */
-export function exportarFacturasExcel(
+export async function exportarFacturasExcel(
   facturas: FacturaCuentaPorPagar[],
   nombreArchivo: string = 'facturas-cuentas-por-pagar'
-): void {
-  const workbook = XLSX.utils.book_new()
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook()
+  
+  // Configurar propiedades del workbook
+  workbook.creator = 'Sistema de Cuentas por Pagar'
+  workbook.lastModifiedBy = 'Sistema'
+  workbook.created = new Date()
+  workbook.modified = new Date()
 
   // Hoja 1: Facturas principales
-  const facturasData = facturas.map(factura => ({
-    'Número de Factura': factura.numero,
-    'Número de Control': factura.numeroControl,
-    'Fecha': new Date(factura.fecha).toLocaleDateString('es-VE'),
-    'Fecha Vencimiento': factura.fechaVencimiento ? new Date(factura.fechaVencimiento).toLocaleDateString('es-VE') : '',
-    'Proveedor': factura.proveedorNombre,
-    'RIF': factura.proveedorRif,
-    'Dirección': factura.proveedorDireccion,
-    'Subtotal (Bs)': factura.subTotal,
-    'Monto Exento (Bs)': factura.montoExento,
-    'Base Imponible (Bs)': factura.baseImponible,
-    'IVA (%)': factura.alicuotaIVA,
-    'IVA (Bs)': factura.iva,
-    'Total (Bs)': factura.total,
-    'Tasa Cambio': factura.tasaCambio,
-    'Monto USD': factura.montoUSD,
-    'Retención (%)': factura.porcentajeRetencion,
-    'Retención IVA (Bs)': factura.retencionIVA,
-    'Estado Pago': factura.estadoPago,
-    'Tipo Pago': factura.tipoPago,
-    'Fecha Pago': factura.fechaPago ? new Date(factura.fechaPago).toLocaleDateString('es-VE') : '',
-    'Días Vencimiento': factura.diasVencimiento !== undefined ? factura.diasVencimiento : '',
-    'Monto Final a Pagar (Bs)': factura.montoFinalPagar || factura.total,
-    'Notas de Pago': factura.notasPago || ''
-  }))
+  const wsFacturas = workbook.addWorksheet('Facturas', {
+    properties: { tabColor: { argb: '0066CC' } }
+  })
 
-  const wsFacturas = XLSX.utils.json_to_sheet(facturasData)
-  XLSX.utils.book_append_sheet(workbook, wsFacturas, 'Facturas')
+  // Definir columnas
+  wsFacturas.columns = [
+    { header: 'Número de Factura', key: 'numero', width: 20 },
+    { header: 'Número de Control', key: 'numeroControl', width: 20 },
+    { header: 'Fecha', key: 'fecha', width: 15 },
+    { header: 'Fecha Vencimiento', key: 'fechaVencimiento', width: 15 },
+    { header: 'Proveedor', key: 'proveedor', width: 30 },
+    { header: 'RIF', key: 'rif', width: 15 },
+    { header: 'Dirección', key: 'direccion', width: 40 },
+    { header: 'Subtotal (Bs)', key: 'subTotal', width: 15 },
+    { header: 'Monto Exento (Bs)', key: 'montoExento', width: 15 },
+    { header: 'Base Imponible (Bs)', key: 'baseImponible', width: 15 },
+    { header: 'IVA (%)', key: 'alicuotaIVA', width: 10 },
+    { header: 'IVA (Bs)', key: 'iva', width: 15 },
+    { header: 'Total (Bs)', key: 'total', width: 15 },
+    { header: 'Tasa Cambio', key: 'tasaCambio', width: 15 },
+    { header: 'Monto USD', key: 'montoUSD', width: 15 },
+    { header: 'Retención (%)', key: 'porcentajeRetencion', width: 12 },
+    { header: 'Retención IVA (Bs)', key: 'retencionIVA', width: 15 },
+    { header: 'Estado Pago', key: 'estadoPago', width: 15 },
+    { header: 'Tipo Pago', key: 'tipoPago', width: 15 },
+    { header: 'Fecha Pago', key: 'fechaPago', width: 15 },
+    { header: 'Días Vencimiento', key: 'diasVencimiento', width: 15 },
+    { header: 'Monto Final a Pagar (Bs)', key: 'montoFinalPagar', width: 20 },
+    { header: 'Notas de Pago', key: 'notasPago', width: 30 }
+  ]
+
+  // Agregar datos
+  facturas.forEach(factura => {
+    wsFacturas.addRow({
+      numero: factura.numero,
+      numeroControl: factura.numeroControl,
+      fecha: new Date(factura.fecha).toLocaleDateString('es-VE'),
+      fechaVencimiento: factura.fechaVencimiento ? new Date(factura.fechaVencimiento).toLocaleDateString('es-VE') : '',
+      proveedor: factura.proveedorNombre,
+      rif: factura.proveedorRif,
+      direccion: factura.proveedorDireccion,
+      subTotal: factura.subTotal,
+      montoExento: factura.montoExento,
+      baseImponible: factura.baseImponible,
+      alicuotaIVA: factura.alicuotaIVA,
+      iva: factura.iva,
+      total: factura.total,
+      tasaCambio: factura.tasaCambio,
+      montoUSD: factura.montoUSD,
+      porcentajeRetencion: factura.porcentajeRetencion,
+      retencionIVA: factura.retencionIVA,
+      estadoPago: factura.estadoPago,
+      tipoPago: factura.tipoPago,
+      fechaPago: factura.fechaPago ? new Date(factura.fechaPago).toLocaleDateString('es-VE') : '',
+      diasVencimiento: factura.diasVencimiento !== undefined ? factura.diasVencimiento : '',
+      montoFinalPagar: factura.montoFinalPagar || factura.total,
+      notasPago: factura.notasPago || ''
+    })
+  })
+
+  // Aplicar estilos a la primera fila
+  wsFacturas.getRow(1).font = { bold: true }
+  wsFacturas.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
 
   // Hoja 2: Resumen por proveedor
+  const wsResumen = workbook.addWorksheet('Resumen por Proveedor', {
+    properties: { tabColor: { argb: '00CC66' } }
+  })
+
   const proveedoresMap = new Map<string, {
     nombre: string
     rif: string
@@ -90,21 +140,33 @@ export function exportarFacturasExcel(
     }
   })
 
-  const resumenData = Array.from(proveedoresMap.values()).map(proveedor => ({
-    'Proveedor': proveedor.nombre,
-    'RIF': proveedor.rif,
-    'Total Facturas': proveedor.totalFacturas,
-    'Monto Total (Bs)': proveedor.montoTotal,
-    'Facturas Pendientes': proveedor.facturasPendientes,
-    'Monto Pendiente (Bs)': proveedor.montoPendiente,
-    'Facturas Vencidas': proveedor.facturasVencidas,
-    'Monto Vencido (Bs)': proveedor.montoVencido
-  }))
+  wsResumen.columns = [
+    { header: 'Proveedor', key: 'nombre', width: 30 },
+    { header: 'RIF', key: 'rif', width: 15 },
+    { header: 'Total Facturas', key: 'totalFacturas', width: 15 },
+    { header: 'Monto Total (Bs)', key: 'montoTotal', width: 20 },
+    { header: 'Facturas Pendientes', key: 'facturasPendientes', width: 20 },
+    { header: 'Monto Pendiente (Bs)', key: 'montoPendiente', width: 20 },
+    { header: 'Facturas Vencidas', key: 'facturasVencidas', width: 18 },
+    { header: 'Monto Vencido (Bs)', key: 'montoVencido', width: 20 }
+  ]
 
-  const wsResumen = XLSX.utils.json_to_sheet(resumenData)
-  XLSX.utils.book_append_sheet(workbook, wsResumen, 'Resumen por Proveedor')
+  Array.from(proveedoresMap.values()).forEach(proveedor => {
+    wsResumen.addRow(proveedor)
+  })
+
+  wsResumen.getRow(1).font = { bold: true }
+  wsResumen.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
 
   // Hoja 3: Vencimientos
+  const wsVencimientos = workbook.addWorksheet('Vencimientos', {
+    properties: { tabColor: { argb: 'CC0066' } }
+  })
+
   const hoy = new Date()
   const vencimientosData = facturas
     .filter(f => f.fechaVencimiento && (f.estadoPago === 'pendiente' || f.estadoPago === 'vencida'))
@@ -124,83 +186,156 @@ export function exportarFacturasExcel(
       }
 
       return {
-        'Factura': factura.numero,
-        'Proveedor': factura.proveedorNombre,
-        'Fecha Vencimiento': fechaVencimiento.toLocaleDateString('es-VE'),
-        'Días hasta Vencimiento': diasDiferencia,
-        'Estado Vencimiento': estadoVencimiento,
-        'Monto (Bs)': factura.montoFinalPagar || factura.total,
-        'Estado Pago': factura.estadoPago
+        factura: factura.numero,
+        proveedor: factura.proveedorNombre,
+        fechaVencimiento: fechaVencimiento.toLocaleDateString('es-VE'),
+        diasHastaVencimiento: diasDiferencia,
+        estadoVencimiento: estadoVencimiento,
+        monto: factura.montoFinalPagar || factura.total,
+        estadoPago: factura.estadoPago
       }
     })
-    .sort((a, b) => a['Días hasta Vencimiento'] - b['Días hasta Vencimiento'])
+    .sort((a, b) => a.diasHastaVencimiento - b.diasHastaVencimiento)
 
-  const wsVencimientos = XLSX.utils.json_to_sheet(vencimientosData)
-  XLSX.utils.book_append_sheet(workbook, wsVencimientos, 'Vencimientos')
+  wsVencimientos.columns = [
+    { header: 'Factura', key: 'factura', width: 20 },
+    { header: 'Proveedor', key: 'proveedor', width: 30 },
+    { header: 'Fecha Vencimiento', key: 'fechaVencimiento', width: 15 },
+    { header: 'Días hasta Vencimiento', key: 'diasHastaVencimiento', width: 20 },
+    { header: 'Estado Vencimiento', key: 'estadoVencimiento', width: 25 },
+    { header: 'Monto (Bs)', key: 'monto', width: 20 },
+    { header: 'Estado Pago', key: 'estadoPago', width: 15 }
+  ]
 
-  // Descargar archivo
+  vencimientosData.forEach(data => {
+    wsVencimientos.addRow(data)
+  })
+
+  wsVencimientos.getRow(1).font = { bold: true }
+  wsVencimientos.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
+
+  // Generar y descargar archivo
+  const buffer = await workbook.xlsx.writeBuffer()
   const fechaHoy = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(workbook, `${nombreArchivo}-${fechaHoy}.xlsx`)
+  saveAs(new Blob([buffer]), `${nombreArchivo}-${fechaHoy}.xlsx`)
 }
 
 /**
  * Exportar recibos de pago a Excel
  */
-export function exportarRecibosExcel(
+export async function exportarRecibosExcel(
   recibos: ReciboPago[],
   nombreArchivo: string = 'recibos-pago'
-): void {
-  const workbook = XLSX.utils.book_new()
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook()
+  
+  workbook.creator = 'Sistema de Cuentas por Pagar'
+  workbook.lastModifiedBy = 'Sistema'
+  workbook.created = new Date()
+  workbook.modified = new Date()
 
-  const recibosData = recibos.map(recibo => ({
-    'Número Recibo': recibo.numeroRecibo,
-    'Fecha': new Date(recibo.createdAt).toLocaleDateString('es-VE'),
-    'Tipo Recibo': recibo.tipoRecibo,
-    'Tipo Pago': recibo.tipoPago,
-    'Cantidad Facturas': Array.isArray(recibo.facturasIds) ? recibo.facturasIds.length : 0,
-    'Monto Total Bs': recibo.montoTotalBs,
-    'Monto Total USD': recibo.montoTotalUsd || 0,
-    'Banco Destino': recibo.bancoDestino || '',
-    'Archivo TXT Generado': recibo.archivoTxtGenerado ? 'Sí' : 'No',
-    'Notas': recibo.notas || ''
-  }))
+  const worksheet = workbook.addWorksheet('Recibos de Pago', {
+    properties: { tabColor: { argb: '0066CC' } }
+  })
 
-  const wsRecibos = XLSX.utils.json_to_sheet(recibosData)
-  XLSX.utils.book_append_sheet(workbook, wsRecibos, 'Recibos de Pago')
+  worksheet.columns = [
+    { header: 'Número Recibo', key: 'numeroRecibo', width: 20 },
+    { header: 'Fecha', key: 'fecha', width: 15 },
+    { header: 'Tipo Recibo', key: 'tipoRecibo', width: 15 },
+    { header: 'Tipo Pago', key: 'tipoPago', width: 15 },
+    { header: 'Cantidad Facturas', key: 'cantidadFacturas', width: 18 },
+    { header: 'Monto Total Bs', key: 'montoTotalBs', width: 20 },
+    { header: 'Monto Total USD', key: 'montoTotalUsd', width: 20 },
+    { header: 'Banco Destino', key: 'bancoDestino', width: 25 },
+    { header: 'Archivo TXT Generado', key: 'archivoTxt', width: 20 },
+    { header: 'Notas', key: 'notas', width: 40 }
+  ]
 
+  recibos.forEach(recibo => {
+    worksheet.addRow({
+      numeroRecibo: recibo.numeroRecibo,
+      fecha: new Date(recibo.createdAt).toLocaleDateString('es-VE'),
+      tipoRecibo: recibo.tipoRecibo,
+      tipoPago: recibo.tipoPago,
+      cantidadFacturas: Array.isArray(recibo.facturasIds) ? recibo.facturasIds.length : 0,
+      montoTotalBs: recibo.montoTotalBs,
+      montoTotalUsd: recibo.montoTotalUsd || 0,
+      bancoDestino: recibo.bancoDestino || '',
+      archivoTxt: recibo.archivoTxtGenerado ? 'Sí' : 'No',
+      notas: recibo.notas || ''
+    })
+  })
+
+  worksheet.getRow(1).font = { bold: true }
+  worksheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer()
   const fechaHoy = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(workbook, `${nombreArchivo}-${fechaHoy}.xlsx`)
+  saveAs(new Blob([buffer]), `${nombreArchivo}-${fechaHoy}.xlsx`)
 }
 
 /**
  * Exportar métricas de cuentas por pagar a Excel
  */
-export function exportarMetricasExcel(
+export async function exportarMetricasExcel(
   metricas: MetricasCuentasPorPagar,
   facturas: FacturaCuentaPorPagar[],
   nombreArchivo: string = 'metricas-cuentas-por-pagar'
-): void {
-  const workbook = XLSX.utils.book_new()
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook()
+  
+  workbook.creator = 'Sistema de Cuentas por Pagar'
+  workbook.lastModifiedBy = 'Sistema'
+  workbook.created = new Date()
+  workbook.modified = new Date()
 
   // Hoja 1: Métricas generales
-  const metricasData = [
-    ['Métrica', 'Valor'],
-    ['Total de Facturas', metricas.totalFacturas],
-    ['Total Monto Pendiente (Bs)', metricas.totalMontoPendiente],
-    ['Facturas Vencidas', metricas.facturasVencidas],
-    ['Monto Vencido (Bs)', metricas.montoVencido],
-    ['Facturas por Vencer (7 días)', metricas.facturasPorVencer],
-    ['Monto por Vencer (Bs)', metricas.montoPorVencer],
-    ['Facturas Pagadas', metricas.facturasPagadas],
-    ['Monto Pagado (Bs)', metricas.montoPagado],
-    ['Facturas Pendientes Aprobación', metricas.facturasPendientesAprobacion],
-    ['Monto Pendiente Aprobación (Bs)', metricas.montoPendienteAprobacion]
+  const wsMetricas = workbook.addWorksheet('Métricas Generales', {
+    properties: { tabColor: { argb: '0066CC' } }
+  })
+
+  wsMetricas.columns = [
+    { header: 'Métrica', key: 'metrica', width: 35 },
+    { header: 'Valor', key: 'valor', width: 25 }
   ]
 
-  const wsMetricas = XLSX.utils.json_to_sheet(metricasData, { skipHeader: true })
-  XLSX.utils.book_append_sheet(workbook, wsMetricas, 'Métricas Generales')
+  const metricasRows = [
+    { metrica: 'Total de Facturas', valor: metricas.totalFacturas },
+    { metrica: 'Total Monto Pendiente (Bs)', valor: metricas.totalMontoPendiente },
+    { metrica: 'Facturas Vencidas', valor: metricas.facturasVencidas },
+    { metrica: 'Monto Vencido (Bs)', valor: metricas.montoVencido },
+    { metrica: 'Facturas por Vencer (7 días)', valor: metricas.facturasPorVencer },
+    { metrica: 'Monto por Vencer (Bs)', valor: metricas.montoPorVencer },
+    { metrica: 'Facturas Pagadas', valor: metricas.facturasPagadas },
+    { metrica: 'Monto Pagado (Bs)', valor: metricas.montoPagado },
+    { metrica: 'Facturas Pendientes Aprobación', valor: metricas.facturasPendientesAprobacion },
+    { metrica: 'Monto Pendiente Aprobación (Bs)', valor: metricas.montoPendienteAprobacion }
+  ]
+
+  metricasRows.forEach(row => {
+    wsMetricas.addRow(row)
+  })
+
+  wsMetricas.getRow(1).font = { bold: true }
+  wsMetricas.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
 
   // Hoja 2: Distribución por estado
+  const wsEstados = workbook.addWorksheet('Distribución por Estado', {
+    properties: { tabColor: { argb: '00CC66' } }
+  })
+
   const estadosMap = new Map<string, { cantidad: number; monto: number }>()
   
   facturas.forEach(factura => {
@@ -213,17 +348,34 @@ export function exportarMetricasExcel(
     data.monto += factura.montoFinalPagar || factura.total
   })
 
-  const estadosData = Array.from(estadosMap.entries()).map(([estado, data]) => ({
-    'Estado': estado.replace('_', ' '),
-    'Cantidad': data.cantidad,
-    'Monto (Bs)': data.monto,
-    'Porcentaje': ((data.cantidad / metricas.totalFacturas) * 100).toFixed(2) + '%'
-  }))
+  wsEstados.columns = [
+    { header: 'Estado', key: 'estado', width: 20 },
+    { header: 'Cantidad', key: 'cantidad', width: 15 },
+    { header: 'Monto (Bs)', key: 'monto', width: 20 },
+    { header: 'Porcentaje', key: 'porcentaje', width: 15 }
+  ]
 
-  const wsEstados = XLSX.utils.json_to_sheet(estadosData)
-  XLSX.utils.book_append_sheet(workbook, wsEstados, 'Distribución por Estado')
+  Array.from(estadosMap.entries()).forEach(([estado, data]) => {
+    wsEstados.addRow({
+      estado: estado.replace('_', ' '),
+      cantidad: data.cantidad,
+      monto: data.monto,
+      porcentaje: ((data.cantidad / metricas.totalFacturas) * 100).toFixed(2) + '%'
+    })
+  })
+
+  wsEstados.getRow(1).font = { bold: true }
+  wsEstados.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
 
   // Hoja 3: Top proveedores
+  const wsProveedores = workbook.addWorksheet('Top Proveedores Deuda', {
+    properties: { tabColor: { argb: 'CC0066' } }
+  })
+
   const proveedoresMap = new Map<string, { nombre: string; cantidad: number; monto: number }>()
   
   facturas
@@ -242,60 +394,101 @@ export function exportarMetricasExcel(
       data.monto += factura.montoFinalPagar || factura.total
     })
 
-  const proveedoresData = Array.from(proveedoresMap.values())
+  wsProveedores.columns = [
+    { header: 'Ranking', key: 'ranking', width: 10 },
+    { header: 'Proveedor', key: 'proveedor', width: 30 },
+    { header: 'Cantidad Facturas', key: 'cantidadFacturas', width: 18 },
+    { header: 'Monto Pendiente (Bs)', key: 'montoPendiente', width: 25 }
+  ]
+
+  Array.from(proveedoresMap.values())
     .sort((a, b) => b.monto - a.monto)
     .slice(0, 20) // Top 20
-    .map((proveedor, index) => ({
-      'Ranking': index + 1,
-      'Proveedor': proveedor.nombre,
-      'Cantidad Facturas': proveedor.cantidad,
-      'Monto Pendiente (Bs)': proveedor.monto
-    }))
+    .forEach((proveedor, index) => {
+      wsProveedores.addRow({
+        ranking: index + 1,
+        proveedor: proveedor.nombre,
+        cantidadFacturas: proveedor.cantidad,
+        montoPendiente: proveedor.monto
+      })
+    })
 
-  const wsProveedores = XLSX.utils.json_to_sheet(proveedoresData)
-  XLSX.utils.book_append_sheet(workbook, wsProveedores, 'Top Proveedores Deuda')
+  wsProveedores.getRow(1).font = { bold: true }
+  wsProveedores.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
 
+  const buffer = await workbook.xlsx.writeBuffer()
   const fechaHoy = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(workbook, `${nombreArchivo}-${fechaHoy}.xlsx`)
+  saveAs(new Blob([buffer]), `${nombreArchivo}-${fechaHoy}.xlsx`)
 }
 
 /**
  * Exportar datos para análisis en CSV
  */
-export function exportarFacturasCSV(
+export async function exportarFacturasCSV(
   facturas: FacturaCuentaPorPagar[],
   nombreArchivo: string = 'facturas-analisis'
-): void {
-  const csvData = facturas.map(factura => ({
-    numero: factura.numero,
-    fecha: factura.fecha,
-    fechaVencimiento: factura.fechaVencimiento || '',
-    proveedorNombre: factura.proveedorNombre,
-    proveedorRif: factura.proveedorRif,
-    total: factura.total,
-    montoUSD: factura.montoUSD,
-    estadoPago: factura.estadoPago,
-    tipoPago: factura.tipoPago,
-    diasVencimiento: factura.diasVencimiento || 0,
-    montoFinalPagar: factura.montoFinalPagar || factura.total
-  }))
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Facturas')
 
-  const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.json_to_sheet(csvData)
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Facturas')
+  worksheet.columns = [
+    { header: 'numero', key: 'numero', width: 20 },
+    { header: 'fecha', key: 'fecha', width: 15 },
+    { header: 'fechaVencimiento', key: 'fechaVencimiento', width: 15 },
+    { header: 'proveedorNombre', key: 'proveedorNombre', width: 30 },
+    { header: 'proveedorRif', key: 'proveedorRif', width: 15 },
+    { header: 'total', key: 'total', width: 20 },
+    { header: 'montoUSD', key: 'montoUSD', width: 20 },
+    { header: 'estadoPago', key: 'estadoPago', width: 15 },
+    { header: 'tipoPago', key: 'tipoPago', width: 15 },
+    { header: 'diasVencimiento', key: 'diasVencimiento', width: 15 },
+    { header: 'montoFinalPagar', key: 'montoFinalPagar', width: 20 }
+  ]
 
+  facturas.forEach(factura => {
+    worksheet.addRow({
+      numero: factura.numero,
+      fecha: factura.fecha,
+      fechaVencimiento: factura.fechaVencimiento || '',
+      proveedorNombre: factura.proveedorNombre,
+      proveedorRif: factura.proveedorRif,
+      total: factura.total,
+      montoUSD: factura.montoUSD,
+      estadoPago: factura.estadoPago,
+      tipoPago: factura.tipoPago,
+      diasVencimiento: factura.diasVencimiento || 0,
+      montoFinalPagar: factura.montoFinalPagar || factura.total
+    })
+  })
+
+  const buffer = await workbook.csv.writeBuffer()
   const fechaHoy = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(workbook, `${nombreArchivo}-${fechaHoy}.csv`, { bookType: 'csv' })
+  saveAs(new Blob([buffer]), `${nombreArchivo}-${fechaHoy}.csv`)
 }
 
 /**
  * Generar reporte de vencimientos próximos
  */
-export function generarReporteVencimientos(
+export async function generarReporteVencimientos(
   facturas: FacturaCuentaPorPagar[],
   diasAdelante: number = 30,
   nombreArchivo: string = 'reporte-vencimientos'
-): void {
+): Promise<void> {
+  const workbook = new ExcelJS.Workbook()
+  
+  workbook.creator = 'Sistema de Cuentas por Pagar'
+  workbook.lastModifiedBy = 'Sistema'
+  workbook.created = new Date()
+  workbook.modified = new Date()
+
+  const worksheet = workbook.addWorksheet('Vencimientos', {
+    properties: { tabColor: { argb: 'CC0066' } }
+  })
+
   const hoy = new Date()
   const fechaLimite = new Date()
   fechaLimite.setDate(hoy.getDate() + diasAdelante)
@@ -311,26 +504,47 @@ export function generarReporteVencimientos(
       const diasHastaVenc = Math.ceil((fechaVenc.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24))
       
       return {
-        'Factura': factura.numero,
-        'Proveedor': factura.proveedorNombre,
-        'RIF': factura.proveedorRif,
-        'Fecha Vencimiento': fechaVenc.toLocaleDateString('es-VE'),
-        'Días hasta Vencimiento': diasHastaVenc,
-        'Estado': diasHastaVenc < 0 ? 'VENCIDA' : diasHastaVenc === 0 ? 'VENCE HOY' : 'POR VENCER',
-        'Monto (Bs)': factura.montoFinalPagar || factura.total,
-        'Estado Pago': factura.estadoPago,
-        'Contacto': '', // Se podría obtener del proveedor
-        'Teléfono': '' // Se podría obtener del proveedor
+        factura: factura.numero,
+        proveedor: factura.proveedorNombre,
+        rif: factura.proveedorRif,
+        fechaVencimiento: fechaVenc.toLocaleDateString('es-VE'),
+        diasHastaVencimiento: diasHastaVenc,
+        estado: diasHastaVenc < 0 ? 'VENCIDA' : diasHastaVenc === 0 ? 'VENCE HOY' : 'POR VENCER',
+        monto: factura.montoFinalPagar || factura.total,
+        estadoPago: factura.estadoPago,
+        contacto: '', // Se podría obtener del proveedor
+        telefono: '' // Se podría obtener del proveedor
       }
     })
-    .sort((a, b) => a['Días hasta Vencimiento'] - b['Días hasta Vencimiento'])
+    .sort((a, b) => a.diasHastaVencimiento - b.diasHastaVencimiento)
 
-  const workbook = XLSX.utils.book_new()
-  const worksheet = XLSX.utils.json_to_sheet(facturasVencimiento)
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Vencimientos')
+  worksheet.columns = [
+    { header: 'Factura', key: 'factura', width: 20 },
+    { header: 'Proveedor', key: 'proveedor', width: 30 },
+    { header: 'RIF', key: 'rif', width: 15 },
+    { header: 'Fecha Vencimiento', key: 'fechaVencimiento', width: 15 },
+    { header: 'Días hasta Vencimiento', key: 'diasHastaVencimiento', width: 20 },
+    { header: 'Estado', key: 'estado', width: 15 },
+    { header: 'Monto (Bs)', key: 'monto', width: 20 },
+    { header: 'Estado Pago', key: 'estadoPago', width: 15 },
+    { header: 'Contacto', key: 'contacto', width: 25 },
+    { header: 'Teléfono', key: 'telefono', width: 15 }
+  ]
 
+  facturasVencimiento.forEach(data => {
+    worksheet.addRow(data)
+  })
+
+  worksheet.getRow(1).font = { bold: true }
+  worksheet.getRow(1).fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'CCCCCC' }
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer()
   const fechaHoy = new Date().toISOString().split('T')[0]
-  XLSX.writeFile(workbook, `${nombreArchivo}-${diasAdelante}dias-${fechaHoy}.xlsx`)
+  saveAs(new Blob([buffer]), `${nombreArchivo}-${diasAdelante}dias-${fechaHoy}.xlsx`)
 }
 
 /**

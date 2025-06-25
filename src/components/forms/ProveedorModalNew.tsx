@@ -7,9 +7,13 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { TipoCambio, ProveedorCuentaBancaria } from '@/types/index'
+import { proveedorCuentasBancariasService } from '@/lib/services/proveedorCuentasBancariasService'
+import { bancoService } from '@/lib/services/bancoService'
+import { ProveedorFormData } from '@/lib/services/proveedorService'
+import { BancoSelector } from '@/components/ui/BancoSelector'
 
-const cuentaBancariaSchema = z.object({
-  banco_nombre: z.string().min(1, 'El nombre del banco es requerido'),
+const cuentaBancariaFormSchema = z.object({
+  banco_id: z.string().min(1, 'Debe seleccionar un banco'),
   numero_cuenta: z.string().min(1, 'El número de cuenta es requerido'),
   titular_cuenta: z.string().optional(),
   es_favorita: z.boolean().default(false)
@@ -24,10 +28,11 @@ const proveedorSchema = z.object({
   contacto: z.string().optional(),
   porcentaje_retencion: z.number().min(0).max(100, 'El porcentaje debe estar entre 0 y 100'),
   tipo_cambio: z.enum(['USD', 'EUR', 'PAR'], { required_error: 'Seleccione el tipo de cambio' }),
-  cuentas_bancarias: z.array(cuentaBancariaSchema).min(0, 'Debe agregar al menos una cuenta bancaria')
+  cuentas_bancarias: z.array(cuentaBancariaFormSchema).min(0, 'Debe agregar al menos una cuenta bancaria')
 })
 
-type ProveedorFormData = z.infer<typeof proveedorSchema>
+type CuentaBancariaForm = z.infer<typeof cuentaBancariaFormSchema>
+type ProveedorFormDataZod = z.infer<typeof proveedorSchema>
 
 interface ProveedorModalProps {
   isOpen: boolean
@@ -44,9 +49,9 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
   initialRif,
   editingProveedor
 }) => {
-  const [cuentasBancarias, setCuentasBancarias] = useState<ProveedorCuentaBancaria[]>(
-    editingProveedor?.cuentas_bancarias || []
-  )
+  const [cuentasBancarias, setCuentasBancarias] = useState<ProveedorCuentaBancaria[]>([])
+  const [loadingCuentas, setLoadingCuentas] = useState(false)
+  const [bancos, setBancos] = useState<Array<{id: string, nombre: string, codigo: string}>>([])
 
   const {
     register,
@@ -55,7 +60,7 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
     reset,
     setValue,
     watch
-  } = useForm<ProveedorFormData>({
+  } = useForm<ProveedorFormDataZod>({
     resolver: zodResolver(proveedorSchema),
     defaultValues: {
       nombre: editingProveedor?.nombre || '',
@@ -76,11 +81,71 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
     { value: 'PAR', label: 'Paralelo (PAR)' }
   ]
 
+  // Cargar bancos
+  useEffect(() => {
+    const cargarBancos = async () => {
+      try {
+        const { data: bancosData, error } = await bancoService.getAllBancos()
+        if (!error && bancosData) {
+          setBancos(bancosData)
+        }
+      } catch (error) {
+        console.error('Error cargando bancos:', error)
+      }
+    }
+
+    if (isOpen) {
+      cargarBancos()
+    }
+  }, [isOpen])
+
+  // Cargar cuentas bancarias cuando se está editando un proveedor
+  useEffect(() => {
+    const cargarCuentasBancarias = async () => {
+      if (editingProveedor?.id) {
+        setLoadingCuentas(true)
+        try {
+          const { data: cuentas, error } = await proveedorCuentasBancariasService.getCuentasByProveedorId(editingProveedor.id)
+          if (!error && cuentas) {
+            setCuentasBancarias(cuentas)
+          }
+        } catch (error) {
+          console.error('Error cargando cuentas bancarias:', error)
+        } finally {
+          setLoadingCuentas(false)
+        }
+      } else {
+        setCuentasBancarias([])
+      }
+    }
+
+    if (isOpen) {
+      cargarCuentasBancarias()
+    }
+  }, [editingProveedor?.id, isOpen])
+
+  // Reset form when editingProveedor changes
+  useEffect(() => {
+    if (isOpen) {
+      reset({
+        nombre: editingProveedor?.nombre || '',
+        rif: editingProveedor?.rif || initialRif || '',
+        direccion: editingProveedor?.direccion || '',
+        telefono: editingProveedor?.telefono || '',
+        email: editingProveedor?.email || '',
+        contacto: editingProveedor?.contacto || '',
+        porcentaje_retencion: editingProveedor?.porcentaje_retencion || 75,
+        tipo_cambio: editingProveedor?.tipo_cambio || 'PAR',
+        cuentas_bancarias: []
+      })
+    }
+  }, [editingProveedor, initialRif, isOpen, reset])
+
 
   const agregarCuentaBancaria = () => {
     const nuevaCuenta: ProveedorCuentaBancaria = {
       proveedor_id: editingProveedor?.id || '',
-      banco_nombre: '',
+      banco_id: '',
       numero_cuenta: '',
       titular_cuenta: '',
       es_favorita: cuentasBancarias.length === 0,
@@ -114,13 +179,37 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
     onClose()
   }
 
-  const onSubmit = async (data: ProveedorFormData) => {
-    const formDataWithCuentas = {
-      ...data,
-      cuentas_bancarias: cuentasBancarias
+  const onSubmit = async (data: ProveedorFormDataZod) => {
+    try {
+      // Convertir las cuentas bancarias del formulario a ProveedorCuentaBancaria
+      const cuentasConValidacion = cuentasBancarias.map(cuenta => ({
+        proveedor_id: '', // Se asignará en el servicio
+        banco_id: cuenta.banco_id || '',
+        banco_nombre: cuenta.banco_nombre || '',
+        numero_cuenta: cuenta.numero_cuenta,
+        titular_cuenta: cuenta.titular_cuenta,
+        es_favorita: cuenta.es_favorita,
+        activo: true
+      }))
+
+      // Convertir datos del formulario Zod al formato del servicio
+      const formDataForService: ProveedorFormData = {
+        nombre: data.nombre,
+        rif: data.rif,
+        direccion: data.direccion,
+        telefono: data.telefono,
+        email: data.email,
+        contacto: data.contacto,
+        porcentaje_retencion: data.porcentaje_retencion,
+        tipo_cambio: data.tipo_cambio,
+        cuentas_bancarias: cuentasConValidacion
+      }
+      
+      await onSave(formDataForService)
+      handleClose()
+    } catch (error) {
+      console.error('Error en onSubmit del modal:', error)
     }
-    await onSave(formDataWithCuentas)
-    handleClose()
   }
 
   if (!isOpen) return null
@@ -224,6 +313,7 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
                 type="button"
                 size="sm"
                 onClick={agregarCuentaBancaria}
+                disabled={loadingCuentas}
                 className="flex items-center"
               >
                 <PlusIcon className="h-4 w-4 mr-1" />
@@ -231,7 +321,12 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
               </Button>
             </div>
             
-            {cuentasBancarias.length === 0 ? (
+            {loadingCuentas ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Cargando cuentas bancarias...</p>
+              </div>
+            ) : cuentasBancarias.length === 0 ? (
               <div className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
                 <p className="text-lg mb-2">No hay cuentas bancarias agregadas</p>
                 <p className="text-sm">Haz clic en "Agregar Cuenta" para añadir una cuenta bancaria</p>
@@ -270,11 +365,21 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <Input
-                        label="Nombre del Banco"
-                        value={cuenta.banco_nombre}
-                        onChange={(e) => actualizarCuentaBancaria(index, 'banco_nombre', e.target.value)}
-                        placeholder="Banco de Venezuela"
+                      <BancoSelector
+                        label="Banco"
+                        value={cuenta.banco_id || ''}
+                        onChange={(bancoId) => {
+                          actualizarCuentaBancaria(index, 'banco_id', bancoId)
+                          // También obtener y guardar el nombre del banco
+                          const bancoSeleccionado = bancos?.find(b => b.id === bancoId)
+                          if (bancoSeleccionado) {
+                            actualizarCuentaBancaria(index, 'banco_nombre', bancoSeleccionado.nombre)
+                          }
+                        }}
+                        onBancoAdded={(nuevoBanco) => {
+                          setBancos(prev => [...prev, nuevoBanco])
+                        }}
+                        placeholder="Seleccione banco"
                         required
                       />
                       
