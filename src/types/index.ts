@@ -42,6 +42,9 @@ export interface Factura {
     retencionIVA: number;  
   }
   
+  /**
+   * @deprecated Use NotaDebitoGenerada from cuentasPorPagar.ts instead for automatic generation
+   */
   export interface NotaDebito {
     id?: string;                       // ID de la base de datos (opcional para nuevas notas)
     numero: string;

@@ -30,13 +30,13 @@ interface MainLayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
-  { name: 'Notas de Débito', href: '/notas-debito', icon: DocumentTextIcon },
   { name: 'Gestión de Cajas', href: '/cajas', icon: BanknotesIcon },
 ]
 
 const adminNavigation = [
   { name: 'Proveedores', href: '/proveedores', icon: BuildingStorefrontIcon },
   { name: 'Cuentas por Pagar', href: '/cuentas-por-pagar', icon: ReceiptPercentIcon },
+  { name: 'Consulta Notas de Débito', href: '/notas-debito', icon: DocumentTextIcon },
   { name: 'Ventas a Crédito', href: '/ventas-credito', icon: CreditCardIcon },
   { name: 'Depósitos Bancarios', href: '/depositos-bancarios', icon: BuildingLibraryIcon },
   { name: 'Cierres de Caja', href: '/cierres-caja', icon: DocumentChartBarIcon },

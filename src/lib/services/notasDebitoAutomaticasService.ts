@@ -55,7 +55,7 @@ class NotasDebitoAutomaticasService {
   ): Promise<{ data: NotaDebitoGenerada | null; error: string | null }> {
     try {
       // Calcular diferencial cambiario
-      const calculo = this.calcularDiferencialCambiario(
+      const calculo = await this.calcularDiferencialCambiario(
         factura,
         factura.tasaCambio,
         tasaPago
@@ -176,15 +176,24 @@ class NotasDebitoAutomaticasService {
   }
 
   /**
-   * Calcular diferencial cambiario
+   * Calcular diferencial cambiario considerando notas de crédito asociadas
    */
-  private calcularDiferencialCambiario(
+  private async calcularDiferencialCambiario(
     factura: FacturaCuentaPorPagar,
     tasaOriginal: number,
     tasaPago: number
-  ): CalculoNotaDebito {
-    // Monto USD neto (descontando retenciones si aplica)
-    const montoUSDNeto = factura.montoUSD
+  ): Promise<CalculoNotaDebito> {
+    // Obtener notas de crédito asociadas a la factura
+    const notasCredito = await this.obtenerNotasCreditoAsociadas(factura.id)
+    
+    // Calcular monto USD neto después de descontar las notas de crédito
+    const montoUSDFactura = factura.montoUSD
+    const totalUSDNotasCredito = notasCredito.reduce((total, nc) => {
+      return total + (nc.monto_usd || nc.total / nc.tasa_cambio)
+    }, 0)
+    
+    // Monto USD neto (factura menos notas de crédito)
+    const montoUSDNeto = Math.max(0, montoUSDFactura - totalUSDNotasCredito)
 
     // Diferencial cambiario bruto
     const diferencialBruto = montoUSDNeto * (tasaPago - tasaOriginal)
@@ -334,7 +343,8 @@ class NotasDebitoAutomaticasService {
           monto_neto_pagar_nota_debito: notaData.montoNetoPagarNotaDebito,
           company_id: notaData.companyId,
           created_by: notaData.createdBy,
-          notas: notaData.notas
+          notas: notaData.notas,
+          origen: 'automatica' // Marcar como generada automáticamente
         })
         .select()
         .single()
@@ -381,6 +391,33 @@ class NotasDebitoAutomaticasService {
       necesaria: true,
       motivo: `Diferencial significativo: Bs. ${impactoBs.toFixed(2)}`,
       diferencial: impactoBs
+    }
+  }
+
+  /**
+   * Obtener notas de crédito asociadas a una factura
+   */
+  private async obtenerNotasCreditoAsociadas(facturaId: string): Promise<{
+    id: string
+    total: number
+    monto_usd: number
+    tasa_cambio: number
+  }[]> {
+    try {
+      const { data, error } = await supabase
+        .from('notas_credito')
+        .select('id, total, monto_usd, tasa_cambio')
+        .eq('factura_id', facturaId)
+
+      if (error) {
+        console.error('Error obteniendo notas de crédito:', error)
+        return []
+      }
+
+      return data || []
+    } catch (error) {
+      console.error('Error en obtenerNotasCreditoAsociadas:', error)
+      return []
     }
   }
 

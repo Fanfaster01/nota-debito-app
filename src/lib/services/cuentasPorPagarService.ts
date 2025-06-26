@@ -1019,6 +1019,143 @@ class CuentasPorPagarService {
       return []
     }
   }
+
+  /**
+   * Obtener todas las notas de débito automáticas generadas para una compañía
+   */
+  async getNotasDebitoAutomaticas(
+    companyId: string,
+    filtros?: {
+      fechaDesde?: string
+      fechaHasta?: string
+      proveedor?: string
+      numeroNota?: string
+      numeroFactura?: string
+    },
+    page: number = 1,
+    limit: number = 10
+  ): Promise<{
+    success: boolean
+    data?: {
+      notasDebito: import('@/types/cuentasPorPagar').NotaDebitoGenerada[]
+      total: number
+    }
+    error?: string
+  }> {
+    try {
+      let query = supabase
+        .from('notas_debito')
+        .select(`
+          *,
+          facturas!inner (
+            numero,
+            proveedor_nombre,
+            proveedor_rif,
+            total,
+            monto_usd,
+            tasa_cambio
+          )
+        `)
+        .eq('company_id', companyId)
+        .eq('origen', 'automatica') // Solo notas generadas automáticamente
+        .order('created_at', { ascending: false })
+
+      // Aplicar filtros
+      if (filtros?.fechaDesde) {
+        query = query.gte('fecha', filtros.fechaDesde)
+      }
+      if (filtros?.fechaHasta) {
+        query = query.lte('fecha', filtros.fechaHasta)
+      }
+      if (filtros?.numeroNota) {
+        query = query.ilike('numero', `%${filtros.numeroNota}%`)
+      }
+      if (filtros?.numeroFactura) {
+        query = query.ilike('facturas.numero', `%${filtros.numeroFactura}%`)
+      }
+
+      const { data, error, count } = await query.range(
+        (page - 1) * limit,
+        page * limit - 1
+      )
+
+      if (error) {
+        console.error('Error obteniendo notas de débito automáticas:', error)
+        return { success: false, error: 'Error al obtener las notas de débito' }
+      }
+
+      // Filtrar por proveedor si se especifica
+      let filteredData = data || []
+      if (filtros?.proveedor) {
+        filteredData = (data || []).filter(nd => 
+          nd.facturas.proveedor_nombre.toLowerCase().includes(filtros.proveedor!.toLowerCase()) ||
+          nd.facturas.proveedor_rif.toLowerCase().includes(filtros.proveedor!.toLowerCase())
+        )
+      }
+
+      // Mapear a tipo NotaDebitoGenerada
+      const notasDebito: import('@/types/cuentasPorPagar').NotaDebitoGenerada[] = filteredData.map(nd => ({
+        id: nd.id,
+        numero: nd.numero,
+        facturaId: nd.factura_id,
+        fecha: nd.fecha,
+        tasaCambioOriginal: nd.tasa_cambio_original,
+        tasaCambioPago: nd.tasa_cambio_pago,
+        montoUSDNeto: nd.monto_usd_neto,
+        diferencialCambiarioConIVA: nd.diferencial_cambiario_con_iva,
+        baseImponibleDiferencial: nd.base_imponible_diferencial,
+        ivaDiferencial: nd.iva_diferencial,
+        retencionIVADiferencial: nd.retencion_iva_diferencial,
+        montoNetoPagarNotaDebito: nd.monto_neto_pagar_nota_debito,
+        companyId: nd.company_id,
+        createdBy: nd.created_by,
+        createdAt: nd.created_at,
+        factura: {
+          id: nd.facturas.id || nd.factura_id,
+          numero: nd.facturas.numero,
+          numeroControl: '',
+          fecha: nd.fecha,
+          fechaVencimiento: '',
+          estadoPago: 'pagada' as const,
+          tipoPago: 'deposito' as const,
+          proveedorNombre: nd.facturas.proveedor_nombre,
+          proveedorRif: nd.facturas.proveedor_rif,
+          proveedorDireccion: '',
+          clienteNombre: '',
+          clienteRif: '',
+          clienteDireccion: '',
+          subTotal: 0,
+          montoExento: 0,
+          baseImponible: 0,
+          alicuotaIVA: 16,
+          iva: 0,
+          total: nd.facturas.total,
+          tasaCambio: nd.facturas.tasa_cambio,
+          montoUSD: nd.facturas.monto_usd,
+          porcentajeRetencion: 75,
+          retencionIVA: 0,
+          companyId: nd.company_id,
+          createdBy: nd.created_by,
+          createdAt: nd.created_at,
+          updatedAt: nd.updated_at || nd.created_at
+        }
+      }))
+
+      return {
+        success: true,
+        data: {
+          notasDebito,
+          total: count || filteredData.length
+        }
+      }
+    } catch (error) {
+      console.error('Error en getNotasDebitoAutomaticas:', error)
+      return {
+        success: false,
+        error: 'Error al obtener las notas de débito automáticas'
+      }
+    }
+  }
 }
 
 export const cuentasPorPagarService = new CuentasPorPagarService()

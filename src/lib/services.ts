@@ -214,6 +214,9 @@ export class NotaDebitoService {
     }
   }
 
+  /**
+   * @deprecated Manual creation is deprecated. Use automatic generation through cuentasPorPagarService.
+   */
   async createNotaDebito(
     notaDebito: NotaDebito,
     facturaId: string,
