@@ -82,7 +82,7 @@ class FormatosTxtService {
    */
   async actualizarFormato(id: string, updates: Partial<FormatoTxtBancario>): Promise<{ data: FormatoTxtBancario | null; error: string | null }> {
     try {
-      const updateData: any = {}
+      const updateData: Record<string, unknown> = {}
       
       if (updates.nombreBanco) updateData.nombre_banco = updates.nombreBanco
       if (updates.codigoBanco) updateData.codigo_banco = updates.codigoBanco
@@ -312,19 +312,20 @@ class FormatosTxtService {
   /**
    * Mapear datos de la base de datos al tipo TypeScript
    */
-  private mapToFormatoTxtBancario(data: any): FormatoTxtBancario {
+  private mapToFormatoTxtBancario(data: unknown): FormatoTxtBancario {
+    const dbData = data as Record<string, unknown>
     return {
-      id: data.id,
-      nombreBanco: data.nombre_banco,
-      codigoBanco: data.codigo_banco,
-      descripcion: data.descripcion,
-      formatoTemplate: data.formato_template,
-      camposRequeridos: data.campos_requeridos,
-      separador: data.separador,
-      extensionArchivo: data.extension_archivo,
-      activo: data.activo,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
+      id: dbData.id as string,
+      nombreBanco: dbData.nombre_banco as string,
+      codigoBanco: dbData.codigo_banco as string,
+      descripcion: dbData.descripcion as string | null,
+      formatoTemplate: dbData.formato_template as string,
+      camposRequeridos: dbData.campos_requeridos as string[],
+      separador: dbData.separador as string,
+      extensionArchivo: dbData.extension_archivo as string,
+      activo: dbData.activo as boolean,
+      createdAt: dbData.created_at as string,
+      updatedAt: dbData.updated_at as string
     }
   }
 }

@@ -6,7 +6,7 @@ import { Company, User, TablesInsert, TablesUpdate } from '@/types/database'
 export class CompanyService {
   private supabase = createClient()
 
-  async createCompany(company: TablesInsert<'companies'>): Promise<{ data: Company | null, error: any }> {
+  async createCompany(company: TablesInsert<'companies'>): Promise<{ data: Company | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('companies')
@@ -20,7 +20,7 @@ export class CompanyService {
     }
   }
 
-  async getAllCompanies(): Promise<{ data: Company[] | null, error: any }> {
+  async getAllCompanies(): Promise<{ data: Company[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('companies')
@@ -33,7 +33,7 @@ export class CompanyService {
     }
   }
 
-  async getCompanyById(id: string): Promise<{ data: Company | null, error: any }> {
+  async getCompanyById(id: string): Promise<{ data: Company | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('companies')
@@ -47,7 +47,7 @@ export class CompanyService {
     }
   }
 
-  async updateCompany(id: string, updates: TablesUpdate<'companies'>): Promise<{ data: Company | null, error: any }> {
+  async updateCompany(id: string, updates: TablesUpdate<'companies'>): Promise<{ data: Company | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('companies')
@@ -62,7 +62,7 @@ export class CompanyService {
     }
   }
 
-  async deleteCompany(id: string): Promise<{ error: any }> {
+  async deleteCompany(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('companies')
@@ -75,7 +75,7 @@ export class CompanyService {
     }
   }
 
-  async toggleCompanyStatus(id: string, isActive: boolean): Promise<{ data: Company | null, error: any }> {
+  async toggleCompanyStatus(id: string, isActive: boolean): Promise<{ data: Company | null, error: unknown }> {
     return this.updateCompany(id, { is_active: isActive })
   }
 }
@@ -84,7 +84,7 @@ export class CompanyService {
 export class AdminUserService {
   private supabase = createClient()
 
-  async getAllUsers(): Promise<{ data: User[] | null, error: any }> {
+  async getAllUsers(): Promise<{ data: User[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('users')
@@ -104,7 +104,7 @@ export class AdminUserService {
     }
   }
 
-  async getUserById(id: string): Promise<{ data: User | null, error: any }> {
+  async getUserById(id: string): Promise<{ data: User | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('users')
@@ -125,7 +125,7 @@ export class AdminUserService {
     }
   }
 
-  async updateUser(id: string, updates: TablesUpdate<'users'>): Promise<{ data: User | null, error: any }> {
+  async updateUser(id: string, updates: TablesUpdate<'users'>): Promise<{ data: User | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('users')
@@ -147,19 +147,19 @@ export class AdminUserService {
     }
   }
 
-  async assignUserToCompany(userId: string, companyId: string | null): Promise<{ data: User | null, error: any }> {
+  async assignUserToCompany(userId: string, companyId: string | null): Promise<{ data: User | null, error: unknown }> {
     return this.updateUser(userId, { company_id: companyId })
   }
 
-  async updateUserRole(userId: string, role: 'master' | 'admin' | 'user'): Promise<{ data: User | null, error: any }> {
+  async updateUserRole(userId: string, role: 'master' | 'admin' | 'user'): Promise<{ data: User | null, error: unknown }> {
     return this.updateUser(userId, { role })
   }
 
-  async toggleUserStatus(userId: string, isActive: boolean): Promise<{ data: User | null, error: any }> {
+  async toggleUserStatus(userId: string, isActive: boolean): Promise<{ data: User | null, error: unknown }> {
     return this.updateUser(userId, { is_active: isActive })
   }
 
-  async deleteUser(id: string): Promise<{ error: any }> {
+  async deleteUser(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('users')
@@ -172,7 +172,7 @@ export class AdminUserService {
     }
   }
 
-  async getUsersByCompany(companyId: string): Promise<{ data: User[] | null, error: any }> {
+  async getUsersByCompany(companyId: string): Promise<{ data: User[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('users')
@@ -192,7 +192,7 @@ export class AdminUserService {
     fullName: string
     role: 'master' | 'admin' | 'user'
     companyId?: string | null
-  }): Promise<{ data: User | null, error: any }> {
+  }): Promise<{ data: User | null, error: unknown }> {
     try {
       // Primero crear el usuario en auth.users
       const { data: authData, error: authError } = await this.supabase.auth.signUp({
@@ -319,7 +319,7 @@ export class DashboardService {
       totalCompanies?: number
       totalUsers?: number
     } | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       let facturaQuery = this.supabase.from('facturas').select('id', { count: 'exact' })
@@ -349,7 +349,7 @@ export class DashboardService {
         }
       }
 
-      const stats: any = {
+      const stats: Record<string, unknown> = {
         totalFacturas: totalFacturas || 0,
         totalNotasCredito: totalNotasCredito || 0,
         totalNotasDebito: totalNotasDebito || 0,
@@ -382,7 +382,7 @@ export class DashboardService {
   // Obtener métricas completas para dashboard master
   async getMasterDashboardStats(companyId?: string): Promise<{ 
     data: MasterDashboardStats | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       // Obtener estadísticas básicas
@@ -392,7 +392,7 @@ export class DashboardService {
       }
 
       // Inicializar métricas con valores por defecto
-      let cajaResumen: any = {
+      let cajaResumen: Record<string, unknown> = {
         totalCajas: 0,
         cajasAbiertas: 0,
         totalPagosMovil: 0,
@@ -403,13 +403,13 @@ export class DashboardService {
         totalCreditosUsd: 0
       }
 
-      let cierresResumen: any = {
+      let cierresResumen: Record<string, unknown> = {
         cierresConDiscrepancias: 0,
         promedioDiscrepancia: 0,
         usuariosMasActivos: []
       }
 
-      let creditosResumen: any = {
+      let creditosResumen: Record<string, unknown> = {
         totalCreditos: 0,
         creditosPendientes: 0,
         creditosPagados: 0,
@@ -419,7 +419,7 @@ export class DashboardService {
         clientesConCredito: 0
       }
 
-      let alertas: any[] = []
+      let alertas: unknown[] = []
 
       // Intentar cargar métricas de servicios externos (si están disponibles)
       try {
@@ -493,7 +493,7 @@ export class DashboardService {
   }
 
   // Obtener ranking de compañías para vista global
-  async getCompanyRanking(): Promise<{ data: CompanyRanking[] | null, error: any }> {
+  async getCompanyRanking(): Promise<{ data: CompanyRanking[] | null, error: unknown }> {
     try {
       // Obtener todas las compañías con estadísticas básicas
       const { data: companies, error: companiesError } = await this.supabase
@@ -553,7 +553,7 @@ export class DashboardService {
   }
 
   // Obtener lista de compañías activas para selector
-  async getActiveCompanies(): Promise<{ data: Array<{id: string, name: string, rif: string, is_active: boolean}> | null, error: any }> {
+  async getActiveCompanies(): Promise<{ data: Array<{id: string, name: string, rif: string, is_active: boolean}> | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('companies')
@@ -576,7 +576,7 @@ export class DashboardService {
       total?: number
       created_at: string
     }> | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       let facturaQuery = this.supabase

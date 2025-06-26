@@ -25,6 +25,23 @@ interface CalculoNotaDebito {
   montoNetoPagarNotaDebito: number
 }
 
+interface NotaDebitoData {
+  numero: string
+  fecha: string
+  facturaId: string
+  tasaCambioOriginal: number
+  tasaCambioPago: number
+  montoUSDNeto: number
+  diferencialCambiarioConIVA: number
+  baseImponibleDiferencial: number
+  ivaDiferencial: number
+  retencionIVADiferencial: number
+  montoNetoPagarNotaDebito: number
+  companyId: string
+  createdBy: string
+  notas: string
+}
+
 class NotasDebitoAutomaticasService {
   /**
    * Generar nota de débito automática para una factura
@@ -298,7 +315,7 @@ class NotasDebitoAutomaticasService {
   /**
    * Guardar nota de débito en base de datos
    */
-  private async guardarNotaDebito(notaData: any): Promise<{ data: any | null; error: string | null }> {
+  private async guardarNotaDebito(notaData: NotaDebitoData): Promise<{ data: unknown | null; error: string | null }> {
     try {
       const { data, error } = await supabase
         .from('notas_debito')

@@ -19,7 +19,7 @@ export class NotificationService {
   private supabase = createClient()
 
   // Obtener créditos próximos a vencer (en los próximos 7 días)
-  async getCreditosProximosAVencer(companyId?: string): Promise<{ data: CreditoDetalladoUI[] | null, error: any }> {
+  async getCreditosProximosAVencer(companyId?: string): Promise<{ data: CreditoDetalladoUI[] | null, error: unknown }> {
     try {
       const hoy = new Date()
       const enUnaSemanà = new Date()
@@ -50,7 +50,7 @@ export class NotificationService {
   }
 
   // Obtener créditos vencidos
-  async getCreditosVencidos(companyId?: string): Promise<{ data: CreditoDetalladoUI[] | null, error: any }> {
+  async getCreditosVencidos(companyId?: string): Promise<{ data: CreditoDetalladoUI[] | null, error: unknown }> {
     try {
       const filtros = {
         estado: 'pendiente' as const,
@@ -76,12 +76,12 @@ export class NotificationService {
   // Obtener clientes con múltiples créditos pendientes
   async getClientesConMultiplesCreditos(companyId?: string): Promise<{ 
     data: Array<{
-      cliente: any,
+      cliente: unknown,
       creditos: CreditoDetalladoUI[],
       totalPendiente: number,
       cantidadCreditos: number
     }> | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       const filtros = {
@@ -127,7 +127,7 @@ export class NotificationService {
   }
 
   // Generar notificaciones automáticas
-  async generateNotifications(companyId?: string): Promise<{ data: NotificacionCredito[] | null, error: any }> {
+  async generateNotifications(companyId?: string): Promise<{ data: NotificacionCredito[] | null, error: unknown }> {
     try {
       const notificaciones: NotificacionCredito[] = []
 
@@ -202,7 +202,7 @@ export class NotificationService {
       montoTotalVencido: number,
       montoTotalProximoAVencer: number
     } | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       const [vencidos, proximosAVencer, clientesMultiples] = await Promise.all([

@@ -6,7 +6,7 @@ export class ProveedorCuentasBancariasService {
   private supabase = createClient()
 
   // Obtener todas las cuentas bancarias de un proveedor
-  async getCuentasByProveedorId(proveedorId: string): Promise<{ data: ProveedorCuentaBancaria[] | null, error: any }> {
+  async getCuentasByProveedorId(proveedorId: string): Promise<{ data: ProveedorCuentaBancaria[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
@@ -24,10 +24,13 @@ export class ProveedorCuentasBancariasService {
         .order('created_at', { ascending: true })
 
       // Transformar los datos para incluir el nombre del banco
-      const transformedData = data?.map((cuenta: any) => ({
-        ...cuenta,
-        banco_nombre: cuenta.bancos?.nombre || cuenta.banco_nombre || 'Banco no encontrado'
-      })) || null
+      const transformedData = data?.map((cuenta: unknown) => {
+        const cuentaData = cuenta as Record<string, unknown>
+        return {
+          ...cuentaData,
+          banco_nombre: (cuentaData.bancos as Record<string, unknown>)?.nombre || cuentaData.banco_nombre || 'Banco no encontrado'
+        }
+      }) || null
 
       return { data: transformedData, error }
     } catch (error) {
@@ -36,7 +39,7 @@ export class ProveedorCuentasBancariasService {
   }
 
   // Crear una nueva cuenta bancaria para un proveedor
-  async createCuentaBancaria(cuenta: Omit<ProveedorCuentaBancaria, 'id' | 'created_at' | 'updated_at'>): Promise<{ data: ProveedorCuentaBancaria | null, error: any }> {
+  async createCuentaBancaria(cuenta: Omit<ProveedorCuentaBancaria, 'id' | 'created_at' | 'updated_at'>): Promise<{ data: ProveedorCuentaBancaria | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
@@ -51,7 +54,7 @@ export class ProveedorCuentasBancariasService {
   }
 
   // Actualizar una cuenta bancaria
-  async updateCuentaBancaria(id: string, updates: Partial<ProveedorCuentaBancaria>): Promise<{ data: ProveedorCuentaBancaria | null, error: any }> {
+  async updateCuentaBancaria(id: string, updates: Partial<ProveedorCuentaBancaria>): Promise<{ data: ProveedorCuentaBancaria | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
@@ -67,7 +70,7 @@ export class ProveedorCuentasBancariasService {
   }
 
   // Eliminar una cuenta bancaria (soft delete)
-  async deleteCuentaBancaria(id: string): Promise<{ error: any }> {
+  async deleteCuentaBancaria(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
@@ -81,7 +84,7 @@ export class ProveedorCuentasBancariasService {
   }
 
   // Marcar una cuenta como favorita (y desmarcar las demás del mismo proveedor)
-  async marcarComoFavorita(proveedorId: string, cuentaId: string): Promise<{ error: any }> {
+  async marcarComoFavorita(proveedorId: string, cuentaId: string): Promise<{ error: unknown }> {
     try {
       // Primero desmarcamos todas las cuentas del proveedor
       await this.supabase
@@ -102,7 +105,7 @@ export class ProveedorCuentasBancariasService {
   }
 
   // Obtener la cuenta favorita de un proveedor
-  async getCuentaFavorita(proveedorId: string): Promise<{ data: ProveedorCuentaBancaria | null, error: any }> {
+  async getCuentaFavorita(proveedorId: string): Promise<{ data: ProveedorCuentaBancaria | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('proveedores_cuentas_bancarias')
@@ -132,11 +135,11 @@ export class ProveedorCuentasBancariasService {
   }
 
   // Crear múltiples cuentas bancarias para un proveedor
-  async createMultipleCuentas(cuentas: Omit<ProveedorCuentaBancaria, 'id' | 'created_at' | 'updated_at'>[]): Promise<{ data: ProveedorCuentaBancaria[] | null, error: any }> {
+  async createMultipleCuentas(cuentas: Omit<ProveedorCuentaBancaria, 'id' | 'created_at' | 'updated_at'>[]): Promise<{ data: ProveedorCuentaBancaria[] | null, error: unknown }> {
     try {
       // Preparar las cuentas para inserción, manejando compatibilidad entre banco_id y banco_nombre
       const cuentasParaInsertar = await Promise.all(cuentas.map(async (cuenta) => {
-        const cuentaData: any = {
+        const cuentaData: Record<string, unknown> = {
           proveedor_id: cuenta.proveedor_id,
           numero_cuenta: cuenta.numero_cuenta,
           titular_cuenta: cuenta.titular_cuenta,

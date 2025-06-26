@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client'
 export interface SystemSetting {
   id: string
   key: string
-  value: any
+  value: unknown
   category: string
   description?: string
   created_at: string
@@ -14,7 +14,7 @@ export interface SystemSetting {
 export interface SystemLog {
   id: string
   action: string
-  details?: any
+  details?: unknown
   user_id?: string
   created_at: string
 }
@@ -36,7 +36,7 @@ export class SettingsService {
   private supabase = createClient()
 
   // Obtener todas las configuraciones
-  async getAllSettings(): Promise<{ data: SystemSetting[] | null, error: any }> {
+  async getAllSettings(): Promise<{ data: SystemSetting[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('system_settings')
@@ -50,7 +50,7 @@ export class SettingsService {
   }
 
   // Obtener configuraciones por categoría
-  async getSettingsByCategory(category: string): Promise<{ data: Record<string, any> | null, error: any }> {
+  async getSettingsByCategory(category: string): Promise<{ data: Record<string, unknown> | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('system_settings')
@@ -63,7 +63,7 @@ export class SettingsService {
       const settings = data?.reduce((acc, item) => {
         acc[item.key] = item.value
         return acc
-      }, {} as Record<string, any>) || {}
+      }, {} as Record<string, unknown>) || {}
 
       return { data: settings, error: null }
     } catch (error) {
@@ -72,7 +72,7 @@ export class SettingsService {
   }
 
   // Obtener una configuración específica
-  async getSetting(key: string): Promise<{ data: any | null, error: any }> {
+  async getSetting(key: string): Promise<{ data: unknown | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('system_settings')
@@ -87,7 +87,7 @@ export class SettingsService {
   }
 
   // Actualizar una configuración
-  async updateSetting(key: string, value: any): Promise<{ error: any }> {
+  async updateSetting(key: string, value: unknown): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('system_settings')
@@ -106,7 +106,7 @@ export class SettingsService {
   }
 
   // Actualizar múltiples configuraciones
-  async updateMultipleSettings(settings: Record<string, any>): Promise<{ error: any }> {
+  async updateMultipleSettings(settings: Record<string, unknown>): Promise<{ error: unknown }> {
     try {
       // Actualizar una por una para mantener la integridad
       for (const [key, value] of Object.entries(settings)) {
@@ -131,7 +131,7 @@ export class SettingsService {
   }
 
   // Crear nueva configuración
-  async createSetting(key: string, value: any, category: string, description?: string): Promise<{ error: any }> {
+  async createSetting(key: string, value: unknown, category: string, description?: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('system_settings')
@@ -153,7 +153,7 @@ export class SettingsService {
   }
 
   // Obtener estadísticas del sistema (reales)
-  async getSystemStats(): Promise<{ data: SystemStats | null, error: any }> {
+  async getSystemStats(): Promise<{ data: SystemStats | null, error: unknown }> {
     try {
       const [
         { count: totalUsers },
@@ -194,7 +194,7 @@ export class SettingsService {
   }
 
   // Realizar backup manual
-  async performManualBackup(): Promise<{ error: any }> {
+  async performManualBackup(): Promise<{ error: unknown }> {
     try {
       // Simular proceso de backup (en producción esto ejecutaría un script real)
       const backupDate = new Date().toISOString()
@@ -217,7 +217,7 @@ export class SettingsService {
   }
 
   // Limpiar caché del sistema
-  async clearSystemCache(): Promise<{ error: any }> {
+  async clearSystemCache(): Promise<{ error: unknown }> {
     try {
       // En producción esto ejecutaría comandos reales de limpieza
       // Por ahora solo loggeamos la acción
@@ -232,7 +232,7 @@ export class SettingsService {
   }
 
   // Obtener logs del sistema
-  async getSystemLogs(limit: number = 50): Promise<{ data: SystemLog[] | null, error: any }> {
+  async getSystemLogs(limit: number = 50): Promise<{ data: SystemLog[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('system_logs')
@@ -253,7 +253,7 @@ export class SettingsService {
   }
 
   // Función privada para loggear acciones
-  private async logAction(action: string, details?: any): Promise<void> {
+  private async logAction(action: string, details?: unknown): Promise<void> {
     try {
       const { data: { user } } = await this.supabase.auth.getUser()
       
@@ -277,9 +277,9 @@ export class SettingsService {
 
   // Obtener configuraciones con valores por defecto
   async getConfigWithDefaults(): Promise<{
-    general: Record<string, any>
-    notifications: Record<string, any>
-    backup: Record<string, any>
+    general: Record<string, unknown>
+    notifications: Record<string, unknown>
+    backup: Record<string, unknown>
   }> {
     try {
       const [general, notifications, backup] = await Promise.all([
