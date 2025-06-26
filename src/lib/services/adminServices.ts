@@ -349,7 +349,13 @@ export class DashboardService {
         }
       }
 
-      const stats = {
+      const stats: {
+        totalFacturas: number
+        totalNotasCredito: number
+        totalNotasDebito: number
+        totalCompanies?: number
+        totalUsers?: number
+      } = {
         totalFacturas: totalFacturas || 0,
         totalNotasCredito: totalNotasCredito || 0,
         totalNotasDebito: totalNotasDebito || 0,
@@ -403,7 +409,18 @@ export class DashboardService {
         totalCreditosUsd: 0
       }
 
-      let cierresResumen = {
+      interface UsuarioActivo {
+        userId: string
+        nombreUsuario: string
+        cantidadCierres: number
+        promedioDiscrepancia: number
+      }
+
+      let cierresResumen: {
+        cierresConDiscrepancias: number
+        promedioDiscrepancia: number
+        usuariosMasActivos: UsuarioActivo[]
+      } = {
         cierresConDiscrepancias: 0,
         promedioDiscrepancia: 0,
         usuariosMasActivos: []
@@ -419,13 +436,20 @@ export class DashboardService {
         clientesConCredito: 0
       }
 
-      let alertas = []
+      interface Alerta {
+        severidad: 'leve' | 'media' | 'alta'
+        [key: string]: unknown
+      }
+      
+      let alertas: Alerta[] = []
 
       // Intentar cargar métricas de servicios externos (si están disponibles)
       try {
         const { cajaService } = await import('./cajaService')
         const { data: cajaData } = await cajaService.getResumenCajas(companyId || '', 30)
-        if (cajaData) cajaResumen = cajaData
+        if (cajaData) {
+          Object.assign(cajaResumen, cajaData)
+        }
       } catch (error) {
         console.warn('CajaService no disponible:', error)
       }
@@ -433,10 +457,14 @@ export class DashboardService {
       try {
         const { cierresCajaService } = await import('./cierresCajaService')
         const { data: cierresData } = await cierresCajaService.getResumenCierres(companyId, 30)
-        if (cierresData) cierresResumen = cierresData
+        if (cierresData) {
+          Object.assign(cierresResumen, cierresData)
+        }
 
         const { data: alertasData } = await cierresCajaService.getAlertasDiscrepancias(companyId)
-        if (alertasData) alertas = alertasData
+        if (alertasData) {
+          alertas = alertasData as Alerta[]
+        }
       } catch (error) {
         console.warn('CierresCajaService no disponible:', error)
       }
@@ -444,7 +472,9 @@ export class DashboardService {
       try {
         const { creditoService } = await import('./creditoService')
         const { data: creditosData } = await creditoService.getResumenCreditos(companyId)
-        if (creditosData) creditosResumen = creditosData
+        if (creditosData) {
+          Object.assign(creditosResumen, creditosData)
+        }
       } catch (error) {
         console.warn('CreditoService no disponible:', error)
       }

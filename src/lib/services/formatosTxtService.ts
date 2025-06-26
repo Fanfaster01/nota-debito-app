@@ -4,6 +4,12 @@ import { createClient } from '@/utils/supabase/client'
 const supabase = createClient()
 import type { FormatoTxtBancario, FacturaCuentaPorPagar, ProveedorConBanco } from '@/types/cuentasPorPagar'
 
+interface FormatoTemplateStructure {
+  estructura: string[]
+  separador: string
+  [key: string]: any
+}
+
 class FormatosTxtService {
   /**
    * Obtener todos los formatos TXT activos
@@ -118,17 +124,41 @@ class FormatosTxtService {
     proveedores: ProveedorConBanco[]
   ): Promise<{ data: string | null; error: string | null }> {
     try {
+      // Validar parámetros de entrada
+      if (!formatoId || !formatoId.trim()) {
+        return { data: null, error: 'ID de formato es requerido' }
+      }
+
+      if (!facturas || facturas.length === 0) {
+        return { data: null, error: 'No hay facturas para procesar' }
+      }
+
+      if (!proveedores || proveedores.length === 0) {
+        return { data: null, error: 'No hay proveedores para procesar' }
+      }
+
       // Obtener formato
       const formatoResult = await this.getFormatoPorId(formatoId)
       if (formatoResult.error || !formatoResult.data) {
-        throw new Error(formatoResult.error || 'Formato no encontrado')
+        return { data: null, error: formatoResult.error || 'Formato no encontrado' }
       }
 
       const formato = formatoResult.data
+
+      // Validar formato antes de procesar
+      const validacion = this.validarFormato(formato)
+      if (!validacion.valido) {
+        return { 
+          data: null, 
+          error: `Formato inválido: ${validacion.errores.join('; ')}` 
+        }
+      }
+
       return this.procesarFormato(formato, facturas, proveedores)
     } catch (error) {
       console.error('Error generando archivo TXT:', error)
-      return { data: null, error: 'Error al generar el archivo TXT' }
+      const errorMessage = error instanceof Error ? error.message : 'Error al generar el archivo TXT'
+      return { data: null, error: errorMessage }
     }
   }
 
@@ -155,14 +185,30 @@ class FormatosTxtService {
       })
 
       // Procesar cada proveedor
+      const proveedoresSinDatos: string[] = []
+      
       for (const [proveedorRif, facturasProveedor] of facturasPorProveedor) {
         const proveedor = proveedores.find(p => p.rif === proveedorRif)
-        if (!proveedor || !proveedor.bancoFavorito) {
-          console.warn(`Proveedor ${proveedorRif} sin datos bancarios, omitiendo...`)
+        
+        if (!proveedor) {
+          proveedoresSinDatos.push(`${proveedorRif} (no encontrado)`)
+          continue
+        }
+        
+        if (!proveedor.bancoFavorito) {
+          proveedoresSinDatos.push(`${proveedorRif} (sin banco favorito)`)
           continue
         }
 
-        const montoTotal = facturasProveedor.reduce((sum, f) => sum + (f.montoFinalPagar || f.total), 0)
+        const montoTotal = facturasProveedor.reduce((sum, f) => {
+          const monto = f.montoFinalPagar || f.total || 0
+          return sum + monto
+        }, 0)
+        
+        if (montoTotal <= 0) {
+          console.warn(`Proveedor ${proveedorRif} con monto total <= 0, omitiendo...`)
+          continue
+        }
         
         // Generar línea según estructura del formato
         const linea = this.generarLineaSegunFormato(
@@ -173,9 +219,14 @@ class FormatosTxtService {
           separador
         )
 
-        if (linea) {
+        if (linea && linea.trim()) {
           lineas.push(linea)
         }
+      }
+
+      // Reportar proveedores con problemas si los hay
+      if (proveedoresSinDatos.length > 0) {
+        console.warn(`Proveedores omitidos: ${proveedoresSinDatos.join(', ')}`)
       }
 
       const contenido = lineas.join('\n')
@@ -197,55 +248,76 @@ class FormatosTxtService {
     separador: string
   ): string | null {
     try {
-      const estructura = formato.formatoTemplate.estructura as string[]
+      const estructura = this.getFormatoEstructura(formato)
+      if (estructura.length === 0) {
+        console.error('Formato sin estructura válida')
+        return null
+      }
+      
       const campos: string[] = []
 
       for (const campo of estructura) {
         let valor = ''
 
-        switch (campo.toLowerCase()) {
-          case 'numero_cuenta':
-            valor = proveedor.bancoFavorito?.numeroCuenta || ''
-            break
-          case 'tipo_cuenta':
-            valor = proveedor.bancoFavorito?.tipoCuenta || 'CORRIENTE'
-            break
-          case 'monto':
-          case 'monto_bs':
-            valor = montoTotal.toFixed(2)
-            break
-          case 'monto_usd':
-            valor = facturas.reduce((sum, f) => sum + f.montoUSD, 0).toFixed(2)
-            break
-          case 'referencia':
-            valor = facturas.map(f => f.numero).join(', ')
-            break
-          case 'descripcion':
-            valor = `Pago facturas: ${facturas.map(f => f.numero).join(', ')}`
-            break
-          case 'rif_beneficiario':
-            valor = proveedor.rif
-            break
-          case 'nombre_beneficiario':
-            valor = proveedor.nombre
-            break
-          case 'banco_codigo':
-            valor = proveedor.bancoFavorito?.banco?.codigo || ''
-            break
-          case 'banco_nombre':
-            valor = proveedor.bancoFavorito?.bancoNombre || proveedor.bancoFavorito?.banco?.nombre || ''
-            break
-          case 'fecha':
-            valor = new Date().toISOString().split('T')[0].replace(/-/g, '')
-            break
-          case 'fecha_iso':
-            valor = new Date().toISOString().split('T')[0]
-            break
-          default:
-            // Campo personalizado o literal
-            valor = campo
+        try {
+          switch (campo.toLowerCase()) {
+            case 'numero_cuenta':
+              valor = proveedor.bancoFavorito?.numeroCuenta || ''
+              if (!valor) {
+                console.warn(`Número de cuenta faltante para proveedor ${proveedor.rif}`)
+              }
+              break
+            case 'tipo_cuenta':
+              valor = proveedor.bancoFavorito?.tipoCuenta || 'CORRIENTE'
+              break
+            case 'monto':
+            case 'monto_bs':
+              valor = montoTotal.toFixed(2)
+              break
+            case 'monto_usd':
+              const montoUsd = facturas.reduce((sum, f) => sum + (f.montoUSD || 0), 0)
+              valor = montoUsd.toFixed(2)
+              break
+            case 'referencia':
+              const numerosFactura = facturas.map(f => f.numero).filter(Boolean)
+              valor = numerosFactura.length > 0 ? numerosFactura.join(', ') : 'SIN_REF'
+              break
+            case 'descripcion':
+              const numerosDesc = facturas.map(f => f.numero).filter(Boolean)
+              valor = numerosDesc.length > 0 
+                ? `Pago facturas: ${numerosDesc.join(', ')}`
+                : 'Pago de facturas'
+              break
+            case 'rif_beneficiario':
+              valor = proveedor.rif || ''
+              break
+            case 'nombre_beneficiario':
+              valor = proveedor.nombre || ''
+              break
+            case 'banco_codigo':
+              valor = proveedor.bancoFavorito?.banco?.codigo || ''
+              break
+            case 'banco_nombre':
+              valor = proveedor.bancoFavorito?.bancoNombre || 
+                     proveedor.bancoFavorito?.banco?.nombre || ''
+              break
+            case 'fecha':
+              valor = new Date().toISOString().split('T')[0].replace(/-/g, '')
+              break
+            case 'fecha_iso':
+              valor = new Date().toISOString().split('T')[0]
+              break
+            default:
+              // Campo personalizado o literal
+              valor = campo
+          }
+        } catch (fieldError) {
+          console.error(`Error procesando campo ${campo}:`, fieldError)
+          valor = ''
         }
 
+        // Sanitizar el valor (remover caracteres problemáticos)
+        valor = String(valor).replace(/[\r\n\t]/g, ' ').trim()
         campos.push(valor)
       }
 
@@ -262,21 +334,24 @@ class FormatosTxtService {
   validarFormato(formato: FormatoTxtBancario): { valido: boolean; errores: string[] } {
     const errores: string[] = []
 
-    if (!formato.nombreBanco.trim()) {
+    // Validar nombre del banco
+    if (!formato.nombreBanco || !formato.nombreBanco.trim()) {
       errores.push('El nombre del banco es requerido')
     }
 
-    if (!formato.formatoTemplate.estructura || formato.formatoTemplate.estructura.length === 0) {
+    // Validar estructura del formato
+    const estructura = this.getFormatoEstructura(formato)
+    if (estructura.length === 0) {
       errores.push('La estructura del formato es requerida')
     }
 
+    // Validar campos requeridos
     if (!formato.camposRequeridos || formato.camposRequeridos.length === 0) {
       errores.push('Los campos requeridos deben estar especificados')
     }
 
     // Validar que los campos requeridos estén en la estructura
-    if (formato.formatoTemplate.estructura && formato.camposRequeridos) {
-      const estructura = formato.formatoTemplate.estructura as string[]
+    if (estructura.length > 0 && formato.camposRequeridos && formato.camposRequeridos.length > 0) {
       const faltantes = formato.camposRequeridos.filter(
         campo => !estructura.includes(campo)
       )
@@ -284,6 +359,16 @@ class FormatosTxtService {
       if (faltantes.length > 0) {
         errores.push(`Campos requeridos faltantes en la estructura: ${faltantes.join(', ')}`)
       }
+    }
+
+    // Validar separador
+    if (!formato.separador || formato.separador.trim() === '') {
+      errores.push('El separador es requerido')
+    }
+
+    // Validar extensión de archivo
+    if (!formato.extensionArchivo || formato.extensionArchivo.trim() === '') {
+      errores.push('La extensión de archivo es requerida')
     }
 
     return {
@@ -296,17 +381,50 @@ class FormatosTxtService {
    * Descargar archivo TXT
    */
   descargarTxt(contenido: string, nombreArchivo: string, extension = 'txt'): void {
-    const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' })
-    const url = window.URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    
-    link.href = url
-    link.download = `${nombreArchivo}.${extension}`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    
-    window.URL.revokeObjectURL(url)
+    try {
+      // Validar parámetros
+      if (!contenido || contenido.trim() === '') {
+        console.error('Contenido vacío para descarga')
+        return
+      }
+
+      if (!nombreArchivo || nombreArchivo.trim() === '') {
+        nombreArchivo = `archivo_${Date.now()}`
+      }
+
+      // Sanitizar nombre de archivo
+      const nombreSanitizado = nombreArchivo.replace(/[^a-zA-Z0-9_-]/g, '_')
+      
+      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      
+      link.href = url
+      link.download = `${nombreSanitizado}.${extension}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error descargando archivo TXT:', error)
+    }
+  }
+
+  /**
+   * Obtener estructura del formato de forma segura
+   */
+  private getFormatoEstructura(formato: FormatoTxtBancario): string[] {
+    try {
+      const template = formato.formatoTemplate as FormatoTemplateStructure
+      if (template && Array.isArray(template.estructura)) {
+        return template.estructura
+      }
+      return []
+    } catch (error) {
+      console.error('Error accediendo a estructura del formato:', error)
+      return []
+    }
   }
 
   /**
@@ -314,18 +432,50 @@ class FormatosTxtService {
    */
   private mapToFormatoTxtBancario(data: unknown): FormatoTxtBancario {
     const dbData = data as Record<string, unknown>
+    
+    // Validar y parsear formatoTemplate de forma segura
+    let formatoTemplate: FormatoTemplateStructure
+    try {
+      const templateData = dbData.formato_template
+      if (typeof templateData === 'string') {
+        formatoTemplate = JSON.parse(templateData)
+      } else if (templateData && typeof templateData === 'object') {
+        formatoTemplate = templateData as FormatoTemplateStructure
+      } else {
+        formatoTemplate = { estructura: [], separador: ',' }
+      }
+      
+      // Validar que tiene estructura
+      if (!formatoTemplate.estructura || !Array.isArray(formatoTemplate.estructura)) {
+        formatoTemplate.estructura = []
+      }
+      
+      // Asegurar que tiene separador
+      if (!formatoTemplate.separador || typeof formatoTemplate.separador !== 'string') {
+        formatoTemplate.separador = (dbData.separador as string) || ','
+      }
+    } catch (error) {
+      console.error('Error parseando formato_template:', error)
+      formatoTemplate = { 
+        estructura: [], 
+        separador: (dbData.separador as string) || ',' 
+      }
+    }
+    
     return {
       id: dbData.id as string,
-      nombreBanco: dbData.nombre_banco as string,
-      codigoBanco: dbData.codigo_banco as string,
-      descripcion: (dbData.descripcion as string) || null,
-      formatoTemplate: dbData.formato_template as unknown,
-      camposRequeridos: dbData.campos_requeridos as string[],
-      separador: dbData.separador as string,
-      extensionArchivo: dbData.extension_archivo as string,
-      activo: dbData.activo as boolean,
-      createdAt: dbData.created_at as string,
-      updatedAt: dbData.updated_at as string
+      nombreBanco: (dbData.nombre_banco as string) || '',
+      codigoBanco: dbData.codigo_banco as string | undefined,
+      descripcion: dbData.descripcion as string | undefined,
+      formatoTemplate: formatoTemplate,
+      camposRequeridos: Array.isArray(dbData.campos_requeridos) 
+        ? dbData.campos_requeridos as string[]
+        : [],
+      separador: (dbData.separador as string) || ',',
+      extensionArchivo: (dbData.extension_archivo as string) || 'txt',
+      activo: Boolean(dbData.activo),
+      createdAt: (dbData.created_at as string) || '',
+      updatedAt: (dbData.updated_at as string) || ''
     }
   }
 }
