@@ -269,6 +269,9 @@ export interface FormDataFactura {
   proveedorNombre: string
   proveedorRif: string
   proveedorDireccion: string
+  clienteNombre: string
+  clienteRif: string
+  clienteDireccion: string
   subTotal: number
   montoExento: number
   baseImponible: number

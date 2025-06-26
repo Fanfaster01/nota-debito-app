@@ -51,7 +51,7 @@ export class CierresCajaService {
   private supabase = createClient()
 
   // Obtener cierres de caja con filtros y detalles completos
-  async getCierresDetallados(filtros?: FiltrosCierres): Promise<{ data: CierreDetalladoUI[] | null, error: any }> {
+  async getCierresDetallados(filtros?: FiltrosCierres): Promise<{ data: CierreDetalladoUI[] | null, error: unknown }> {
     try {
       // Construir query base para cajas cerradas
       let query = this.supabase
@@ -121,6 +121,7 @@ export class CierresCajaService {
           montoAperturaUsd: cajaData.monto_apertura_usd || 0,
           montoCierre: cajaData.monto_cierre,
           tasaDia: cajaData.tasa_dia || 0,
+          tipoMoneda: cajaData.tipo_moneda || 'USD', // Add required field
           totalPagosMovil: cajaData.total_pagos_movil,
           cantidadPagosMovil: cajaData.cantidad_pagos_movil,
           totalZelleUsd: cajaData.total_zelle_usd || 0,
@@ -145,7 +146,10 @@ export class CierresCajaService {
                                      (detallesEfectivo?.efectivo_euros || 0) * caja.tasaDia * 1.1 + // Estimación EUR->USD
                                      (detallesEfectivo?.efectivo_bs || 0)
 
-        const totalPuntoVenta = detallesPuntoVenta.reduce((sum: number, pv: any) => sum + pv.monto_bs, 0)
+        const totalPuntoVenta = detallesPuntoVenta.reduce((sum: number, pv: unknown) => {
+          const pvData = pv as any // Type assertion for database object
+          return sum + (pvData.monto_bs || 0)
+        }, 0)
 
         const totalSistemico = caja.totalPagosMovil + caja.totalZelleBs + caja.totalNotasCredito + caja.totalCreditosBs
 
@@ -196,7 +200,7 @@ export class CierresCajaService {
   }
 
   // Obtener resumen estadístico de cierres
-  async getResumenCierres(companyId?: string, dias: number = 30): Promise<{ data: ResumenCierres | null, error: any }> {
+  async getResumenCierres(companyId?: string, dias: number = 30): Promise<{ data: ResumenCierres | null, error: unknown }> {
     try {
       const fechaInicio = new Date()
       fechaInicio.setDate(fechaInicio.getDate() - dias)
@@ -277,10 +281,10 @@ export class CierresCajaService {
   }
 
   // Obtener usuarios cajeros de una compañía
-  async getCajeros(companyId: string): Promise<{ data: Array<{id: string, full_name: string, email: string}> | null, error: any }> {
+  async getCajeros(companyId: string): Promise<{ data: Array<{id: string, full_name: string, email: string}> | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
-        .from('users')
+        .from('users_view')
         .select('id, full_name, email')
         .eq('company_id', companyId)
         .in('role', ['user', 'admin']) // Usuarios que pueden manejar cajas
@@ -294,8 +298,8 @@ export class CierresCajaService {
 
   // Comparar dos cierres específicos
   async compararCierres(cierre1Id: string, cierre2Id: string): Promise<{ 
-    data: { cierre1: CierreDetalladoUI, cierre2: CierreDetalladoUI, comparacion: any } | null, 
-    error: any 
+    data: { cierre1: CierreDetalladoUI, cierre2: CierreDetalladoUI, comparacion: unknown } | null, 
+    error: unknown 
   }> {
     try {
       const { data: cierres, error } = await this.getCierresDetallados()
@@ -333,7 +337,7 @@ export class CierresCajaService {
       severidad: 'leve' | 'media' | 'alta',
       mensaje: string
     }> | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       const filtros: FiltrosCierres = {}

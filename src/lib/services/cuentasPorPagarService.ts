@@ -88,6 +88,11 @@ class CuentasPorPagarService {
             numero,
             numero_control,
             fecha,
+            fecha_vencimiento,
+            estado_pago,
+            fecha_pago,
+            notas_pago,
+            tipo_pago,
             proveedor_nombre,
             proveedor_rif,
             proveedor_direccion,
@@ -144,6 +149,26 @@ class CuentasPorPagarService {
       console.error('Error al obtener facturas:', error)
       const errorMessage = error instanceof Error ? error.message : 'Error al obtener las facturas'
       return { data: null, error: errorMessage }
+    }
+  }
+
+  /**
+   * Obtener múltiples facturas por IDs
+   */
+  async getFacturasByIds(ids: string[]): Promise<{ data: FacturaCuentaPorPagar[] | null; error: string | null }> {
+    try {
+      const { data, error } = await supabase
+        .from('facturas')
+        .select('*')
+        .in('id', ids)
+
+      if (error) throw error
+
+      const facturas = data?.map(this.mapToFacturaCuentaPorPagar) || []
+      return { data: facturas, error: null }
+    } catch (error) {
+      console.error('Error al obtener facturas:', error)
+      return { data: null, error: 'Error al obtener las facturas' }
     }
   }
 
@@ -262,7 +287,7 @@ class CuentasPorPagarService {
     notas?: string
   ): Promise<{ data: boolean; error: string | null }> {
     try {
-      const updates: any = {
+      const updates: Record<string, unknown> = {
         estado_pago: estadoPago,
         updated_at: new Date().toISOString()
       }
@@ -321,6 +346,8 @@ class CuentasPorPagarService {
             id,
             total,
             fecha,
+            fecha_vencimiento,
+            estado_pago,
             created_at
           `)
           .eq('company_id', companyId)
@@ -420,6 +447,8 @@ class CuentasPorPagarService {
             id,
             total,
             fecha,
+            fecha_vencimiento,
+            estado_pago,
             proveedor_nombre,
             created_at
           `)
@@ -505,7 +534,7 @@ class CuentasPorPagarService {
       }
 
       // Obtener proveedores únicos
-      const rifsProveedores = [...new Set(facturas.map(f => f.proveedorRif))]
+      const rifsProveedores = Array.from(new Set(facturas.map((f: FacturaCuentaPorPagar) => f.proveedorRif)))
       const proveedoresSinCuenta: { rif: string; nombre: string }[] = []
 
       for (const rif of rifsProveedores) {
@@ -778,57 +807,59 @@ class CuentasPorPagarService {
   // UTILIDADES Y HELPERS PRIVADOS
   // ============================================================================
 
-  private mapToFacturaCuentaPorPagar(data: any): FacturaCuentaPorPagar {
+  private mapToFacturaCuentaPorPagar(data: unknown): FacturaCuentaPorPagar {
+    const factura = data as any // Type assertion for complex database object
     return {
-      id: data.id,
-      numero: data.numero,
-      numeroControl: data.numero_control,
-      fecha: data.fecha,
-      fechaVencimiento: data.fecha_vencimiento || undefined,
-      estadoPago: data.estado_pago || 'pendiente', // Valor por defecto
-      fechaPago: data.fecha_pago || undefined,
-      notasPago: data.notas_pago || undefined,
-      tipoPago: data.tipo_pago || 'deposito', // Valor por defecto
-      proveedorNombre: data.proveedor_nombre,
-      proveedorRif: data.proveedor_rif,
-      proveedorDireccion: data.proveedor_direccion,
-      clienteNombre: data.cliente_nombre,
-      clienteRif: data.cliente_rif,
-      clienteDireccion: data.cliente_direccion,
-      subTotal: data.sub_total,
-      montoExento: data.monto_exento,
-      baseImponible: data.base_imponible,
-      alicuotaIVA: data.alicuota_iva,
-      iva: data.iva,
-      total: data.total,
-      tasaCambio: data.tasa_cambio,
-      montoUSD: data.monto_usd,
-      porcentajeRetencion: data.porcentaje_retencion,
-      retencionIVA: data.retencion_iva,
-      companyId: data.company_id,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
+      id: factura.id,
+      numero: factura.numero,
+      numeroControl: factura.numero_control,
+      fecha: factura.fecha,
+      fechaVencimiento: factura.fecha_vencimiento || undefined,
+      estadoPago: factura.estado_pago || 'pendiente', // Valor por defecto
+      fechaPago: factura.fecha_pago || undefined,
+      notasPago: factura.notas_pago || undefined,
+      tipoPago: factura.tipo_pago || 'deposito', // Valor por defecto
+      proveedorNombre: factura.proveedor_nombre,
+      proveedorRif: factura.proveedor_rif,
+      proveedorDireccion: factura.proveedor_direccion,
+      clienteNombre: factura.cliente_nombre,
+      clienteRif: factura.cliente_rif,
+      clienteDireccion: factura.cliente_direccion,
+      subTotal: factura.sub_total,
+      montoExento: factura.monto_exento,
+      baseImponible: factura.base_imponible,
+      alicuotaIVA: factura.alicuota_iva,
+      iva: factura.iva,
+      total: factura.total,
+      tasaCambio: factura.tasa_cambio,
+      montoUSD: factura.monto_usd,
+      porcentajeRetencion: factura.porcentaje_retencion,
+      retencionIVA: factura.retencion_iva,
+      companyId: factura.company_id,
+      createdBy: factura.created_by,
+      createdAt: factura.created_at,
+      updatedAt: factura.updated_at
     }
   }
 
-  private mapToReciboPago(data: any): ReciboPago {
+  private mapToReciboPago(data: unknown): ReciboPago {
+    const recibo = data as any // Type assertion for complex database object
     return {
-      id: data.id,
-      numeroRecibo: data.numero_recibo,
-      companyId: data.company_id,
-      tipoRecibo: data.tipo_recibo,
-      tipoPago: data.tipo_pago,
-      facturasIds: JSON.parse(data.facturas_ids),
-      montoTotalBs: data.monto_total_bs,
-      montoTotalUsd: data.monto_total_usd,
-      bancoDestino: data.banco_destino,
-      formatoTxtId: data.formato_txt_id,
-      archivoTxtGenerado: data.archivo_txt_generado,
-      notas: data.notas,
-      createdBy: data.created_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
+      id: recibo.id,
+      numeroRecibo: recibo.numero_recibo,
+      companyId: recibo.company_id,
+      tipoRecibo: recibo.tipo_recibo,
+      tipoPago: recibo.tipo_pago,
+      facturasIds: JSON.parse(recibo.facturas_ids),
+      montoTotalBs: recibo.monto_total_bs,
+      montoTotalUsd: recibo.monto_total_usd,
+      bancoDestino: recibo.banco_destino,
+      formatoTxtId: recibo.formato_txt_id,
+      archivoTxtGenerado: recibo.archivo_txt_generado,
+      notas: recibo.notas,
+      createdBy: recibo.created_by,
+      createdAt: recibo.created_at,
+      updatedAt: recibo.updated_at
     }
   }
 
@@ -858,25 +889,29 @@ class CuentasPorPagarService {
       // Importar el servicio de notas de débito automáticas
       const { notasDebitoAutomaticasService } = await import('./notasDebitoAutomaticasService')
       
-      // Verificar si hay diferencial cambiario
-      const diferencialResult = await notasDebitoAutomaticasService.calcularDiferencialCambiario(factura)
+      // TODO: Importar el servicio de tasas de cambio para obtener la tasa actual
+      const { tasasCambioService } = await import('./tasasCambioService')
+      const tasaActualResult = await tasasCambioService.getTasaUSD()
       
-      if (diferencialResult.error) {
-        console.warn('⚠️ Error calculando diferencial para factura:', factura.numero, diferencialResult.error)
+      if (tasaActualResult.error || !tasaActualResult.data) {
+        console.warn('⚠️ No se pudo obtener tasa actual para factura:', factura.numero)
         return null
       }
       
-      const diferencial = diferencialResult.data
-      if (!diferencial || diferencial.montoDiferencial <= 0) {
-        console.log('ℹ️ No hay diferencial cambiario para factura:', factura.numero, 'Diferencial:', diferencial?.montoDiferencial || 0)
+      const tasaActual = tasaActualResult.data.tasa
+      const diferencial = Math.abs(tasaActual - factura.tasaCambio) * factura.montoUSD
+      
+      if (diferencial <= 0.01) { // Umbral mínimo
+        console.log('ℹ️ No hay diferencial cambiario significativo para factura:', factura.numero, 'Diferencial:', diferencial)
         return null
       }
       
-      console.log('💱 Diferencial encontrado:', diferencial.montoDiferencial, 'para factura:', factura.numero)
+      console.log('💱 Diferencial encontrado:', diferencial, 'para factura:', factura.numero)
       
       // Generar la nota de débito automática
-      const notaDebitoResult = await notasDebitoAutomaticasService.generarNotaDebito(
+      const notaDebitoResult = await notasDebitoAutomaticasService.generarNotaDebitoAutomatica(
         factura,
+        tasaActual,
         factura.companyId,
         userId
       )
@@ -898,7 +933,7 @@ class CuentasPorPagarService {
   private async generarArchivoTxt(facturas: FacturaCuentaPorPagar[], formatoTxtId: string): Promise<string> {
     try {
       // Obtener proveedores únicos de las facturas
-      const rifsProveedores = [...new Set(facturas.map(f => f.proveedorRif))]
+      const rifsProveedores = Array.from(new Set(facturas.map(f => f.proveedorRif)))
       const proveedoresConCuentas = await this.obtenerProveedoresConCuentasFavoritas(rifsProveedores)
       
       // Usar el servicio de formatos TXT
@@ -955,18 +990,20 @@ class CuentasPorPagarService {
           telefono: proveedor.telefono || undefined,
           email: proveedor.email || undefined,
           porcentajeRetencion: proveedor.porcentaje_retencion,
-          tipoCambio: proveedor.tipo_cambio as any,
-          companyId: proveedor.company_id,
+          tipoCambio: proveedor.tipo_cambio as import('@/types/cuentasPorPagar').TipoCambio,
+          companyId: proveedor.company_id || '',
+          createdAt: proveedor.created_at,
+          updatedAt: proveedor.updated_at,
           bancoFavorito: {
             id: cuentaFavorita.id!,
             proveedorId: cuentaFavorita.proveedor_id,
-            bancoNombre: cuentaFavorita.banco_nombre,
+            bancoNombre: cuentaFavorita.banco_nombre || '',
             numeroCuenta: cuentaFavorita.numero_cuenta,
-            titularCuenta: cuentaFavorita.titular_cuenta,
+            titularCuenta: cuentaFavorita.titular_cuenta || '',
             esFavorita: cuentaFavorita.es_favorita,
             banco: {
               id: '',
-              nombre: cuentaFavorita.banco_nombre,
+              nombre: cuentaFavorita.banco_nombre || '',
               codigo: ''
             }
           }

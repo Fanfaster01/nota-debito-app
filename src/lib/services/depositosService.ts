@@ -29,7 +29,7 @@ export class BancosDepositosService {
   }
 
   // Obtener todos los bancos
-  async getBancos(): Promise<{ data: BancoDepositoUI[] | null, error: any }> {
+  async getBancos(): Promise<{ data: BancoDepositoUI[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos_depositos')
@@ -47,7 +47,7 @@ export class BancosDepositosService {
   }
 
   // Crear nuevo banco (solo Master)
-  async createBanco(bancoData: BancoFormData): Promise<{ data: BancoDepositoUI | null, error: any }> {
+  async createBanco(bancoData: BancoFormData): Promise<{ data: BancoDepositoUI | null, error: unknown }> {
     try {
       const newBanco: TablesInsert<'bancos_depositos'> = {
         nombre: bancoData.nombre,
@@ -69,7 +69,7 @@ export class BancosDepositosService {
   }
 
   // Actualizar banco (solo Master)
-  async updateBanco(id: string, updates: Partial<BancoFormData>): Promise<{ data: BancoDepositoUI | null, error: any }> {
+  async updateBanco(id: string, updates: Partial<BancoFormData>): Promise<{ data: BancoDepositoUI | null, error: unknown }> {
     try {
       const dbUpdates: TablesUpdate<'bancos_depositos'> = {}
       
@@ -92,7 +92,7 @@ export class BancosDepositosService {
   }
 
   // Desactivar banco (solo Master)
-  async toggleBancoStatus(id: string, isActive: boolean): Promise<{ data: BancoDepositoUI | null, error: any }> {
+  async toggleBancoStatus(id: string, isActive: boolean): Promise<{ data: BancoDepositoUI | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos_depositos')
@@ -114,35 +114,36 @@ export class DepositosService {
   private supabase = createClient()
 
   // Mapear de DB a UI
-  private mapDepositoFromDB(depositoDB: any): DepositoBancarioUI {
+  private mapDepositoFromDB(depositoDB: unknown): DepositoBancarioUI {
+    const deposito = depositoDB as any // Type assertion for complex nested object
     return {
-      id: depositoDB.id,
-      numeroRecibo: depositoDB.numero_recibo,
-      companyId: depositoDB.company_id,
-      bancoId: depositoDB.banco_id,
-      userId: depositoDB.user_id,
-      montoBs: depositoDB.monto_bs,
-      fechaDeposito: new Date(depositoDB.fecha_deposito),
-      observaciones: depositoDB.observaciones,
-      createdAt: new Date(depositoDB.created_at),
-      updatedAt: new Date(depositoDB.updated_at),
-      banco: depositoDB.bancos_depositos ? {
-        id: depositoDB.bancos_depositos.id,
-        nombre: depositoDB.bancos_depositos.nombre,
-        numeroCuenta: depositoDB.bancos_depositos.numero_cuenta,
-        isActive: depositoDB.bancos_depositos.is_active,
-        createdAt: new Date(depositoDB.bancos_depositos.created_at),
-        updatedAt: new Date(depositoDB.bancos_depositos.updated_at)
+      id: deposito.id,
+      numeroRecibo: deposito.numero_recibo,
+      companyId: deposito.company_id,
+      bancoId: deposito.banco_id,
+      userId: deposito.user_id,
+      montoBs: deposito.monto_bs,
+      fechaDeposito: new Date(deposito.fecha_deposito),
+      observaciones: deposito.observaciones,
+      createdAt: new Date(deposito.created_at),
+      updatedAt: new Date(deposito.updated_at),
+      banco: deposito.bancos_depositos ? {
+        id: deposito.bancos_depositos.id,
+        nombre: deposito.bancos_depositos.nombre,
+        numeroCuenta: deposito.bancos_depositos.numero_cuenta,
+        isActive: deposito.bancos_depositos.is_active,
+        createdAt: new Date(deposito.bancos_depositos.created_at),
+        updatedAt: new Date(deposito.bancos_depositos.updated_at)
       } : undefined,
-      company: depositoDB.companies ? {
-        id: depositoDB.companies.id,
-        name: depositoDB.companies.name,
-        rif: depositoDB.companies.rif
+      company: deposito.companies ? {
+        id: deposito.companies.id,
+        name: deposito.companies.name,
+        rif: deposito.companies.rif
       } : undefined,
-      usuario: depositoDB.users_view ? {
-        id: depositoDB.users_view.id,
-        full_name: depositoDB.users_view.full_name,
-        email: depositoDB.users_view.email
+      usuario: deposito.users_view ? {
+        id: deposito.users_view.id,
+        full_name: deposito.users_view.full_name,
+        email: deposito.users_view.email
       } : undefined
     }
   }
@@ -150,7 +151,7 @@ export class DepositosService {
   // Obtener depósitos con filtros
   async getDepositos(filtros?: FiltrosDepositos, page: number = 1, limit: number = 10): Promise<{ 
     data: DepositoBancarioUI[] | null, 
-    error: any,
+    error: unknown,
     count?: number 
   }> {
     try {
@@ -221,7 +222,7 @@ export class DepositosService {
     depositoData: DepositoFormData, 
     userId: string, 
     companyId: string
-  ): Promise<{ data: DepositoBancarioUI | null, error: any }> {
+  ): Promise<{ data: DepositoBancarioUI | null, error: unknown }> {
     try {
       const newDeposito: TablesInsert<'depositos_bancarios'> = {
         company_id: depositoData.companyId || companyId,
@@ -267,7 +268,7 @@ export class DepositosService {
   }
 
   // Obtener depósito por ID
-  async getDeposito(id: string): Promise<{ data: DepositoBancarioUI | null, error: any }> {
+  async getDeposito(id: string): Promise<{ data: DepositoBancarioUI | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('depositos_bancarios')
@@ -304,7 +305,7 @@ export class DepositosService {
   }
 
   // Obtener datos para el recibo PDF
-  async getReciboData(depositoId: string): Promise<{ data: ReciboDepositoData | null, error: any }> {
+  async getReciboData(depositoId: string): Promise<{ data: ReciboDepositoData | null, error: unknown }> {
     try {
       const { data: deposito, error } = await this.getDeposito(depositoId)
       
@@ -341,7 +342,7 @@ export class DepositosService {
   }
 
   // Obtener resumen estadístico
-  async getResumenDepositos(companyId?: string): Promise<{ data: ResumenDepositos | null, error: any }> {
+  async getResumenDepositos(companyId?: string): Promise<{ data: ResumenDepositos | null, error: unknown }> {
     try {
       let query = this.supabase
         .from('depositos_bancarios')

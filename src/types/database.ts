@@ -438,6 +438,8 @@ export type Database = {
           porcentaje_retencion: number
           numero_cuenta: string | null
           banco_id: string | null
+          tipo_cambio: string
+          company_id: string | null
           created_by: string | null
           created_at: string
           updated_at: string
@@ -454,6 +456,8 @@ export type Database = {
           porcentaje_retencion?: number
           numero_cuenta?: string | null
           banco_id?: string | null
+          tipo_cambio?: string
+          company_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -470,6 +474,8 @@ export type Database = {
           porcentaje_retencion?: number
           numero_cuenta?: string | null
           banco_id?: string | null
+          tipo_cambio?: string
+          company_id?: string | null
           created_by?: string | null
           created_at?: string
           updated_at?: string
@@ -531,6 +537,7 @@ export type Database = {
           monto_apertura_usd: number
           monto_cierre: number | null
           tasa_dia: number
+          tipo_moneda: string
           total_pagos_movil: number
           cantidad_pagos_movil: number
           total_zelle_usd: number
@@ -557,6 +564,7 @@ export type Database = {
           monto_apertura_usd?: number
           monto_cierre?: number | null
           tasa_dia?: number
+          tipo_moneda?: string
           total_pagos_movil?: number
           cantidad_pagos_movil?: number
           total_zelle_usd?: number
@@ -583,6 +591,7 @@ export type Database = {
           monto_apertura_usd?: number
           monto_cierre?: number | null
           tasa_dia?: number
+          tipo_moneda?: string
           total_pagos_movil?: number
           cantidad_pagos_movil?: number
           total_zelle_usd?: number
@@ -1032,6 +1041,94 @@ export type Database = {
           {
             foreignKeyName: "clientes_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      bancos_depositos: {
+        Row: {
+          id: string
+          nombre: string
+          numero_cuenta: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          nombre: string
+          numero_cuenta: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          nombre?: string
+          numero_cuenta?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      depositos_bancarios: {
+        Row: {
+          id: string
+          numero_recibo: number
+          company_id: string
+          banco_id: string
+          user_id: string
+          monto_bs: number
+          fecha_deposito: string
+          observaciones: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          numero_recibo?: number
+          company_id: string
+          banco_id: string
+          user_id: string
+          monto_bs: number
+          fecha_deposito?: string
+          observaciones?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          numero_recibo?: number
+          company_id?: string
+          banco_id?: string
+          user_id?: string
+          monto_bs?: number
+          fecha_deposito?: string
+          observaciones?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "depositos_bancarios_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "depositos_bancarios_banco_id_fkey"
+            columns: ["banco_id"]
+            isOneToOne: false
+            referencedRelation: "bancos_depositos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "depositos_bancarios_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]

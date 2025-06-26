@@ -4,11 +4,13 @@ import { createClient } from '@/utils/supabase/client'
 const supabase = createClient()
 import { tasasCambioService } from './tasasCambioService'
 import { notaDebitoService } from '../services' // Servicio existente de notas de débito
+import { proveedorService } from './proveedorService'
 import type { 
   FacturaCuentaPorPagar, 
   NotaDebitoGenerada, 
   TasaCambio, 
-  TasaCambioManual 
+  TasaCambioManual,
+  TipoCambio
 } from '@/types/cuentasPorPagar'
 
 interface CalculoNotaDebito {
@@ -220,9 +222,15 @@ class NotasDebitoAutomaticasService {
     tasaManual?: number
   ): Promise<{ data: number | null; error: string | null }> {
     try {
-      // Primero necesitamos obtener el tipo de cambio del proveedor
-      // Por ahora asumimos USD, pero en producción habría que consultar la tabla proveedores
-      const tipoMoneda = 'USD' // TODO: Obtener de la tabla proveedores
+      // Obtener el proveedor por RIF para acceder a su tipo_cambio
+      const { data: proveedor, error: proveedorError } = await proveedorService.getProveedorByRif(factura.proveedorRif)
+      
+      if (proveedorError || !proveedor) {
+        console.error('Error obteniendo proveedor:', proveedorError)
+        return { data: null, error: 'No se pudo obtener la información del proveedor' }
+      }
+
+      const tipoMoneda: TipoCambio = proveedor.tipo_cambio as TipoCambio
 
       switch (tipoMoneda) {
         case 'USD':
