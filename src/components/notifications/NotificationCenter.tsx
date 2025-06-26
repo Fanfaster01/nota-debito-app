@@ -15,7 +15,13 @@ import { es } from 'date-fns/locale'
 export default function NotificationCenter() {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState<NotificacionCredito[]>([])
-  const [alertStats, setAlertStats] = useState<any>(null)
+  const [alertStats, setAlertStats] = useState<{
+    creditosVencidos: number
+    creditosProximosAVencer: number
+    clientesConMultiplesCreditos: number
+    montoTotalVencido: number
+    montoTotalProximoAVencer: number
+  } | null>(null)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)

@@ -14,8 +14,8 @@ import {
   BanknotesIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline'
-import { ProveedorWithCuentas, TipoCambio } from '@/types/index'
-import { proveedorService } from '@/lib/services/proveedorService'
+import { TipoCambio } from '@/types/index'
+import { proveedorService, ProveedorWithCuentas } from '@/lib/services/proveedorService'
 import { CuentasBancariasManager } from './CuentasBancariasManager'
 
 interface ProveedorDetailModalProps {
@@ -211,10 +211,10 @@ export const ProveedorDetailModal: React.FC<ProveedorDetailModalProps> = ({
                     </div>
 
                     <div className="flex items-center">
-                      {getTipoCambioIcon(proveedor.tipo_cambio)}
+                      {getTipoCambioIcon(proveedor.tipo_cambio as TipoCambio)}
                       <div className="ml-3">
                         <p className="text-sm font-medium text-gray-900">
-                          {getTipoCambioLabel(proveedor.tipo_cambio)}
+                          {getTipoCambioLabel(proveedor.tipo_cambio as TipoCambio)}
                         </p>
                         <p className="text-xs text-gray-500">Tipo de cambio preferido</p>
                       </div>
@@ -237,7 +237,7 @@ export const ProveedorDetailModal: React.FC<ProveedorDetailModalProps> = ({
                 <CuentasBancariasManager
                   proveedorId={proveedor.id}
                   proveedorNombre={proveedor.nombre}
-                  tipoCambio={proveedor.tipo_cambio}
+                  tipoCambio={proveedor.tipo_cambio as TipoCambio}
                 />
               </div>
             </div>

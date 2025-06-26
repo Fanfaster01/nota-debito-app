@@ -16,7 +16,7 @@ import {
   CreditCardIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarSolidIcon } from '@heroicons/react/24/solid'
-import { ProveedorCuentaBancaria, TipoCambio } from '@/types/index'
+import { TipoCambio, ProveedorCuentaBancaria } from '@/types/index'
 import { proveedorCuentasBancariasService } from '@/lib/services/proveedorCuentasBancariasService'
 
 interface CuentasBancariasManagerProps {
@@ -132,20 +132,10 @@ export const CuentasBancariasManager: React.FC<CuentasBancariasManagerProps> = (
 
     try {
       setError(null)
-      
-      // Verificar si ya existe
-      const exists = await proveedorCuentasBancariasService.checkCuentaExists(
-        proveedorId, 
-        formData.numero_cuenta
-      )
-      
-      if (exists) {
-        setError('Ya existe una cuenta con ese número')
-        return
-      }
 
-      const nuevaCuenta: Omit<ProveedorCuentaBancaria, 'id' | 'created_at' | 'updated_at'> = {
+      const nuevaCuenta = {
         proveedor_id: proveedorId,
+        banco_id: '', // Temporal, será manejado por el backend
         banco_nombre: formData.banco_nombre.trim(),
         numero_cuenta: formData.numero_cuenta.trim(),
         titular_cuenta: formData.titular_cuenta.trim() || proveedorNombre,
@@ -211,7 +201,7 @@ export const CuentasBancariasManager: React.FC<CuentasBancariasManagerProps> = (
     
     setEditingCuenta(cuenta.id || '')
     setFormData({
-      banco_nombre: cuenta.banco_nombre,
+      banco_nombre: cuenta.banco_nombre || '',
       numero_cuenta: cuenta.numero_cuenta,
       titular_cuenta: cuenta.titular_cuenta || ''
     })
