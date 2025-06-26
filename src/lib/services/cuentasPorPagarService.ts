@@ -246,7 +246,8 @@ class CuentasPorPagarService {
       return { data: this.mapToFacturaCuentaPorPagar(data), error: null }
     } catch (error: unknown) {
       console.error('Error al crear factura:', error)
-      const errorMessage = error?.message || error?.details || 'Error al crear la factura'
+      const errorObj = error as { message?: string; details?: string }
+      const errorMessage = errorObj?.message || errorObj?.details || 'Error al crear la factura'
       return { data: null, error: errorMessage }
     }
   }

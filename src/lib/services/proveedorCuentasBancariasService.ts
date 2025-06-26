@@ -26,10 +26,11 @@ export class ProveedorCuentasBancariasService {
       // Transformar los datos para incluir el nombre del banco
       const transformedData = data?.map((cuenta: unknown) => {
         const cuentaData = cuenta as Record<string, unknown>
+        const bancos = cuentaData.bancos as Record<string, unknown> | null
         return {
           ...cuentaData,
-          banco_nombre: (cuentaData.bancos as Record<string, unknown>)?.nombre || cuentaData.banco_nombre || 'Banco no encontrado'
-        }
+          banco_nombre: bancos?.nombre || cuentaData.banco_nombre || 'Banco no encontrado'
+        } as ProveedorCuentaBancaria
       }) || null
 
       return { data: transformedData, error }

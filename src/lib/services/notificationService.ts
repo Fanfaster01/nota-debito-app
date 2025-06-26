@@ -174,11 +174,12 @@ export class NotificationService {
       // Notificaciones de clientes con múltiples créditos
       const { data: clientesMultiples } = await this.getClientesConMultiplesCreditos(companyId)
       clientesMultiples?.slice(0, 5).forEach(clienteData => { // Solo los top 5
+        const cliente = clienteData.cliente as { id: string; nombre: string }
         notificaciones.push({
-          id: `multiple_${clienteData.cliente.id}`,
+          id: `multiple_${cliente.id}`,
           type: 'vencimiento_proximo',
           title: 'Cliente con múltiples créditos',
-          message: `${clienteData.cliente.nombre} tiene ${clienteData.cantidadCreditos} créditos pendientes por Bs ${clienteData.totalPendiente.toFixed(2)}`,
+          message: `${cliente.nombre} tiene ${clienteData.cantidadCreditos} créditos pendientes por Bs ${clienteData.totalPendiente.toFixed(2)}`,
           creditoId: clienteData.creditos[0].id,
           credito: clienteData.creditos[0],
           priority: 'medium',

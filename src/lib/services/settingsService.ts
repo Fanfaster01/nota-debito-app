@@ -183,8 +183,8 @@ export class SettingsService {
           databaseSize: '2.4 GB', // Esto requeriría consulta específica del servidor
           activeSessions: Math.floor(Math.random() * 20) + 1, // Simulado por ahora
           serverUptime: this.calculateUptime(),
-          lastBackup: lastBackupSetting.data || 'Nunca',
-          backupSize: backupSizeSetting.data || 'N/A'
+          lastBackup: (lastBackupSetting.data as string) || 'Nunca',
+          backupSize: (backupSizeSetting.data as string) || 'N/A'
         },
         error: null
       }

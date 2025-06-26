@@ -100,10 +100,11 @@ class NotasDebitoAutomaticasService {
       }
 
       // Mapear a tipo de respuesta
+      const dbResult = result.data as { id: string; created_at: string }
       const notaDebitoGenerada: NotaDebitoGenerada = {
         ...notaDebitoData,
-        id: result.data!.id,
-        createdAt: result.data!.created_at,
+        id: dbResult.id,
+        createdAt: dbResult.created_at,
         factura
       }
 
@@ -433,10 +434,22 @@ class NotasDebitoAutomaticasService {
 
       const resumen = {
         totalNotas: data.length,
-        montoTotalDiferencial: data.reduce((sum, nota) => sum + nota.diferencial_cambiario_con_iva, 0),
-        montoTotalPagar: data.reduce((sum, nota) => sum + nota.monto_neto_pagar_nota_debito, 0),
-        promedioTasaOriginal: data.reduce((sum, nota) => sum + nota.tasa_cambio_original, 0) / data.length,
-        promedioTasaPago: data.reduce((sum, nota) => sum + nota.tasa_cambio_pago, 0) / data.length
+        montoTotalDiferencial: data.reduce((sum, nota) => {
+          const notaData = nota as Record<string, unknown>
+          return sum + (notaData.diferencial_cambiario_con_iva as number)
+        }, 0),
+        montoTotalPagar: data.reduce((sum, nota) => {
+          const notaData = nota as Record<string, unknown>
+          return sum + (notaData.monto_neto_pagar_nota_debito as number)
+        }, 0),
+        promedioTasaOriginal: data.reduce((sum, nota) => {
+          const notaData = nota as Record<string, unknown>
+          return sum + (notaData.tasa_cambio_original as number)
+        }, 0) / data.length,
+        promedioTasaPago: data.reduce((sum, nota) => {
+          const notaData = nota as Record<string, unknown>
+          return sum + (notaData.tasa_cambio_pago as number)
+        }, 0) / data.length
       }
 
       return { data: resumen, error: null }

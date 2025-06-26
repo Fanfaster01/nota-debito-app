@@ -349,7 +349,7 @@ export class DashboardService {
         }
       }
 
-      const stats: Record<string, unknown> = {
+      const stats = {
         totalFacturas: totalFacturas || 0,
         totalNotasCredito: totalNotasCredito || 0,
         totalNotasDebito: totalNotasDebito || 0,
@@ -392,7 +392,7 @@ export class DashboardService {
       }
 
       // Inicializar métricas con valores por defecto
-      let cajaResumen: Record<string, unknown> = {
+      let cajaResumen = {
         totalCajas: 0,
         cajasAbiertas: 0,
         totalPagosMovil: 0,
@@ -403,13 +403,13 @@ export class DashboardService {
         totalCreditosUsd: 0
       }
 
-      let cierresResumen: Record<string, unknown> = {
+      let cierresResumen = {
         cierresConDiscrepancias: 0,
         promedioDiscrepancia: 0,
         usuariosMasActivos: []
       }
 
-      let creditosResumen: Record<string, unknown> = {
+      let creditosResumen = {
         totalCreditos: 0,
         creditosPendientes: 0,
         creditosPagados: 0,
@@ -419,7 +419,7 @@ export class DashboardService {
         clientesConCredito: 0
       }
 
-      let alertas: unknown[] = []
+      let alertas = []
 
       // Intentar cargar métricas de servicios externos (si están disponibles)
       try {
