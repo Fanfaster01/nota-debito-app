@@ -143,19 +143,6 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
           />
         </div>
 
-        {/* Información adicional */}
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-          <div className="flex items-center">
-            <CurrencyDollarIcon className="h-5 w-5 text-blue-600 mr-2 flex-shrink-0" />
-            <div className="text-sm text-blue-800">
-              <p className="font-medium">Información del pago:</p>
-              <p>• Monto en USD: $ {formatMonto(montoUsd || 0)}</p>
-              <p>• Tasa del día: Bs. {formatMonto(tasaDia)} / USD</p>
-              <p>• Total en Bs: {formatMonto(montoBs)}</p>
-            </div>
-          </div>
-        </div>
-
         <div className="flex justify-end space-x-3">
           {editingPago && (
             <Button

@@ -13,6 +13,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { proveedorService, ProveedorFormData, ProveedorWithCuentas } from '@/lib/services/proveedorService'
 import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
+import { Proveedor } from '@/types/database'
 
 interface ProveedorSearchProps {
   onProveedorSelect: (proveedor: ProveedorWithCuentas) => void

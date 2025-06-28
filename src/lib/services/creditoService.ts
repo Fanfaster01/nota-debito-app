@@ -39,7 +39,7 @@ export class CreditoService {
       cantidadAbonos: creditoDB.cantidad_abonos || 0,
       usuario: creditoDB.usuario,
       empresa: creditoDB.empresa,
-      abonos: creditoDB.abonos?.map((a: any) => this.mapAbonoFromDB(a))
+      abonos: creditoDB.abonos_credito?.map((a: any) => this.mapAbonoFromDB(a))
     }
   }
 
@@ -59,7 +59,7 @@ export class CreditoService {
       observaciones: abonoDB.observaciones,
       userId: abonoDB.user_id,
       companyId: abonoDB.company_id,
-      usuario: abonoDB.usuario
+      usuario: undefined // TODO: Retrieve user data separately
     }
   }
 
@@ -92,26 +92,17 @@ export class CreditoService {
             telefono,
             direccion
           ),
-          usuario:user_id (
-            id,
-            full_name,
-            email
-          ),
           empresa:company_id (
             id,
             name,
             rif
           ),
-          abonos:abonos_credito!credito_id (
+          abonos_credito!credito_id (
             *,
             banco:banco_id (
               id,
               nombre,
               codigo
-            ),
-            usuario:user_id (
-              id,
-              full_name
             )
           )
         `)
@@ -160,6 +151,23 @@ export class CreditoService {
         creditos = creditos.filter(c => c.estadoVencimiento === estadoMap[filtros.estadoVencimiento as keyof typeof estadoMap])
       }
 
+      // Obtener información de usuarios para los créditos
+      if (creditos.length > 0) {
+        const userIds = [...new Set(creditos.map(c => c.userId))]
+        const { data: usuarios, error: usersError } = await this.supabase
+          .from('users')
+          .select('id, full_name, email')
+          .in('id', userIds)
+        
+        if (!usersError && usuarios) {
+          const usersMap = new Map(usuarios.map(u => [u.id, u]))
+          creditos = creditos.map(credito => ({
+            ...credito,
+            usuario: usersMap.get(credito.userId)
+          }))
+        }
+      }
+
       return { data: creditos, error: null }
     } catch (error) {
       return { data: null, error }
@@ -181,26 +189,17 @@ export class CreditoService {
             telefono,
             direccion
           ),
-          usuario:user_id (
-            id,
-            full_name,
-            email
-          ),
           empresa:company_id (
             id,
             name,
             rif
           ),
-          abonos:abonos_credito!credito_id (
+          abonos_credito!credito_id (
             *,
             banco:banco_id (
               id,
               nombre,
               codigo
-            ),
-            usuario:user_id (
-              id,
-              full_name
             )
           )
         `)
@@ -209,7 +208,17 @@ export class CreditoService {
 
       if (error) return { data: null, error }
 
-      return { data: this.mapCreditoFromDB(data), error: null }
+      // Obtener información del usuario
+      const { data: usuario } = await this.supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('id', data.user_id)
+        .single()
+
+      const creditoMapped = this.mapCreditoFromDB(data)
+      creditoMapped.usuario = usuario || undefined
+
+      return { data: creditoMapped, error: null }
     } catch (error) {
       return { data: null, error }
     }

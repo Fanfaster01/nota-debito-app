@@ -2,8 +2,16 @@
 import type { TasaCambio, TasaCambioManual } from '@/types/cuentasPorPagar'
 
 class TasasCambioService {
-  private readonly BCV_API_URL = 'https://bcv-api.deno.dev/v2/rates'
-  private readonly BACKUP_API_URL = 'https://api.exchangerate-api.com/v4/latest/VES'
+  // API principal más confiable
+  private readonly PRIMARY_API_URL = 'https://api.exchangerate-api.com/v4/latest/USD'
+  // API de respaldo
+  private readonly BACKUP_API_URL = 'https://api.fixer.io/latest?access_key=YOUR_API_KEY&base=USD&symbols=VES'
+  // API gratuita adicional
+  private readonly FREE_API_URL = 'https://open.er-api.com/v6/latest/USD'
+
+  // Cache simple para evitar requests duplicados
+  private cacheRequests: Map<string, Promise<{ data: TasaCambio | null; error: string | null }>> = new Map()
+  private ultimaTasaCache: { tasa: TasaCambio | null; timestamp: number } | null = null
 
   /**
    * Obtener tasa de cambio USD por fecha específica
@@ -12,74 +20,99 @@ class TasasCambioService {
   async getTasaUSDPorFecha(fecha?: string): Promise<{ data: TasaCambio | null; error: string | null }> {
     // Por ahora, las APIs públicas no tienen histórico, así que devolvemos la tasa actual
     // En el futuro se podría implementar una tabla de tasas históricas en Supabase
+    
+    // Verificar cache (válido por 5 minutos)
+    const ahora = Date.now()
+    if (this.ultimaTasaCache && (ahora - this.ultimaTasaCache.timestamp) < 5 * 60 * 1000) {
+      console.log('Usando tasa USD desde cache')
+      return { data: this.ultimaTasaCache.tasa, error: null }
+    }
+    
     return this.getTasaUSD()
   }
 
   /**
-   * Obtener tasa de cambio USD desde el BCV
+   * Obtener tasa de cambio USD desde APIs públicas
    */
   async getTasaUSD(): Promise<{ data: TasaCambio | null; error: string | null }> {
-    try {
-      // Intentar con API del BCV primero
-      const response = await fetch(this.BCV_API_URL, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`Error del BCV API: ${response.status}`)
-      }
-
-      const data = await response.json()
-      
-      // La API del BCV retorna algo como: { "usd": { "rate": 36.50, "date": "2024-01-15" } }
-      if (data.usd && data.usd.rate) {
-        const tasa: TasaCambio = {
-          moneda: 'USD',
-          tasa: parseFloat(data.usd.rate),
-          fecha: data.usd.date || new Date().toISOString().split('T')[0],
-          fuente: 'BCV'
-        }
-        return { data: tasa, error: null }
-      }
-
-      throw new Error('Formato de respuesta inválido del BCV')
-    } catch (error) {
-      console.warn('Error con API del BCV, intentando con API de respaldo:', error)
-      
-      // Intentar con API de respaldo
-      try {
-        const backupResponse = await fetch(this.BACKUP_API_URL)
-        if (!backupResponse.ok) {
-          throw new Error(`Error del API de respaldo: ${backupResponse.status}`)
-        }
-
-        const backupData = await backupResponse.json()
-        
-        // Esta API retorna: { "rates": { "USD": 0.027 }, "date": "2024-01-15" }
-        // Necesitamos invertir la tasa (VES/USD -> USD/VES)
-        if (backupData.rates && backupData.rates.USD) {
-          const tasaInvertida = 1 / backupData.rates.USD
-          const tasa: TasaCambio = {
-            moneda: 'USD',
-            tasa: parseFloat(tasaInvertida.toFixed(2)),
-            fecha: backupData.date || new Date().toISOString().split('T')[0],
-            fuente: 'ExchangeRate-API'
+    // Lista de APIs para intentar en orden
+    const apis = [
+      {
+        url: this.PRIMARY_API_URL,
+        nombre: 'ExchangeRate-API',
+        procesarRespuesta: (data: any) => {
+          if (data.rates && data.rates.VES) {
+            return {
+              moneda: 'USD' as const,
+              tasa: parseFloat(data.rates.VES),
+              fecha: data.date || new Date().toISOString().split('T')[0],
+              fuente: 'ExchangeRate-API'
+            }
           }
+          return null
+        }
+      },
+      {
+        url: this.FREE_API_URL,
+        nombre: 'Open Exchange Rates',
+        procesarRespuesta: (data: any) => {
+          if (data.rates && data.rates.VES) {
+            return {
+              moneda: 'USD' as const,
+              tasa: parseFloat(data.rates.VES),
+              fecha: data.time_last_update_utc ? new Date(data.time_last_update_utc).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+              fuente: 'Open Exchange Rates'
+            }
+          }
+          return null
+        }
+      }
+    ]
+
+    for (const api of apis) {
+      try {
+        console.log(`Intentando obtener tasa USD desde ${api.nombre}...`)
+        
+        const response = await fetch(api.url, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          throw new Error(`Error HTTP ${response.status}`)
+        }
+
+        const data = await response.json()
+        const tasa = api.procesarRespuesta(data)
+        
+        if (tasa) {
+          console.log(`Tasa USD obtenida exitosamente desde ${api.nombre}: ${tasa.tasa}`)
+          // Guardar en cache
+          this.ultimaTasaCache = { tasa, timestamp: Date.now() }
           return { data: tasa, error: null }
         }
 
-        throw new Error('Formato de respuesta inválido del API de respaldo')
-      } catch (backupError) {
-        console.error('Error con API de respaldo:', backupError)
-        return { 
-          data: null, 
-          error: 'No se pudo obtener la tasa de cambio USD. Verifique su conexión a internet.' 
-        }
+        throw new Error('Formato de respuesta inválido')
+      } catch (error) {
+        console.warn(`Error con ${api.nombre}:`, error)
+        continue
       }
+    }
+
+    // Si ninguna API funcionó, devolver tasa por defecto
+    console.warn('No se pudo obtener tasa USD de ninguna API, usando tasa por defecto')
+    const tasaDefecto: TasaCambio = {
+      moneda: 'USD',
+      tasa: 36.50, // Tasa por defecto aproximada
+      fecha: new Date().toISOString().split('T')[0],
+      fuente: 'Valor por defecto'
+    }
+    
+    return { 
+      data: tasaDefecto, 
+      error: 'No se pudo obtener la tasa USD actual. Se está usando una tasa por defecto.' 
     }
   }
 

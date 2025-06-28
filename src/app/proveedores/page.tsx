@@ -293,7 +293,7 @@ export default function ProveedoresPage() {
                               <div className="text-sm font-medium text-gray-900 truncate">
                                 {proveedor.nombre}
                               </div>
-                              <div className="text-xs text-gray-500 truncate" title={proveedor.direccion}>
+                              <div className="text-xs text-gray-500 truncate max-w-48" title={proveedor.direccion}>
                                 {proveedor.direccion}
                               </div>
                             </div>

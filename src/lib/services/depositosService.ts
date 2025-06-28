@@ -140,11 +140,7 @@ export class DepositosService {
         name: deposito.companies.name,
         rif: deposito.companies.rif
       } : undefined,
-      usuario: deposito.users_view ? {
-        id: deposito.users_view.id,
-        full_name: deposito.users_view.full_name,
-        email: deposito.users_view.email
-      } : undefined
+      usuario: undefined // Se establecerá mediante consulta separada
     }
   }
 
@@ -171,11 +167,6 @@ export class DepositosService {
             id,
             name,
             rif
-          ),
-          users_view (
-            id,
-            full_name,
-            email
           )
         `, { count: 'exact' })
         .order('created_at', { ascending: false })
@@ -210,7 +201,25 @@ export class DepositosService {
 
       if (error) return { data: null, error, count: 0 }
 
-      const depositos = data?.map(deposito => this.mapDepositoFromDB(deposito)) || []
+      let depositos = data?.map(deposito => this.mapDepositoFromDB(deposito)) || []
+
+      // Obtener información de usuarios para los depósitos (consulta separada para evitar problemas de foreign key)
+      if (depositos.length > 0) {
+        const userIds = [...new Set(depositos.map(d => d.userId))]
+        const { data: usuarios, error: usersError } = await this.supabase
+          .from('users')
+          .select('id, full_name, email')
+          .in('id', userIds)
+        
+        if (!usersError && usuarios) {
+          const usersMap = new Map(usuarios.map(u => [u.id, u]))
+          depositos = depositos.map(deposito => ({
+            ...deposito,
+            usuario: usersMap.get(deposito.userId)
+          }))
+        }
+      }
+
       return { data: depositos, error: null, count: count || 0 }
     } catch (error) {
       return { data: null, error, count: 0 }
@@ -286,11 +295,6 @@ export class DepositosService {
             id,
             name,
             rif
-          ),
-          users_view (
-            id,
-            full_name,
-            email
           )
         `)
         .eq('id', id)
@@ -298,7 +302,23 @@ export class DepositosService {
 
       if (error) return { data: null, error }
 
-      return { data: this.mapDepositoFromDB(data), error: null }
+      let deposito = this.mapDepositoFromDB(data)
+
+      // Obtener información del usuario mediante consulta separada
+      const { data: usuario, error: userError } = await this.supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('id', deposito.userId)
+        .single()
+
+      if (!userError && usuario) {
+        deposito = {
+          ...deposito,
+          usuario
+        }
+      }
+
+      return { data: deposito, error: null }
     } catch (error) {
       return { data: null, error }
     }

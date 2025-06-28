@@ -101,6 +101,11 @@ export interface CajaUI {
     fechaHora: Date
     userId: string
     companyId: string
+    usuario?: {
+      id: string
+      full_name: string | null
+      email: string
+    }
   }
   
   export interface CajaResumen {

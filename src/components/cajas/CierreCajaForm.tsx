@@ -248,21 +248,21 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
         <div className="space-y-4">
           {/* Formulario para agregar */}
           <div className="bg-gray-50 p-4 rounded-md">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <BancoSelector
-                label="Banco"
-                value={cierrePvForm.bancoId}
-                onChange={(bancoId) => setCierrePvForm({ ...cierrePvForm, bancoId })}
-                placeholder="Seleccione banco"
-                disabled={loading}
-                required
-              />
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+              <div className="md:col-span-4">
+                <BancoSelector
+                  label="Banco"
+                  value={cierrePvForm.bancoId}
+                  onChange={(bancoId) => setCierrePvForm({ ...cierrePvForm, bancoId })}
+                  placeholder="Seleccione banco"
+                  disabled={loading}
+                  required
+                />
+              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Monto (Bs)
-                </label>
-                <input
+              <div className="md:col-span-3">
+                <Input
+                  label="Monto (Bs)"
                   type="number"
                   step="0.01"
                   value={cierrePvForm.montoBs}
@@ -271,32 +271,27 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                     montoBs: parseFloat(e.target.value) || 0,
                     montoUsd: (parseFloat(e.target.value) || 0) / caja.tasaDia
                   })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   disabled={loading}
                   placeholder="0.00"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número de Lote
-                </label>
-                <input
+              <div className="md:col-span-3">
+                <Input
+                  label="Número de Lote"
                   type="text"
                   value={cierrePvForm.numeroLote}
                   onChange={(e) => setCierrePvForm({ ...cierrePvForm, numeroLote: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   disabled={loading}
                   placeholder="0000"
                 />
               </div>
 
-              <div className="flex items-end space-x-2">
+              <div className="md:col-span-2 flex items-end space-x-2">
                 {editingIndex !== null ? (
                   <>
                     <Button
                       type="button"
-                      size="sm"
                       onClick={handleAgregarCierrePv}
                       disabled={loading || !cierrePvForm.bancoId || cierrePvForm.montoBs <= 0 || !cierrePvForm.numeroLote}
                     >
@@ -304,7 +299,6 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                     </Button>
                     <Button
                       type="button"
-                      size="sm"
                       variant="outline"
                       onClick={handleCancelarEdicion}
                       disabled={loading}
@@ -315,7 +309,6 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                 ) : (
                   <Button
                     type="button"
-                    size="sm"
                     onClick={handleAgregarCierrePv}
                     disabled={loading || !cierrePvForm.bancoId || cierrePvForm.montoBs <= 0 || !cierrePvForm.numeroLote}
                   >

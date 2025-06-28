@@ -34,13 +34,15 @@ export function ResumenDepositos() {
       const { data, error: resumenError } = await depositosService.getResumenDepositos(companyId)
 
       if (resumenError) {
-        setError('Error al cargar resumen: ' + resumenError.message)
+        const errorMessage = resumenError instanceof Error ? resumenError.message : 'Error desconocido'
+        setError('Error al cargar resumen: ' + errorMessage)
         return
       }
 
       setResumen(data)
-    } catch (err: any) {
-      setError('Error al cargar resumen: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al cargar resumen: ' + errorMessage)
     } finally {
       setLoading(false)
     }

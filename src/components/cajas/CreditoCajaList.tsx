@@ -159,6 +159,9 @@ export default function CreditoCajaList({
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Estado
               </th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Creado por
+              </th>
               <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Acciones
               </th>
@@ -238,6 +241,9 @@ export default function CreditoCajaList({
                     }`}>
                       {credito.estado === 'pendiente' ? 'Pendiente' : 'Pagado'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                    {credito.usuario?.full_name || 'Usuario no disponible'}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center">
                     {estaEditando ? (

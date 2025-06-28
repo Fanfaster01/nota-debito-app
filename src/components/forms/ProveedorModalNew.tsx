@@ -11,12 +11,13 @@ import { proveedorCuentasBancariasService } from '@/lib/services/proveedorCuenta
 import { bancoService } from '@/lib/services/bancoService'
 import { ProveedorFormData } from '@/lib/services/proveedorService'
 import { BancoSelector } from '@/components/ui/BancoSelector'
+import { Proveedor } from '@/types/database'
 
 const cuentaBancariaFormSchema = z.object({
   banco_id: z.string().min(1, 'Debe seleccionar un banco'),
   numero_cuenta: z.string().min(1, 'El número de cuenta es requerido'),
   titular_cuenta: z.string().optional(),
-  es_favorita: z.boolean().default(false)
+  es_favorita: z.boolean()
 })
 
 const proveedorSchema = z.object({
@@ -39,7 +40,7 @@ interface ProveedorModalProps {
   onClose: () => void
   onSave: (data: ProveedorFormData) => Promise<void>
   initialRif?: string
-  editingProveedor?: any
+  editingProveedor?: Proveedor & { cuentas_bancarias?: ProveedorCuentaBancaria[] }
 }
 
 export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
@@ -70,7 +71,7 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
       email: editingProveedor?.email || '',
       contacto: editingProveedor?.contacto || '',
       porcentaje_retencion: editingProveedor?.porcentaje_retencion || 75,
-      tipo_cambio: editingProveedor?.tipo_cambio || 'PAR',
+      tipo_cambio: (editingProveedor?.tipo_cambio || 'PAR') as 'USD' | 'EUR' | 'PAR',
       cuentas_bancarias: editingProveedor?.cuentas_bancarias || []
     }
   })
@@ -135,7 +136,7 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
         email: editingProveedor?.email || '',
         contacto: editingProveedor?.contacto || '',
         porcentaje_retencion: editingProveedor?.porcentaje_retencion || 75,
-        tipo_cambio: editingProveedor?.tipo_cambio || 'PAR',
+        tipo_cambio: (editingProveedor?.tipo_cambio || 'PAR') as 'USD' | 'EUR' | 'PAR',
         cuentas_bancarias: []
       })
     }
@@ -159,9 +160,14 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
     setCuentasBancarias(nuevasCuentas)
   }
 
-  const actualizarCuentaBancaria = (index: number, campo: keyof ProveedorCuentaBancaria, valor: any) => {
+  const actualizarCuentaBancaria = (index: number, campo: keyof ProveedorCuentaBancaria, valor: string | boolean) => {
     const nuevasCuentas = [...cuentasBancarias]
-    ;(nuevasCuentas[index] as any)[campo] = valor
+    const cuenta = nuevasCuentas[index]
+    if (campo === 'proveedor_id' || campo === 'banco_id' || campo === 'numero_cuenta' || campo === 'titular_cuenta' || campo === 'banco_nombre') {
+      (cuenta as any)[campo] = valor as string
+    } else if (campo === 'es_favorita' || campo === 'activo') {
+      (cuenta as any)[campo] = valor as boolean
+    }
     setCuentasBancarias(nuevasCuentas)
   }
 

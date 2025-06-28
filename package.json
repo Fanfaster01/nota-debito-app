@@ -9,7 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@anthropic-ai/claude-code": "^1.0.34",
+    "@anthropic-ai/claude-code": "^1.0.35",
     "@heroicons/react": "^2.2.0",
     "@hookform/resolvers": "^5.0.1",
     "@react-pdf/renderer": "^4.3.0",

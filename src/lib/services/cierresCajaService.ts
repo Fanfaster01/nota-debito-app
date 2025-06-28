@@ -94,7 +94,7 @@ export class CierresCajaService {
         query = query.eq('user_id', filtros.userId)
       }
       
-      if (filtros?.companyId) {
+      if (filtros?.companyId && filtros.companyId.trim()) {
         query = query.eq('company_id', filtros.companyId)
       }
 
@@ -210,7 +210,7 @@ export class CierresCajaService {
         fechaHasta: new Date()
       }
 
-      if (companyId) {
+      if (companyId && companyId.trim()) {
         filtros.companyId = companyId
       }
 
@@ -341,7 +341,7 @@ export class CierresCajaService {
   }> {
     try {
       const filtros: FiltrosCierres = {}
-      if (companyId) filtros.companyId = companyId
+      if (companyId && companyId.trim()) filtros.companyId = companyId
 
       const { data: cierres, error } = await this.getCierresDetallados(filtros)
 

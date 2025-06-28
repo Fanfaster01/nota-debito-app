@@ -36,6 +36,11 @@ class CuentasPorPagarService {
     page = 1,
     limit = 20
   ): Promise<{ data: PaginacionFacturas | null; error: string | null }> {
+    // Validar que companyId sea una string válida
+    if (!companyId || !companyId.trim()) {
+      return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+    }
+    
     try {
       console.log('Intentando consulta de facturas para company:', companyId)
       
@@ -323,6 +328,11 @@ class CuentasPorPagarService {
    * Obtener métricas del dashboard
    */
   async getMetricas(companyId: string): Promise<{ data: MetricasCuentasPorPagar | null; error: string | null }> {
+    // Validar que companyId sea una string válida
+    if (!companyId || !companyId.trim()) {
+      return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+    }
+    
     try {
       // Intentar consulta con columnas extendidas
       let queryResult = await supabase
@@ -423,6 +433,11 @@ class CuentasPorPagarService {
    * Obtener datos para gráficos
    */
   async getDatosGraficos(companyId: string): Promise<{ data: DatosGraficoCuentasPorPagar | null; error: string | null }> {
+    // Validar que companyId sea una string válida
+    if (!companyId || !companyId.trim()) {
+      return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+    }
+    
     try {
       // Intentar consulta con columnas extendidas
       let queryResult = await supabase
@@ -1042,6 +1057,14 @@ class CuentasPorPagarService {
     }
     error?: string
   }> {
+    // Validar que companyId sea una string válida
+    if (!companyId || !companyId.trim()) {
+      return {
+        success: false,
+        error: 'companyId es requerido y debe ser una string válida'
+      }
+    }
+    
     try {
       let query = supabase
         .from('notas_debito')
@@ -1056,8 +1079,7 @@ class CuentasPorPagarService {
             tasa_cambio
           )
         `)
-        .eq('company_id', companyId)
-        .eq('origen', 'automatica') // Solo notas generadas automáticamente
+        .eq('company_id', companyId.trim())
         .order('created_at', { ascending: false })
 
       // Aplicar filtros

@@ -11,6 +11,8 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { bancosDepositosService } from '@/lib/services/depositosService'
 import { BancoDepositoUI, BancoFormData } from '@/types/depositos'
+import { Tables } from '@/types/database'
+import { createClient } from '@/utils/supabase/client'
 import { 
   BuildingLibraryIcon,
   PlusIcon,
@@ -79,13 +81,14 @@ export function GestionBancos({ onError }: Props) {
       // Cargar todos los bancos (activos e inactivos)
       const { data, error } = await bancosDepositosService.getBancos()
       if (error) {
-        onError('Error al cargar bancos: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        onError('Error al cargar bancos: ' + errorMessage)
         return
       }
 
       // Para mostrar todos los bancos, necesitamos hacer una consulta sin filtro is_active
-      // Usamos directamente Supabase aquí
-      const supabase = (bancosDepositosService as any).supabase
+      // Creamos una nueva instancia de supabase para esta consulta específica
+      const supabase = createClient()
       const { data: allBancos, error: allError } = await supabase
         .from('bancos_depositos')
         .select('*')
@@ -96,7 +99,7 @@ export function GestionBancos({ onError }: Props) {
         return
       }
 
-      const bancosUI = allBancos?.map((banco: any) => ({
+      const bancosUI = allBancos?.map((banco: Tables<'bancos_depositos'>) => ({
         id: banco.id,
         nombre: banco.nombre,
         numeroCuenta: banco.numero_cuenta,
@@ -106,8 +109,9 @@ export function GestionBancos({ onError }: Props) {
       })) || []
 
       setBancos(bancosUI)
-    } catch (err: any) {
-      onError('Error al cargar bancos: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al cargar bancos: ' + errorMessage)
     } finally {
       setLoadingData(false)
     }
@@ -126,7 +130,8 @@ export function GestionBancos({ onError }: Props) {
         )
 
         if (updateError) {
-          onError('Error al actualizar banco: ' + updateError.message)
+          const errorMessage = updateError instanceof Error ? updateError.message : 'Error desconocido'
+          onError('Error al actualizar banco: ' + errorMessage)
           return
         }
 
@@ -140,7 +145,8 @@ export function GestionBancos({ onError }: Props) {
         const { data: newBanco, error: createError } = await bancosDepositosService.createBanco(data)
 
         if (createError) {
-          onError('Error al crear banco: ' + createError.message)
+          const errorMessage = createError instanceof Error ? createError.message : 'Error desconocido'
+          onError('Error al crear banco: ' + errorMessage)
           return
         }
 
@@ -149,8 +155,9 @@ export function GestionBancos({ onError }: Props) {
 
       reset()
       setShowForm(false)
-    } catch (err: any) {
-      onError('Error al guardar banco: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al guardar banco: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -177,15 +184,17 @@ export function GestionBancos({ onError }: Props) {
       )
 
       if (error) {
-        onError('Error al cambiar estado del banco: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        onError('Error al cambiar estado del banco: ' + errorMessage)
         return
       }
 
       setBancos(prev => prev.map(b => 
         b.id === banco.id ? updatedBanco! : b
       ))
-    } catch (err: any) {
-      onError('Error al cambiar estado del banco: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al cambiar estado del banco: ' + errorMessage)
     }
   }
 

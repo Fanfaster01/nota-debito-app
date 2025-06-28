@@ -111,7 +111,7 @@ export class CajaService {
   }
 
   // Mapear Crédito de Caja de DB a UI
-  private mapCreditoCajaFromDB(creditoDB: CreditoCaja & { cliente?: any }): CreditoCajaUI {
+  private mapCreditoCajaFromDB(creditoDB: CreditoCaja & { cliente?: any, usuario?: any }): CreditoCajaUI {
     return {
       id: creditoDB.id,
       cajaId: creditoDB.caja_id,
@@ -133,7 +133,12 @@ export class CajaService {
       estado: creditoDB.estado,
       fechaHora: new Date(creditoDB.fecha_hora),
       userId: creditoDB.user_id,
-      companyId: creditoDB.company_id
+      companyId: creditoDB.company_id,
+      usuario: creditoDB.usuario ? {
+        id: creditoDB.usuario.id,
+        full_name: creditoDB.usuario.full_name,
+        email: creditoDB.usuario.email
+      } : undefined
     }
   }
 
@@ -443,6 +448,11 @@ export class CajaService {
   // Obtener cajas con filtros
   async getCajas(companyId: string, filtros?: FiltrosCaja): Promise<{ data: CajaUI[] | null, error: any }> {
     try {
+      // Validar que companyId sea una string válida
+      if (!companyId || !companyId.trim()) {
+        return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+      }
+
       let query = this.supabase
         .from('cajas')
         .select(`
@@ -1345,6 +1355,11 @@ export class CajaService {
   // Obtener resumen de cajas para dashboard
   async getResumenCajas(companyId: string, dias: number = 7): Promise<{ data: any, error: any }> {
     try {
+      // Validar que companyId sea una string válida
+      if (!companyId || !companyId.trim()) {
+        return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+      }
+
       const fechaInicio = new Date()
       fechaInicio.setDate(fechaInicio.getDate() - dias)
 

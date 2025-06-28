@@ -138,7 +138,7 @@ export const BancoSelector: React.FC<BancoSelectorProps> = ({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               disabled={disabled || loadingBancos}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="w-full h-10 pl-3 pr-8 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">{loadingBancos ? 'Cargando...' : placeholder}</option>
               {bancos.map(banco => (
@@ -153,7 +153,6 @@ export const BancoSelector: React.FC<BancoSelectorProps> = ({
           </div>
           <Button
             type="button"
-            size="sm"
             onClick={() => setShowModal(true)}
             disabled={disabled}
             className="flex items-center px-3"

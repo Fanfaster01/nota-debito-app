@@ -192,7 +192,8 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
       
       if (error) {
         console.error('Error al crear proveedor:', error);
-        alert('Error al crear el proveedor: ' + error.message);
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+        alert('Error al crear el proveedor: ' + errorMessage);
         return;
       }
 
@@ -477,7 +478,7 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
         isOpen={showProveedorModal}
         onClose={() => setShowProveedorModal(false)}
         onSave={handleSaveProveedor}
-        editingProveedor={null}
+        editingProveedor={undefined}
       />
     </>
   );

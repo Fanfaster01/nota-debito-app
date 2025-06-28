@@ -6,6 +6,7 @@ import { User as AuthUser } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/client'
 import { User, Company } from '@/types/database'
 import { userService } from '@/lib/services'
+import { setupSupabaseErrorInterceptor } from '@/utils/supabase/error-interceptor'
 
 interface AuthContextType {
   authUser: AuthUser | null
@@ -28,6 +29,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient()
 
   useEffect(() => {
+    // Configurar interceptor de errores de Supabase
+    if (typeof window !== 'undefined') {
+      setupSupabaseErrorInterceptor()
+    }
+
     // Obtener sesión inicial
     const getInitialSession = async () => {
       try {
