@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/Input'
 import { Pagination } from '@/components/ui/Pagination'
 import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
 import { ProveedorDetailModal } from '@/components/proveedores/ProveedorDetailModal'
-import { proveedorService, ProveedorWithBanco, ProveedorFormData } from '@/lib/services/proveedorService'
+import { proveedorService, ProveedorWithCuentas, ProveedorFormData } from '@/lib/services/proveedorService'
+import { useAsyncState } from '@/hooks/useAsyncState'
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -27,20 +28,28 @@ import {
 
 export default function ProveedoresPage() {
   const { user } = useAuth()
-  const [proveedores, setProveedores] = useState<ProveedorWithBanco[]>([])
-  const [loading, setLoading] = useState(true)
+  
+  // Estados unificados con useAsyncState
+  const proveedoresState = useAsyncState<{
+    proveedores: ProveedorWithCuentas[]
+    totalCount: number
+  }>()
+  const saveState = useAsyncState<ProveedorWithCuentas>()
+  const deleteState = useAsyncState<boolean>()
+  
+  // Estados locales
   const [searchTerm, setSearchTerm] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage, setItemsPerPage] = useState(10)
-  const [totalItems, setTotalItems] = useState(0)
   const [showModal, setShowModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedProveedorId, setSelectedProveedorId] = useState<string | null>(null)
-  const [editingProveedor, setEditingProveedor] = useState<ProveedorWithBanco | null>(null)
+  const [editingProveedor, setEditingProveedor] = useState<ProveedorWithCuentas | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
+  const proveedores = proveedoresState.data?.proveedores || []
+  const totalItems = proveedoresState.data?.totalCount || 0
   const totalPages = Math.ceil(totalItems / itemsPerPage)
 
   useEffect(() => {
@@ -50,28 +59,25 @@ export default function ProveedoresPage() {
   }, [user, currentPage, itemsPerPage])
 
   const loadProveedores = async () => {
-    setLoading(true)
-    setError(null)
+    await proveedoresState.execute(
+      async () => {
+        const { data, totalCount, error: loadError } = await proveedorService.getAllProveedoresPaginated(
+          currentPage,
+          itemsPerPage,
+          searchTerm
+        )
 
-    try {
-      const { data, totalCount, error: loadError } = await proveedorService.getAllProveedoresPaginated(
-        currentPage,
-        itemsPerPage,
-        searchTerm
-      )
+        if (loadError) {
+          throw loadError
+        }
 
-      if (loadError) {
-        setError('Error al cargar proveedores: ' + loadError.message)
-        return
-      }
-
-      setProveedores(data || [])
-      setTotalItems(totalCount)
-    } catch (err: any) {
-      setError('Error al cargar proveedores: ' + err.message)
-    } finally {
-      setLoading(false)
-    }
+        return {
+          proveedores: data || [],
+          totalCount
+        }
+      },
+      'Error al cargar proveedores'
+    )
   }
 
   const handleSearch = () => {
@@ -90,7 +96,7 @@ export default function ProveedoresPage() {
     setShowModal(true)
   }
 
-  const handleEditProveedor = (proveedor: ProveedorWithBanco) => {
+  const handleEditProveedor = (proveedor: ProveedorWithCuentas) => {
     setEditingProveedor(proveedor)
     setShowModal(true)
   }
@@ -101,73 +107,75 @@ export default function ProveedoresPage() {
   }
 
   const handleSaveProveedor = async (data: ProveedorFormData) => {
-    setError(null)
-    
-    try {
-      if (editingProveedor) {
-        // Verificar si el RIF cambió y ya existe
-        if (data.rif !== editingProveedor.rif) {
-          const exists = await proveedorService.checkRifExists(data.rif, editingProveedor.id)
-          if (exists) {
-            setError('Ya existe un proveedor con ese RIF')
-            return
+    const result = await saveState.execute(
+      async () => {
+        if (editingProveedor) {
+          // Verificar si el RIF cambió y ya existe
+          if (data.rif !== editingProveedor.rif) {
+            const exists = await proveedorService.checkRifExists(data.rif, editingProveedor.id)
+            if (exists) {
+              throw new Error('Ya existe un proveedor con ese RIF')
+            }
           }
+
+          const { error: updateError } = await proveedorService.updateProveedorWithCuentas(
+            editingProveedor.id,
+            data
+          )
+
+          if (updateError) {
+            throw updateError
+          }
+
+          return { ...editingProveedor, ...data } as ProveedorWithCuentas
+        } else {
+          // Verificar si el RIF ya existe
+          const exists = await proveedorService.checkRifExists(data.rif)
+          if (exists) {
+            throw new Error('Ya existe un proveedor con ese RIF')
+          }
+
+          const { data: newProveedor, error: createError } = await proveedorService.createProveedorWithCuentas(data)
+
+          if (createError) {
+            throw createError
+          }
+
+          return newProveedor!
         }
+      },
+      editingProveedor ? 'Error al actualizar proveedor' : 'Error al crear proveedor'
+    )
 
-        const { error: updateError } = await proveedorService.updateProveedorWithCuentas(
-          editingProveedor.id,
-          data
-        )
-
-        if (updateError) {
-          setError('Error al actualizar proveedor: ' + updateError.message)
-          return
-        }
-
-        setSuccessMessage('Proveedor actualizado exitosamente')
-      } else {
-        // Verificar si el RIF ya existe
-        const exists = await proveedorService.checkRifExists(data.rif)
-        if (exists) {
-          setError('Ya existe un proveedor con ese RIF')
-          return
-        }
-
-        const { error: createError } = await proveedorService.createProveedorWithCuentas(data)
-
-        if (createError) {
-          setError('Error al crear proveedor: ' + createError.message)
-          return
-        }
-
-        setSuccessMessage('Proveedor creado exitosamente')
-      }
-
+    if (result) {
+      setSuccessMessage(editingProveedor ? 'Proveedor actualizado exitosamente' : 'Proveedor creado exitosamente')
       setShowModal(false)
       loadProveedores()
       
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al guardar proveedor: ' + err.message)
     }
   }
 
   const handleDeleteProveedor = async (id: string) => {
-    try {
-      const { error: deleteError } = await proveedorService.deactivateProveedor(id)
+    const result = await deleteState.execute(
+      async () => {
+        const { error: deleteError } = await proveedorService.deactivateProveedor(id)
 
-      if (deleteError) {
-        setError('Error al eliminar proveedor: ' + deleteError.message)
-        return
-      }
+        if (deleteError) {
+          throw deleteError
+        }
 
+        return true
+      },
+      'Error al eliminar proveedor'
+    )
+
+    if (result) {
       setDeleteConfirm(null)
       setSuccessMessage('Proveedor eliminado exitosamente')
       loadProveedores()
       
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al eliminar proveedor: ' + err.message)
     }
   }
 
@@ -200,11 +208,17 @@ export default function ProveedoresPage() {
         </div>
 
         {/* Messages */}
-        {error && (
+        {(proveedoresState.error || saveState.error || deleteState.error) && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-600">{error}</p>
+            <p className="text-red-600">
+              {proveedoresState.error || saveState.error || deleteState.error}
+            </p>
             <button 
-              onClick={() => setError(null)}
+              onClick={() => {
+                proveedoresState.clearError()
+                saveState.clearError()
+                deleteState.clearError()
+              }}
               className="mt-2 text-sm text-red-500 hover:text-red-700"
             >
               Cerrar
@@ -234,7 +248,7 @@ export default function ProveedoresPage() {
                 />
               </div>
             </div>
-            <Button onClick={handleSearch} disabled={loading}>
+            <Button onClick={handleSearch} disabled={proveedoresState.loading}>
               Buscar
             </Button>
             <Button 
@@ -244,7 +258,7 @@ export default function ProveedoresPage() {
                 setCurrentPage(1)
                 loadProveedores()
               }}
-              disabled={loading}
+              disabled={proveedoresState.loading}
             >
               Limpiar
             </Button>
@@ -253,7 +267,7 @@ export default function ProveedoresPage() {
 
         {/* Proveedores List */}
         <Card title="Proveedores Registrados">
-          {loading ? (
+          {proveedoresState.loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             </div>
@@ -328,16 +342,16 @@ export default function ProveedoresPage() {
                         </td>
                         <td className="px-4 py-4">
                           <div className="text-sm text-gray-900 space-y-1">
-                            {proveedor.bancos && (
+                            {proveedor.cuentas_bancarias && proveedor.cuentas_bancarias.length > 0 && (
                               <div className="flex items-center truncate">
                                 <BanknotesIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
-                                <span className="truncate">{proveedor.bancos.nombre}</span>
+                                <span className="truncate">{proveedor.cuentas_bancarias[0].banco_nombre || 'Banco no especificado'}</span>
                               </div>
                             )}
-                            {proveedor.numero_cuenta && (
+                            {proveedor.cuentas_bancarias && proveedor.cuentas_bancarias.length > 0 && (
                               <div className="flex items-center truncate">
                                 <CreditCardIcon className="h-3 w-3 text-gray-400 mr-1 flex-shrink-0" />
-                                <span className="truncate">{proveedor.numero_cuenta}</span>
+                                <span className="truncate">{proveedor.cuentas_bancarias[0].numero_cuenta}</span>
                               </div>
                             )}
                           </div>
@@ -438,7 +452,7 @@ export default function ProveedoresPage() {
             setEditingProveedor(null)
           }}
           onSave={handleSaveProveedor}
-          editingProveedor={editingProveedor}
+          editingProveedor={editingProveedor || undefined}
         />
 
         {/* Proveedor Detail Modal */}

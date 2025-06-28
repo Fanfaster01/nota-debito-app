@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { ClienteSearch } from '@/components/forms/ClienteSearch'
 import { ClienteUI } from '@/lib/services/clienteService'
 import type { CreditoCajaUI } from '@/types/caja'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 
 const creditoCajaSchema = z.object({
   numeroFactura: z.string()
@@ -37,8 +38,11 @@ interface CreditoCajaFormProps {
 
 export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }: CreditoCajaFormProps) {
   const { user } = useAuth()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estado unificado con useAsyncForm
+  const saveState = useAsyncForm<CreditoCajaUI>()
+  
+  // Estados locales
   const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
 
   const {
@@ -71,57 +75,57 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
 
   const onSubmit = async (data: CreditoCajaFormData) => {
     if (!user || !user.id || !user.company_id) {
-      setError('Usuario no autenticado correctamente. Por favor, recarga la página.')
+      saveState.setData(null)
       console.error('Usuario incompleto:', user)
       return
     }
 
-    setIsSubmitting(true)
-    setError(null)
+    const result = await saveState.executeWithValidation(
+      async () => {
+        const nuevoCredito: Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'montoUsd' | 'tasa' | 'estado'> = {
+          cajaId,
+          clienteId: selectedCliente?.id || null,
+          numeroFactura: data.numeroFactura,
+          nombreCliente: data.nombreCliente,
+          telefonoCliente: data.telefonoCliente,
+          montoBs: data.montoBs,
+          userId: user.id,
+          companyId: user.company_id!
+        }
 
-    try {
-      const nuevoCredito: Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'montoUsd' | 'tasa' | 'estado'> = {
-        cajaId,
-        clienteId: selectedCliente?.id || null,
-        numeroFactura: data.numeroFactura,
-        nombreCliente: data.nombreCliente,
-        telefonoCliente: data.telefonoCliente,
-        montoBs: data.montoBs,
-        userId: user.id,
-        companyId: user.company_id!
-      }
+        const { data: creditoCreado, error: createError } = await cajaService.agregarCreditoCaja(nuevoCredito)
 
-      const { data: creditoCreado, error: createError } = await cajaService.agregarCreditoCaja(nuevoCredito)
+        if (createError) {
+          throw createError
+        }
 
-      if (createError) {
-        console.error('Error al crear crédito:', createError)
-        setError(createError.message || 'Error al crear el crédito')
-        return
-      }
+        if (!creditoCreado) {
+          throw new Error('No se pudo crear el crédito')
+        }
 
-      if (creditoCreado) {
-        reset()
-        onSuccess(creditoCreado)
-      }
-    } catch (err) {
-      setError('Error inesperado al crear el crédito')
-    } finally {
-      setIsSubmitting(false)
+        return creditoCreado
+      },
+      'Error al crear el crédito'
+    )
+
+    if (result) {
+      reset()
+      onSuccess(result)
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && (
+      {saveState.error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-          {error}
+          {saveState.error}
         </div>
       )}
 
       {/* Búsqueda de cliente */}
       <ClienteSearch
         onClienteSelect={(cliente) => setSelectedCliente(cliente)}
-        disabled={isSubmitting}
+        disabled={saveState.loading}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -166,15 +170,15 @@ export default function CreditoCajaForm({ cajaId, tasaDia, onSuccess, onCancel }
           type="button"
           variant="secondary"
           onClick={onCancel}
-          disabled={isSubmitting}
+          disabled={saveState.loading}
         >
           Cancelar
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={saveState.loading}
         >
-          {isSubmitting ? 'Agregando...' : 'Agregar Crédito'}
+          {saveState.loading ? 'Agregando...' : 'Agregar Crédito'}
         </Button>
       </div>
     </form>

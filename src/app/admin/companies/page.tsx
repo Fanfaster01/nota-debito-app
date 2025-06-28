@@ -12,6 +12,7 @@ import { Company, TablesInsert } from '@/types/database'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useAsyncList, useAsyncState } from '@/hooks/useAsyncState'
 import { 
   PlusIcon, 
   PencilIcon, 
@@ -33,10 +34,13 @@ type CompanyFormData = z.infer<typeof companySchema>
 
 export default function CompaniesPage() {
   const { user } = useAuth()
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estados unificados con useAsyncState
+  const companiesState = useAsyncList<Company>()
+  const saveState = useAsyncState<Company>()
+  const deleteState = useAsyncState<boolean>()
+  
+  // Estados locales del UI
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingCompany, setEditingCompany] = useState<Company | null>(null)
@@ -61,30 +65,25 @@ export default function CompaniesPage() {
 
   useEffect(() => {
     if (user?.role !== 'master') {
-      setError('No tienes permisos para acceder a esta página')
+      companiesState.setData([])
       return
     }
     loadCompanies()
   }, [user])
 
   const loadCompanies = async () => {
-    setLoading(true)
-    setError(null)
+    await companiesState.execute(
+      async () => {
+        const { data, error: loadError } = await companyService.getAllCompanies()
+        
+        if (loadError) {
+          throw loadError
+        }
 
-    try {
-      const { data, error: loadError } = await companyService.getAllCompanies()
-      
-      if (loadError) {
-        setError('Error al cargar compañías: ' + loadError.message)
-        return
-      }
-
-      setCompanies(data || [])
-    } catch (err: any) {
-      setError('Error al cargar compañías: ' + err.message)
-    } finally {
-      setLoading(false)
-    }
+        return data || []
+      },
+      'Error al cargar compañías'
+    )
   }
 
   const handleCreateCompany = () => {
@@ -97,7 +96,8 @@ export default function CompaniesPage() {
       email: '',
     })
     setShowForm(true)
-    setError(null)
+    companiesState.clearError()
+    saveState.clearError()
     setSuccessMessage(null)
   }
 
@@ -109,51 +109,53 @@ export default function CompaniesPage() {
     setValue('phone', company.phone || '')
     setValue('email', company.email || '')
     setShowForm(true)
-    setError(null)
+    companiesState.clearError()
+    saveState.clearError()
     setSuccessMessage(null)
   }
 
   const handleFormSubmit = async (data: CompanyFormData) => {
-    setSaving(true)
-    setError(null)
     setSuccessMessage(null)
 
-    try {
-      const companyData: TablesInsert<'companies'> = {
-        name: data.name.trim(),
-        rif: data.rif.trim().toUpperCase(),
-        address: data.address.trim(),
-        phone: data.phone?.trim() || null,
-        email: data.email?.trim() || null,
-      }
-
-      if (editingCompany) {
-        // Actualizar compañía existente
-        const { error: updateError } = await companyService.updateCompany(editingCompany.id, companyData)
-        
-        if (updateError) {
-          setError('Error al actualizar compañía: ' + updateError.message)
-          return
+    const result = await saveState.execute(
+      async () => {
+        const companyData: TablesInsert<'companies'> = {
+          name: data.name.trim(),
+          rif: data.rif.trim().toUpperCase(),
+          address: data.address.trim(),
+          phone: data.phone?.trim() || null,
+          email: data.email?.trim() || null,
         }
-        
-        setSuccessMessage('Compañía actualizada exitosamente')
-      } else {
-        // Crear nueva compañía
-        const { error: createError } = await companyService.createCompany(companyData)
-        
-        if (createError) {
-          if (createError.message?.includes('duplicate key')) {
-            setError('Ya existe una compañía con ese RIF')
-          } else {
-            setError('Error al crear compañía: ' + createError.message)
+
+        if (editingCompany) {
+          // Actualizar compañía existente
+          const { error: updateError } = await companyService.updateCompany(editingCompany.id, companyData)
+          
+          if (updateError) {
+            throw updateError
           }
-          return
+          
+          return { ...editingCompany, ...companyData } as Company
+        } else {
+          // Crear nueva compañía
+          const { data: newCompany, error: createError } = await companyService.createCompany(companyData)
+          
+          if (createError) {
+            if (String(createError).includes('duplicate key')) {
+              throw new Error('Ya existe una compañía con ese RIF')
+            }
+            throw createError
+          }
+          
+          return newCompany!
         }
-        
-        setSuccessMessage('Compañía creada exitosamente')
-      }
+      },
+      editingCompany ? 'Error al actualizar compañía' : 'Error al crear compañía'
+    )
 
-      // Limpiar y recargar
+    if (result) {
+      // Operación exitosa
+      setSuccessMessage(editingCompany ? 'Compañía actualizada exitosamente' : 'Compañía creada exitosamente')
       setShowForm(false)
       setEditingCompany(null)
       reset()
@@ -161,46 +163,49 @@ export default function CompaniesPage() {
       
       // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      console.error('Error en handleFormSubmit:', err)
-      setError('Error al procesar compañía: ' + err.message)
-    } finally {
-      setSaving(false)
     }
   }
 
   const handleToggleStatus = async (company: Company) => {
-    try {
-      const { error } = await companyService.toggleCompanyStatus(company.id, !company.is_active)
-      
-      if (error) {
-        setError('Error al cambiar estado: ' + error.message)
-        return
-      }
+    const result = await saveState.execute(
+      async () => {
+        const { error } = await companyService.toggleCompanyStatus(company.id, !company.is_active)
+        
+        if (error) {
+          throw error
+        }
 
+        return company
+      },
+      'Error al cambiar estado'
+    )
+
+    if (result) {
       await loadCompanies()
       setSuccessMessage(`Compañía ${!company.is_active ? 'activada' : 'desactivada'} exitosamente`)
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al cambiar estado: ' + err.message)
     }
   }
 
   const handleDeleteCompany = async (companyId: string) => {
-    try {
-      const { error } = await companyService.deleteCompany(companyId)
-      
-      if (error) {
-        setError('Error al eliminar compañía: ' + error.message)
-        return
-      }
+    const result = await deleteState.execute(
+      async () => {
+        const { error } = await companyService.deleteCompany(companyId)
+        
+        if (error) {
+          throw error
+        }
 
+        return true
+      },
+      'Error al eliminar compañía'
+    )
+
+    if (result) {
       setDeleteConfirm(null)
       await loadCompanies()
       setSuccessMessage('Compañía eliminada exitosamente')
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al eliminar compañía: ' + err.message)
     }
   }
 
@@ -208,7 +213,7 @@ export default function CompaniesPage() {
     setShowForm(false)
     setEditingCompany(null)
     reset()
-    setError(null)
+    saveState.clearError()
   }
 
   if (user?.role !== 'master') {
@@ -221,7 +226,7 @@ export default function CompaniesPage() {
     )
   }
 
-  if (loading) {
+  if (companiesState.loading) {
     return (
       <MainLayout>
         <div className="flex items-center justify-center min-h-64">
@@ -249,11 +254,17 @@ export default function CompaniesPage() {
         </div>
 
         {/* Messages */}
-        {error && (
+        {(companiesState.error || saveState.error || deleteState.error) && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-600">{error}</p>
+            <p className="text-red-600">
+              {companiesState.error || saveState.error || deleteState.error}
+            </p>
             <button 
-              onClick={() => setError(null)}
+              onClick={() => {
+                companiesState.clearError()
+                saveState.clearError()
+                deleteState.clearError()
+              }}
               className="mt-2 text-sm text-red-500 hover:text-red-700"
             >
               Cerrar
@@ -276,14 +287,14 @@ export default function CompaniesPage() {
                   label="Nombre de la Compañía"
                   {...register('name')}
                   error={errors.name?.message}
-                  disabled={saving}
+                  disabled={saveState.loading}
                 />
                 <Input
                   label="RIF"
                   {...register('rif')}
                   error={errors.rif?.message}
                   placeholder="J-12345678-9"
-                  disabled={saving}
+                  disabled={saveState.loading}
                   style={{ textTransform: 'uppercase' }}
                 />
               </div>
@@ -292,7 +303,7 @@ export default function CompaniesPage() {
                 label="Dirección"
                 {...register('address')}
                 error={errors.address?.message}
-                disabled={saving}
+                disabled={saveState.loading}
               />
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -301,7 +312,7 @@ export default function CompaniesPage() {
                   {...register('phone')}
                   error={errors.phone?.message}
                   placeholder="0212-1234567"
-                  disabled={saving}
+                  disabled={saveState.loading}
                 />
                 <Input
                   label="Email"
@@ -309,7 +320,7 @@ export default function CompaniesPage() {
                   {...register('email')}
                   error={errors.email?.message}
                   placeholder="info@empresa.com"
-                  disabled={saving}
+                  disabled={saveState.loading}
                 />
               </div>
 
@@ -318,15 +329,15 @@ export default function CompaniesPage() {
                   type="button" 
                   variant="outline" 
                   onClick={handleCancelForm}
-                  disabled={saving}
+                  disabled={saveState.loading}
                 >
                   Cancelar
                 </Button>
                 <Button 
                   type="submit"
-                  disabled={saving || isSubmitting}
+                  disabled={saveState.loading || isSubmitting}
                 >
-                  {saving ? 'Guardando...' : (editingCompany ? 'Actualizar' : 'Crear')} Compañía
+                  {saveState.loading ? 'Guardando...' : (editingCompany ? 'Actualizar' : 'Crear')} Compañía
                 </Button>
               </div>
             </form>
@@ -335,7 +346,7 @@ export default function CompaniesPage() {
 
         {/* Companies List */}
         <Card title="Compañías Registradas">
-          {companies.length > 0 ? (
+          {(companiesState.data || []).length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -358,7 +369,7 @@ export default function CompaniesPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {companies.map((company) => (
+                  {(companiesState.data || []).map((company) => (
                     <tr key={company.id} className={!company.is_active ? 'opacity-50' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
