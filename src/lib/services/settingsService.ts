@@ -1,5 +1,6 @@
 // src/lib/services/settingsService.ts
 import { createClient } from '@/utils/supabase/client'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export interface SystemSetting {
   id: string
@@ -44,8 +45,9 @@ export class SettingsService {
         .order('category', { ascending: true })
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting all settings:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener todas las configuraciones') }
     }
   }
 
@@ -66,8 +68,9 @@ export class SettingsService {
       }, {} as Record<string, unknown>) || {}
 
       return { data: settings, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting settings by category:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener configuraciones por categoría') }
     }
   }
 
@@ -81,8 +84,9 @@ export class SettingsService {
         .single()
 
       return { data: data?.value || null, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting setting:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener configuración') }
     }
   }
 
@@ -100,8 +104,9 @@ export class SettingsService {
       }
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error updating setting:', err)
+      return { error: handleServiceError(err, 'Error al actualizar configuración') }
     }
   }
 
@@ -125,8 +130,9 @@ export class SettingsService {
       })
 
       return { error: null }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error updating multiple settings:', err)
+      return { error: handleServiceError(err, 'Error al actualizar múltiples configuraciones') }
     }
   }
 
@@ -147,8 +153,9 @@ export class SettingsService {
       }
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error creating setting:', err)
+      return { error: handleServiceError(err, 'Error al crear configuración') }
     }
   }
 
@@ -188,8 +195,9 @@ export class SettingsService {
         },
         error: null
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting system stats:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener estadísticas del sistema') }
     }
   }
 
@@ -211,8 +219,9 @@ export class SettingsService {
       })
 
       return { error: null }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error performing manual backup:', err)
+      return { error: handleServiceError(err, 'Error al realizar backup manual') }
     }
   }
 
@@ -226,8 +235,9 @@ export class SettingsService {
       })
 
       return { error: null }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error clearing system cache:', err)
+      return { error: handleServiceError(err, 'Error al limpiar caché del sistema') }
     }
   }
 
@@ -247,8 +257,9 @@ export class SettingsService {
         .limit(limit)
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting system logs:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener logs del sistema') }
     }
   }
 
@@ -264,8 +275,8 @@ export class SettingsService {
           details,
           user_id: user?.id || null
         })
-    } catch (error) {
-      console.error('Error logging action:', error)
+    } catch (err) {
+      console.error('Error logging action:', handleServiceError(err, 'Error al registrar acción'))
     }
   }
 
@@ -306,7 +317,8 @@ export class SettingsService {
           backup_frequency: 'weekly'
         }
       }
-    } catch (error) {
+    } catch (err) {
+      console.error('Error getting config with defaults:', handleServiceError(err, 'Error al obtener configuraciones'))
       // Valores por defecto en caso de error
       return {
         general: {

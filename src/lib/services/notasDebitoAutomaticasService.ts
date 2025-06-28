@@ -1,5 +1,6 @@
 // Servicio para generación automática de notas de débito por diferencial cambiario
 import { createClient } from '@/utils/supabase/client'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 const supabase = createClient()
 import { tasasCambioService } from './tasasCambioService'
@@ -109,11 +110,11 @@ class NotasDebitoAutomaticasService {
       }
 
       return { data: notaDebitoGenerada, error: null }
-    } catch (error) {
-      console.error('Error generando nota de débito automática:', error)
+    } catch (err) {
+      console.error('Error generando nota de débito automática:', err)
       return { 
         data: null, 
-        error: 'Error al generar la nota de débito automática' 
+        error: handleServiceError(err, 'Error al generar la nota de débito automática') 
       }
     }
   }
@@ -162,9 +163,10 @@ class NotasDebitoAutomaticasService {
         } else if (result.data) {
           notasGeneradas.push(result.data)
         }
-      } catch (error) {
-        errores.push(`Factura ${factura.numero}: Error inesperado`)
-        console.error(`Error procesando factura ${factura.numero}:`, error)
+      } catch (err) {
+        const errorMsg = handleServiceError(err, `Error procesando factura ${factura.numero}`)
+        errores.push(`Factura ${factura.numero}: ${errorMsg}`)
+        console.error(`Error procesando factura ${factura.numero}:`, err)
       }
     }
 
@@ -283,9 +285,9 @@ class NotasDebitoAutomaticasService {
         default:
           return { data: null, error: `Tipo de moneda no soportado: ${tipoMoneda}` }
       }
-    } catch (error) {
-      console.error('Error obteniendo tasa de pago:', error)
-      return { data: null, error: 'Error al obtener la tasa de pago' }
+    } catch (err) {
+      console.error('Error obteniendo tasa de pago:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener la tasa de pago') }
     }
   }
 
@@ -316,9 +318,9 @@ class NotasDebitoAutomaticasService {
 
       const numeroFormateado = `ND-${siguienteNumero.toString().padStart(6, '0')}`
       return { data: numeroFormateado, error: null }
-    } catch (error) {
-      console.error('Error obteniendo siguiente número:', error)
-      return { data: null, error: 'Error al generar número de nota de débito' }
+    } catch (err) {
+      console.error('Error obteniendo siguiente número:', err)
+      return { data: null, error: handleServiceError(err, 'Error al generar número de nota de débito') }
     }
   }
 
@@ -352,9 +354,9 @@ class NotasDebitoAutomaticasService {
       if (error) throw error
 
       return { data, error: null }
-    } catch (error) {
-      console.error('Error guardando nota de débito:', error)
-      return { data: null, error: 'Error al guardar la nota de débito' }
+    } catch (err) {
+      console.error('Error guardando nota de débito:', err)
+      return { data: null, error: handleServiceError(err, 'Error al guardar la nota de débito') }
     }
   }
 
@@ -410,13 +412,13 @@ class NotasDebitoAutomaticasService {
         .eq('factura_id', facturaId)
 
       if (error) {
-        console.error('Error obteniendo notas de crédito:', error)
+        console.error('Error obteniendo notas de crédito:', handleServiceError(error, 'Error al obtener notas de crédito'))
         return []
       }
 
       return data || []
-    } catch (error) {
-      console.error('Error en obtenerNotasCreditoAsociadas:', error)
+    } catch (err) {
+      console.error('Error en obtenerNotasCreditoAsociadas:', handleServiceError(err, 'Error al obtener notas de crédito asociadas'))
       return []
     }
   }
@@ -490,9 +492,9 @@ class NotasDebitoAutomaticasService {
       }
 
       return { data: resumen, error: null }
-    } catch (error) {
-      console.error('Error obteniendo resumen:', error)
-      return { data: null, error: 'Error al obtener el resumen de notas de débito' }
+    } catch (err) {
+      console.error('Error obteniendo resumen:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener el resumen de notas de débito') }
     }
   }
 }

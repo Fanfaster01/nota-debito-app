@@ -1,6 +1,7 @@
 // src/lib/services/proveedorCuentasBancariasService.ts
 import { createClient } from '@/utils/supabase/client'
 import { ProveedorCuentaBancaria } from '@/types/index'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export class ProveedorCuentasBancariasService {
   private supabase = createClient()
@@ -34,8 +35,9 @@ export class ProveedorCuentasBancariasService {
       }) || null
 
       return { data: transformedData, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting cuentas by proveedor ID:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener cuentas bancarias del proveedor') }
     }
   }
 
@@ -49,8 +51,9 @@ export class ProveedorCuentasBancariasService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating cuenta bancaria:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear cuenta bancaria') }
     }
   }
 
@@ -65,8 +68,9 @@ export class ProveedorCuentasBancariasService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating cuenta bancaria:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar cuenta bancaria') }
     }
   }
 
@@ -79,8 +83,9 @@ export class ProveedorCuentasBancariasService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error deleting cuenta bancaria:', err)
+      return { error: handleServiceError(err, 'Error al eliminar cuenta bancaria') }
     }
   }
 
@@ -100,8 +105,9 @@ export class ProveedorCuentasBancariasService {
         .eq('id', cuentaId)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error marking cuenta as favorita:', err)
+      return { error: handleServiceError(err, 'Error al marcar cuenta como favorita') }
     }
   }
 
@@ -130,8 +136,9 @@ export class ProveedorCuentasBancariasService {
       } : null
 
       return { data: transformedData, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting cuenta favorita:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener cuenta favorita') }
     }
   }
 
@@ -166,6 +173,7 @@ export class ProveedorCuentasBancariasService {
               cuentaData.banco_nombre = cuenta.banco_nombre || 'Banco no encontrado'
             }
           } catch (bancoError) {
+            console.error('Error getting banco name:', bancoError)
             // banco_nombre es requerido, usar fallback
             cuentaData.banco_nombre = cuenta.banco_nombre || 'Banco no especificado'
           }
@@ -190,9 +198,9 @@ export class ProveedorCuentasBancariasService {
       }
 
       return { data, error }
-    } catch (error) {
-      console.error('Error catch en createMultipleCuentas:', error)
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error catch en createMultipleCuentas:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear múltiples cuentas bancarias') }
     }
   }
 
@@ -208,7 +216,8 @@ export class ProveedorCuentasBancariasService {
         .single()
 
       return !error && data !== null
-    } catch {
+    } catch (err) {
+      console.error('Error checking if cuenta exists:', err)
       return false
     }
   }

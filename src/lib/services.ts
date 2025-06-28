@@ -11,6 +11,7 @@ import {
   mapNotaDebitoFromDB
 } from './mappers'
 import { calcularNotaDebito, calcularMontoFinalPagar } from './calculations'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 // Servicio para gestionar facturas
 export class FacturaService {
@@ -27,8 +28,9 @@ export class FacturaService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -44,8 +46,9 @@ export class FacturaService {
 
       const facturas = data?.map(mapFacturaFromDB) || []
       return { data: facturas, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -58,8 +61,9 @@ export class FacturaService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -74,8 +78,9 @@ export class FacturaService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -87,8 +92,9 @@ export class FacturaService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 }
@@ -113,8 +119,9 @@ export class NotaCreditoService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -130,8 +137,9 @@ export class NotaCreditoService {
 
       const notasCredito = data?.map(mapNotaCreditoFromDB) || []
       return { data: notasCredito, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -147,8 +155,9 @@ export class NotaCreditoService {
 
       const notasCredito = data?.map(mapNotaCreditoFromDB) || []
       return { data: notasCredito, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -160,8 +169,9 @@ export class NotaCreditoService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 }
@@ -255,8 +265,9 @@ export class NotaDebitoService {
       }
 
       return { data: notaDebitoCreated, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -306,8 +317,9 @@ export class NotaDebitoService {
       )
 
       return { data: notasDebitoCompletas, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -350,8 +362,9 @@ export class NotaDebitoService {
       const notaDebito = mapNotaDebitoFromDB(notaDebitoDB, factura, notasCredito)
 
       return { data: notaDebito, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -370,8 +383,9 @@ export class NotaDebitoService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -658,7 +672,7 @@ export class NotaDebitoService {
     } catch (error) {
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Error desconocido'
+        error: handleServiceError(error, 'Error desconocido')
       };
     }
   }
@@ -683,7 +697,7 @@ export class NotaDebitoService {
     } catch (error) {
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Error desconocido'
+        error: handleServiceError(error, 'Error desconocido')
       };
     }
   }
@@ -704,7 +718,7 @@ export class NotaDebitoService {
     } catch (error) {
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Error desconocido'
+        error: handleServiceError(error, 'Error desconocido')
       };
     }
   }
@@ -729,8 +743,9 @@ export class UserService {
         .single()
 
       return { data: userData, error: userError }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 
@@ -750,8 +765,9 @@ export class UserService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in services operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de servicios') }
     }
   }
 }

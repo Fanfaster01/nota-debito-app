@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/client'
 import { Proveedor, TablesInsert } from '@/types/database'
 import { ProveedorCuentaBancaria, TipoCambio } from '@/types/index'
 import { proveedorCuentasBancariasService } from './proveedorCuentasBancariasService'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 
 export interface ProveedorWithCuentas extends Proveedor {
@@ -48,8 +49,9 @@ export class ProveedorService {
         } as ProveedorWithCuentas, 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting proveedor by RIF:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener proveedor por RIF') }
     }
   }
 
@@ -80,8 +82,9 @@ export class ProveedorService {
       )
 
       return { data: proveedoresWithCuentas, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error searching proveedores:', err)
+      return { data: null, error: handleServiceError(err, 'Error al buscar proveedores') }
     }
   }
 
@@ -116,8 +119,9 @@ export class ProveedorService {
       )
 
       return { success: true, data: proveedoresWithCuentas }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Error desconocido' }
+    } catch (err) {
+      console.error('Error searching proveedores by RIF:', err)
+      return { success: false, error: handleServiceError(err, 'Error al buscar proveedores por RIF') }
     }
   }
 
@@ -165,8 +169,9 @@ export class ProveedorService {
       )
 
       return { data: proveedoresWithCuentas, totalCount: count || 0, error: null }
-    } catch (error) {
-      return { data: null, totalCount: 0, error }
+    } catch (err) {
+      console.error('Error getting proveedores paginated:', err)
+      return { data: null, totalCount: 0, error: handleServiceError(err, 'Error al obtener proveedores paginados') }
     }
   }
 
@@ -195,8 +200,9 @@ export class ProveedorService {
       )
 
       return { data: proveedoresWithCuentas, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting all proveedores:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener todos los proveedores') }
     }
   }
 
@@ -225,8 +231,9 @@ export class ProveedorService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating proveedor:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear proveedor') }
     }
   }
 
@@ -246,8 +253,9 @@ export class ProveedorService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating proveedor:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar proveedor') }
     }
   }
 
@@ -260,8 +268,9 @@ export class ProveedorService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error deactivating proveedor:', err)
+      return { error: handleServiceError(err, 'Error al desactivar proveedor') }
     }
   }
 
@@ -281,7 +290,8 @@ export class ProveedorService {
       const { data, error } = await query.single()
 
       return !error && !!data
-    } catch (error) {
+    } catch (err) {
+      console.error('Error checking RIF exists:', err)
       return false
     }
   }
@@ -366,8 +376,9 @@ export class ProveedorService {
         } as ProveedorWithCuentas, 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating proveedor with cuentas:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear proveedor con cuentas bancarias') }
     }
   }
 
@@ -439,8 +450,9 @@ export class ProveedorService {
         } as ProveedorWithCuentas, 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating proveedor with cuentas:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar proveedor con cuentas bancarias') }
     }
   }
 
@@ -467,8 +479,9 @@ export class ProveedorService {
         } as ProveedorWithCuentas, 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting proveedor with cuentas:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener proveedor con cuentas bancarias') }
     }
   }
 }

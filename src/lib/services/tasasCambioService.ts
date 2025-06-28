@@ -1,5 +1,6 @@
 // Servicio para consultar tasas de cambio de APIs públicas
 import type { TasaCambio, TasaCambioManual } from '@/types/cuentasPorPagar'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 class TasasCambioService {
   // API principal más confiable
@@ -149,7 +150,7 @@ class TasasCambioService {
 
       throw new Error('No se encontró la tasa EUR/VES')
     } catch (error) {
-      console.error('Error al obtener tasa EUR:', error)
+      console.error('Error al obtener tasa EUR:', handleServiceError(error, 'Error al obtener tasa EUR'))
       
       // Intentar calcular EUR basado en USD
       try {
@@ -173,7 +174,7 @@ class TasasCambioService {
           }
         }
       } catch (calcError) {
-        console.error('Error al calcular EUR:', calcError)
+        console.error('Error al calcular EUR:', handleServiceError(calcError, 'Error al calcular EUR'))
       }
 
       return { 
@@ -214,7 +215,7 @@ class TasasCambioService {
         error: errores.length > 0 ? errores.join('; ') : null 
       }
     } catch (error) {
-      console.error('Error al obtener todas las tasas:', error)
+      console.error('Error al obtener todas las tasas:', handleServiceError(error, 'Error al obtener todas las tasas'))
       return { 
         data: null, 
         error: 'Error general al obtener las tasas de cambio' 
@@ -249,10 +250,10 @@ class TasasCambioService {
 
       return { data: tasaManual, error: null }
     } catch (error) {
-      console.error('Error al crear tasa manual:', error)
+      console.error('Error al crear tasa manual:', handleServiceError(error, 'Error al crear tasa manual'))
       return { 
         data: null, 
-        error: error instanceof Error ? error.message : 'Error al crear la tasa manual' 
+        error: handleServiceError(error, 'Error al crear la tasa manual') 
       }
     }
   }
@@ -283,10 +284,10 @@ class TasasCambioService {
           throw new Error(`Tipo de cambio no válido: ${tipoCambio}`)
       }
     } catch (error) {
-      console.error('Error al obtener tasa según tipo:', error)
+      console.error('Error al obtener tasa según tipo:', handleServiceError(error, 'Error al obtener tasa según tipo'))
       return { 
         data: null, 
-        error: error instanceof Error ? error.message : 'Error al obtener la tasa' 
+        error: handleServiceError(error, 'Error al obtener la tasa') 
       }
     }
   }

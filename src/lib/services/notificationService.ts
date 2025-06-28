@@ -2,6 +2,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { CreditoDetalladoUI } from '@/types/creditos'
 import { creditoService } from './creditoService'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export interface NotificacionCredito {
   id: string
@@ -44,8 +45,9 @@ export class NotificationService {
       ) || []
 
       return { data: creditosProximosAVencer, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting creditos proximos a vencer:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener créditos próximos a vencer') }
     }
   }
 
@@ -68,8 +70,9 @@ export class NotificationService {
       ) || []
 
       return { data: creditosVencidos, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting creditos vencidos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener créditos vencidos') }
     }
   }
 
@@ -121,8 +124,9 @@ export class NotificationService {
         .sort((a, b) => b.totalPendiente - a.totalPendiente)
 
       return { data: clientesConMultiplesCreditos, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting clientes con multiples creditos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener clientes con múltiples créditos') }
     }
   }
 
@@ -189,8 +193,9 @@ export class NotificationService {
       })
 
       return { data: notificaciones, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error generating notifications:', err)
+      return { data: null, error: handleServiceError(err, 'Error al generar notificaciones') }
     }
   }
 
@@ -221,8 +226,9 @@ export class NotificationService {
       }
 
       return { data: stats, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting alert stats:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener estadísticas de alertas') }
     }
   }
 }

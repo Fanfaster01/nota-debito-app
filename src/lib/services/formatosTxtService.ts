@@ -1,5 +1,6 @@
 // Servicio para gestión de formatos TXT bancarios
 import { createClient } from '@/utils/supabase/client'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 const supabase = createClient()
 import type { FormatoTxtBancario, FacturaCuentaPorPagar, ProveedorConBanco } from '@/types/cuentasPorPagar'
@@ -26,9 +27,9 @@ class FormatosTxtService {
 
       const formatos: FormatoTxtBancario[] = data?.map(this.mapToFormatoTxtBancario) || []
       return { data: formatos, error: null }
-    } catch (error) {
-      console.error('Error obteniendo formatos TXT:', error)
-      return { data: null, error: 'Error al obtener los formatos TXT' }
+    } catch (err) {
+      console.error('Error obteniendo formatos TXT:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener los formatos TXT') }
     }
   }
 
@@ -46,9 +47,9 @@ class FormatosTxtService {
       if (error) throw error
 
       return { data: this.mapToFormatoTxtBancario(data), error: null }
-    } catch (error) {
-      console.error('Error obteniendo formato TXT:', error)
-      return { data: null, error: 'Error al obtener el formato TXT' }
+    } catch (err) {
+      console.error('Error obteniendo formato TXT:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener el formato TXT') }
     }
   }
 
@@ -77,9 +78,9 @@ class FormatosTxtService {
       if (error) throw error
 
       return { data: this.mapToFormatoTxtBancario(data), error: null }
-    } catch (error) {
-      console.error('Error creando formato TXT:', error)
-      return { data: null, error: 'Error al crear el formato TXT' }
+    } catch (err) {
+      console.error('Error creando formato TXT:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear el formato TXT') }
     }
   }
 
@@ -109,9 +110,9 @@ class FormatosTxtService {
       if (error) throw error
 
       return { data: this.mapToFormatoTxtBancario(data), error: null }
-    } catch (error) {
-      console.error('Error actualizando formato TXT:', error)
-      return { data: null, error: 'Error al actualizar el formato TXT' }
+    } catch (err) {
+      console.error('Error actualizando formato TXT:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar el formato TXT') }
     }
   }
 
@@ -155,10 +156,9 @@ class FormatosTxtService {
       }
 
       return this.procesarFormato(formato, facturas, proveedores)
-    } catch (error) {
-      console.error('Error generando archivo TXT:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Error al generar el archivo TXT'
-      return { data: null, error: errorMessage }
+    } catch (err) {
+      console.error('Error generando archivo TXT:', err)
+      return { data: null, error: handleServiceError(err, 'Error al generar el archivo TXT') }
     }
   }
 
@@ -231,9 +231,9 @@ class FormatosTxtService {
 
       const contenido = lineas.join('\n')
       return { data: contenido, error: null }
-    } catch (error) {
-      console.error('Error procesando formato:', error)
-      return { data: null, error: 'Error al procesar el formato' }
+    } catch (err) {
+      console.error('Error procesando formato:', err)
+      return { data: null, error: handleServiceError(err, 'Error al procesar el formato') }
     }
   }
 
@@ -312,7 +312,7 @@ class FormatosTxtService {
               valor = campo
           }
         } catch (fieldError) {
-          console.error(`Error procesando campo ${campo}:`, fieldError)
+          console.error(`Error procesando campo ${campo}:`, handleServiceError(fieldError, `Error al procesar campo ${campo}`))
           valor = ''
         }
 
@@ -322,8 +322,8 @@ class FormatosTxtService {
       }
 
       return campos.join(separador)
-    } catch (error) {
-      console.error('Error generando línea:', error)
+    } catch (err) {
+      console.error('Error generando línea:', handleServiceError(err, 'Error al generar línea'))
       return null
     }
   }
@@ -406,8 +406,8 @@ class FormatosTxtService {
       document.body.removeChild(link)
       
       window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error descargando archivo TXT:', error)
+    } catch (err) {
+      console.error('Error descargando archivo TXT:', handleServiceError(err, 'Error al descargar archivo TXT'))
     }
   }
 
@@ -421,8 +421,8 @@ class FormatosTxtService {
         return template.estructura
       }
       return []
-    } catch (error) {
-      console.error('Error accediendo a estructura del formato:', error)
+    } catch (err) {
+      console.error('Error accediendo a estructura del formato:', handleServiceError(err, 'Error al acceder a estructura del formato'))
       return []
     }
   }
@@ -454,8 +454,8 @@ class FormatosTxtService {
       if (!formatoTemplate.separador || typeof formatoTemplate.separador !== 'string') {
         formatoTemplate.separador = (dbData.separador as string) || ','
       }
-    } catch (error) {
-      console.error('Error parseando formato_template:', error)
+    } catch (err) {
+      console.error('Error parseando formato_template:', handleServiceError(err, 'Error al parsear formato_template'))
       formatoTemplate = { 
         estructura: [], 
         separador: (dbData.separador as string) || ',' 
