@@ -145,30 +145,30 @@ export class DepositosService {
 
   // Mapear de DB a UI
   private mapDepositoFromDB(depositoDB: unknown): DepositoBancarioUI {
-    const deposito = depositoDB as any // Type assertion for complex nested object
+    const deposito = depositoDB as Record<string, unknown> // Type assertion for complex nested object
     return {
-      id: deposito.id,
-      numeroRecibo: deposito.numero_recibo,
-      companyId: deposito.company_id,
-      bancoId: deposito.banco_id,
-      userId: deposito.user_id,
-      montoBs: deposito.monto_bs,
-      fechaDeposito: new Date(deposito.fecha_deposito),
-      observaciones: deposito.observaciones,
-      createdAt: new Date(deposito.created_at),
-      updatedAt: new Date(deposito.updated_at),
-      banco: deposito.bancos_depositos ? {
-        id: deposito.bancos_depositos.id,
-        nombre: deposito.bancos_depositos.nombre,
-        numeroCuenta: deposito.bancos_depositos.numero_cuenta,
-        isActive: deposito.bancos_depositos.is_active,
-        createdAt: new Date(deposito.bancos_depositos.created_at),
-        updatedAt: new Date(deposito.bancos_depositos.updated_at)
+      id: typeof deposito.id === 'string' ? deposito.id : '',
+      numeroRecibo: typeof deposito.numero_recibo === 'number' ? deposito.numero_recibo : 0,
+      companyId: typeof deposito.company_id === 'string' ? deposito.company_id : '',
+      bancoId: typeof deposito.banco_id === 'string' ? deposito.banco_id : '',
+      userId: typeof deposito.user_id === 'string' ? deposito.user_id : '',
+      montoBs: typeof deposito.monto_bs === 'number' ? deposito.monto_bs : 0,
+      fechaDeposito: deposito.fecha_deposito ? new Date(deposito.fecha_deposito as string | number | Date) : new Date(),
+      observaciones: typeof deposito.observaciones === 'string' ? deposito.observaciones : undefined,
+      createdAt: deposito.created_at ? new Date(deposito.created_at as string | number | Date) : new Date(),
+      updatedAt: deposito.updated_at ? new Date(deposito.updated_at as string | number | Date) : new Date(),
+      banco: deposito.bancos_depositos && typeof deposito.bancos_depositos === 'object' ? {
+        id: typeof (deposito.bancos_depositos as Record<string, unknown>).id === 'string' ? (deposito.bancos_depositos as Record<string, unknown>).id as string : '',
+        nombre: typeof (deposito.bancos_depositos as Record<string, unknown>).nombre === 'string' ? (deposito.bancos_depositos as Record<string, unknown>).nombre as string : '',
+        numeroCuenta: typeof (deposito.bancos_depositos as Record<string, unknown>).numero_cuenta === 'string' ? (deposito.bancos_depositos as Record<string, unknown>).numero_cuenta as string : '',
+        isActive: typeof (deposito.bancos_depositos as Record<string, unknown>).is_active === 'boolean' ? (deposito.bancos_depositos as Record<string, unknown>).is_active as boolean : true,
+        createdAt: (deposito.bancos_depositos as Record<string, unknown>).created_at ? new Date((deposito.bancos_depositos as Record<string, unknown>).created_at as string | number | Date) : new Date(),
+        updatedAt: (deposito.bancos_depositos as Record<string, unknown>).updated_at ? new Date((deposito.bancos_depositos as Record<string, unknown>).updated_at as string | number | Date) : new Date()
       } : undefined,
-      company: deposito.companies ? {
-        id: deposito.companies.id,
-        name: deposito.companies.name,
-        rif: deposito.companies.rif
+      company: deposito.companies && typeof deposito.companies === 'object' ? {
+        id: typeof (deposito.companies as Record<string, unknown>).id === 'string' ? (deposito.companies as Record<string, unknown>).id as string : '',
+        name: typeof (deposito.companies as Record<string, unknown>).name === 'string' ? (deposito.companies as Record<string, unknown>).name as string : '',
+        rif: typeof (deposito.companies as Record<string, unknown>).rif === 'string' ? (deposito.companies as Record<string, unknown>).rif as string : ''
       } : undefined,
       usuario: undefined // Se establecerá mediante consulta separada
     }

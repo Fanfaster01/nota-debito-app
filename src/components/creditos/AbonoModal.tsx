@@ -7,6 +7,9 @@ import { CreditoDetalladoUI } from '@/types/creditos'
 import { creditoService } from '@/lib/services/creditoService'
 import { bancoService } from '@/lib/services/bancoService'
 import { useAuth } from '@/contexts/AuthContext'
+import { Banco } from '@/types/database'
+// Tipo simplificado para los bancos que retorna el servicio
+type BancoSimple = Pick<Banco, 'id' | 'nombre' | 'codigo'>
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { XMarkIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
@@ -42,8 +45,8 @@ export default function AbonoModal({
   const { user } = useAuth()
   
   // Estados unificados con useAsyncState
-  const banksState = useAsyncState<any[]>([])
-  const submitState = useAsyncForm<any>()
+  const banksState = useAsyncState<BancoSimple[]>([])
+  const submitState = useAsyncForm<AbonoFormData>()
 
   const {
     register,
@@ -124,19 +127,27 @@ export default function AbonoModal({
           throw createError
         }
 
-        // Generar recibo automáticamente
-        if (abonoCreado) {
-          try {
-            generateReciboPagoPDF(credito, {
-              ...abonoCreado,
-              fechaPago: new Date()
-            })
-          } catch (error) {
-            console.error('Error al generar recibo:', error)
-          }
+        if (!abonoCreado) {
+          throw new Error('No se pudo crear el abono')
         }
 
-        return abonoCreado
+        // Generar recibo automáticamente
+        try {
+          generateReciboPagoPDF(credito, {
+            ...abonoCreado,
+            fechaPago: new Date()
+          })
+        } catch (error) {
+          console.error('Error al generar recibo:', error)
+        }
+
+        // Convertir las propiedades null a undefined para compatibilidad de tipos
+        return {
+          ...abonoCreado,
+          referencia: abonoCreado.referencia ?? undefined,
+          bancoId: abonoCreado.bancoId ?? undefined,
+          observaciones: abonoCreado.observaciones ?? undefined
+        }
       },
       'Error al registrar el abono'
     )

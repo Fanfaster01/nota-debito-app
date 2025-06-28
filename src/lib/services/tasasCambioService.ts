@@ -25,7 +25,7 @@ class TasasCambioService {
     // Verificar cache (válido por 5 minutos)
     const ahora = Date.now()
     if (this.ultimaTasaCache && (ahora - this.ultimaTasaCache.timestamp) < 5 * 60 * 1000) {
-      console.log('Usando tasa USD desde cache')
+      // console.log('Usando tasa USD desde cache')
       return { data: this.ultimaTasaCache.tasa, error: null }
     }
     
@@ -41,13 +41,16 @@ class TasasCambioService {
       {
         url: this.PRIMARY_API_URL,
         nombre: 'ExchangeRate-API',
-        procesarRespuesta: (data: any) => {
-          if (data.rates && data.rates.VES) {
-            return {
-              moneda: 'USD' as const,
-              tasa: parseFloat(data.rates.VES),
-              fecha: data.date || new Date().toISOString().split('T')[0],
-              fuente: 'ExchangeRate-API'
+        procesarRespuesta: (data: Record<string, unknown>) => {
+          if (data.rates && typeof data.rates === 'object' && data.rates !== null) {
+            const rates = data.rates as Record<string, unknown>
+            if (rates.VES && typeof rates.VES === 'number') {
+              return {
+                moneda: 'USD' as const,
+                tasa: parseFloat(rates.VES.toString()),
+                fecha: typeof data.date === 'string' ? data.date : new Date().toISOString().split('T')[0],
+                fuente: 'ExchangeRate-API'
+              }
             }
           }
           return null
@@ -56,13 +59,16 @@ class TasasCambioService {
       {
         url: this.FREE_API_URL,
         nombre: 'Open Exchange Rates',
-        procesarRespuesta: (data: any) => {
-          if (data.rates && data.rates.VES) {
-            return {
-              moneda: 'USD' as const,
-              tasa: parseFloat(data.rates.VES),
-              fecha: data.time_last_update_utc ? new Date(data.time_last_update_utc).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-              fuente: 'Open Exchange Rates'
+        procesarRespuesta: (data: Record<string, unknown>) => {
+          if (data.rates && typeof data.rates === 'object' && data.rates !== null) {
+            const rates = data.rates as Record<string, unknown>
+            if (rates.VES && typeof rates.VES === 'number') {
+              return {
+                moneda: 'USD' as const,
+                tasa: parseFloat(rates.VES.toString()),
+                fecha: data.time_last_update_utc ? new Date(data.time_last_update_utc as string | number | Date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+                fuente: 'Open Exchange Rates'
+              }
             }
           }
           return null
@@ -72,7 +78,7 @@ class TasasCambioService {
 
     for (const api of apis) {
       try {
-        console.log(`Intentando obtener tasa USD desde ${api.nombre}...`)
+        // console.log(`Intentando obtener tasa USD desde ${api.nombre}...`)
         
         const response = await fetch(api.url, {
           method: 'GET',
@@ -85,11 +91,11 @@ class TasasCambioService {
           throw new Error(`Error HTTP ${response.status}`)
         }
 
-        const data = await response.json()
+        const data = await response.json() as Record<string, unknown>
         const tasa = api.procesarRespuesta(data)
         
         if (tasa) {
-          console.log(`Tasa USD obtenida exitosamente desde ${api.nombre}: ${tasa.tasa}`)
+          // console.log(`Tasa USD obtenida exitosamente desde ${api.nombre}: ${tasa.tasa}`)
           // Guardar en cache
           this.ultimaTasaCache = { tasa, timestamp: Date.now() }
           return { data: tasa, error: null }
@@ -97,13 +103,13 @@ class TasasCambioService {
 
         throw new Error('Formato de respuesta inválido')
       } catch (error) {
-        console.warn(`Error con ${api.nombre}:`, error)
+        // console.warn(`Error con ${api.nombre}:`, error)
         continue
       }
     }
 
     // Si ninguna API funcionó, devolver tasa por defecto
-    console.warn('No se pudo obtener tasa USD de ninguna API, usando tasa por defecto')
+    // console.warn('No se pudo obtener tasa USD de ninguna API, usando tasa por defecto')
     const tasaDefecto: TasaCambio = {
       moneda: 'USD',
       tasa: 36.50, // Tasa por defecto aproximada
@@ -150,7 +156,7 @@ class TasasCambioService {
 
       throw new Error('No se encontró la tasa EUR/VES')
     } catch (error) {
-      console.error('Error al obtener tasa EUR:', handleServiceError(error, 'Error al obtener tasa EUR'))
+      // console.error('Error al obtener tasa EUR:', handleServiceError(error, 'Error al obtener tasa EUR'))
       
       // Intentar calcular EUR basado en USD
       try {
@@ -174,7 +180,7 @@ class TasasCambioService {
           }
         }
       } catch (calcError) {
-        console.error('Error al calcular EUR:', handleServiceError(calcError, 'Error al calcular EUR'))
+        // console.error('Error al calcular EUR:', handleServiceError(calcError, 'Error al calcular EUR'))
       }
 
       return { 
@@ -215,7 +221,7 @@ class TasasCambioService {
         error: errores.length > 0 ? errores.join('; ') : null 
       }
     } catch (error) {
-      console.error('Error al obtener todas las tasas:', handleServiceError(error, 'Error al obtener todas las tasas'))
+      // console.error('Error al obtener todas las tasas:', handleServiceError(error, 'Error al obtener todas las tasas'))
       return { 
         data: null, 
         error: 'Error general al obtener las tasas de cambio' 
@@ -250,7 +256,7 @@ class TasasCambioService {
 
       return { data: tasaManual, error: null }
     } catch (error) {
-      console.error('Error al crear tasa manual:', handleServiceError(error, 'Error al crear tasa manual'))
+      // console.error('Error al crear tasa manual:', handleServiceError(error, 'Error al crear tasa manual'))
       return { 
         data: null, 
         error: handleServiceError(error, 'Error al crear la tasa manual') 
@@ -284,7 +290,7 @@ class TasasCambioService {
           throw new Error(`Tipo de cambio no válido: ${tipoCambio}`)
       }
     } catch (error) {
-      console.error('Error al obtener tasa según tipo:', handleServiceError(error, 'Error al obtener tasa según tipo'))
+      // console.error('Error al obtener tasa según tipo:', handleServiceError(error, 'Error al obtener tasa según tipo'))
       return { 
         data: null, 
         error: handleServiceError(error, 'Error al obtener la tasa') 

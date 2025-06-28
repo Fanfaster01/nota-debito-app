@@ -60,7 +60,7 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
   const [loadingTasa, setLoadingTasa] = useState(false)
   
   // Estados unificados con useAsyncForm
-  const submitState = useAsyncForm<any>()
+  const submitState = useAsyncForm<FacturaFormData>()
   
   const {
     register,
@@ -216,7 +216,25 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
           throw new Error(result.error)
         }
 
-        return result
+        if (!result.data) {
+          throw new Error('No se pudo crear la factura')
+        }
+
+        // Retornar solo los datos necesarios para el tipo esperado
+        return {
+          numero: result.data.numero,
+          numeroControl: result.data.numeroControl,
+          fecha: result.data.fecha,
+          fechaVencimiento: result.data.fechaVencimiento || '',
+          proveedorNombre: result.data.proveedorNombre,
+          proveedorRif: result.data.proveedorRif,
+          proveedorDireccion: result.data.proveedorDireccion,
+          baseImponible: result.data.baseImponible,
+          montoExento: result.data.montoExento,
+          alicuotaIVA: result.data.alicuotaIVA,
+          porcentajeRetencion: result.data.porcentajeRetencion,
+          tasaCambio: result.data.tasaCambio
+        }
       },
       'Error al crear la factura'
     )

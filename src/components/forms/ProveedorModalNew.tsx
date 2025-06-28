@@ -56,7 +56,7 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
   const [bancos, setBancos] = useState<Array<{id: string, nombre: string, codigo: string}>>([])
   
   // Estado unificado con useAsyncForm
-  const submitState = useAsyncForm<any>()
+  const submitState = useAsyncForm<ProveedorFormData>()
 
   const {
     register,
@@ -167,11 +167,16 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
   const actualizarCuentaBancaria = (index: number, campo: keyof ProveedorCuentaBancaria, valor: string | boolean) => {
     const nuevasCuentas = [...cuentasBancarias]
     const cuenta = nuevasCuentas[index]
+    
+    // Type-safe updates for string fields
     if (campo === 'proveedor_id' || campo === 'banco_id' || campo === 'numero_cuenta' || campo === 'titular_cuenta' || campo === 'banco_nombre') {
-      (cuenta as any)[campo] = valor as string
-    } else if (campo === 'es_favorita' || campo === 'activo') {
-      (cuenta as any)[campo] = valor as boolean
+      (cuenta[campo] as string) = valor as string
+    } 
+    // Type-safe updates for boolean fields  
+    else if (campo === 'es_favorita' || campo === 'activo') {
+      (cuenta[campo] as boolean) = valor as boolean
     }
+    
     setCuentasBancarias(nuevasCuentas)
   }
 

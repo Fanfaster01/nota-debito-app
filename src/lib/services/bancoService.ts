@@ -7,7 +7,7 @@ export class BancoService {
   private supabase = createClient()
 
   // Obtener todos los bancos activos
-  async getAllBancos(): Promise<{ data: Banco[] | null, error: any }> {
+  async getAllBancos(): Promise<{ data: Banco[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos')
@@ -23,7 +23,7 @@ export class BancoService {
   }
 
   // Obtener lista simplificada de bancos
-  async getBancos(): Promise<{ data: Array<{ id: string; nombre: string; codigo: string }> | null, error: any }> {
+  async getBancos(): Promise<{ data: Array<{ id: string; nombre: string; codigo: string }> | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos')
@@ -39,7 +39,7 @@ export class BancoService {
   }
 
   // Buscar banco por código
-  async getBancoByCodigo(codigo: string): Promise<{ data: Banco | null, error: any }> {
+  async getBancoByCodigo(codigo: string): Promise<{ data: Banco | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos')
@@ -56,7 +56,7 @@ export class BancoService {
   }
 
   // Crear nuevo banco
-  async createBanco(banco: TablesInsert<'bancos'>): Promise<{ data: Banco | null, error: any }> {
+  async createBanco(banco: TablesInsert<'bancos'>): Promise<{ data: Banco | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos')
@@ -72,7 +72,7 @@ export class BancoService {
   }
 
   // Actualizar banco
-  async updateBanco(id: string, updates: Partial<TablesInsert<'bancos'>>): Promise<{ data: Banco | null, error: any }> {
+  async updateBanco(id: string, updates: Partial<TablesInsert<'bancos'>>): Promise<{ data: Banco | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('bancos')
@@ -89,7 +89,7 @@ export class BancoService {
   }
 
   // Desactivar banco (soft delete)
-  async deactivateBanco(id: string): Promise<{ error: any }> {
+  async deactivateBanco(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('bancos')

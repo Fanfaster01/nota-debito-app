@@ -14,7 +14,7 @@ import {
   depositosService 
 } from '@/lib/services/depositosService'
 import { companyService } from '@/lib/services/adminServices'
-import { BancoDepositoUI, DepositoFormData } from '@/types/depositos'
+import { BancoDepositoUI, DepositoFormData, DepositoBancarioUI } from '@/types/depositos'
 import { downloadDepositoPDF } from '@/utils/pdfDepositosBancarios'
 import { Company } from '@/types/database'
 import { 
@@ -45,7 +45,7 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
   const [loadingData, setLoadingData] = useState(true)
   
   // Estado unificado con useAsyncForm
-  const submitState = useAsyncForm<any>()
+  const submitState = useAsyncForm<DepositoFormData>()
 
   const {
     register,
@@ -107,6 +107,9 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
     
     onError('')
     
+    // Guardar el resultado del depósito en una variable separada
+    let depositoCreado: DepositoBancarioUI | null = null
+
     const result = await submitState.executeWithValidation(
       async () => {
         const formData: DepositoFormData = {
@@ -135,17 +138,23 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
           throw new Error('Error al crear depósito: ' + errorMessage)
         }
 
-        // Generar PDF automáticamente
-        if (deposito) {
-          try {
-            await downloadDepositoPDF(deposito.id, depositosService.getReciboData.bind(depositosService))
-          } catch (pdfError: any) {
-            console.error('Error al generar PDF:', pdfError)
-            // No mostrar error de PDF, el depósito se creó exitosamente
-          }
+        if (!deposito) {
+          throw new Error('No se pudo crear el depósito')
         }
 
-        return deposito
+        // Guardar el depósito para usar después
+        depositoCreado = deposito
+
+        // Generar PDF automáticamente
+        try {
+          await downloadDepositoPDF(deposito.id, depositosService.getReciboData.bind(depositosService))
+        } catch (pdfError: unknown) {
+          console.error('Error al generar PDF:', pdfError)
+          // No mostrar error de PDF, el depósito se creó exitosamente
+        }
+
+        // Retornar los datos del formulario para compatibilidad de tipos
+        return formData
       },
       'Error al crear depósito'
     )
@@ -154,8 +163,12 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
       reset()
       onSuccess()
       
-      // Mostrar mensaje de éxito
-      alert('Depósito creado exitosamente. Recibo #' + result.numeroRecibo.toString().padStart(4, '0'))
+      // Mostrar mensaje de éxito con el número de recibo si está disponible
+      if (depositoCreado && typeof depositoCreado === 'object' && 'numeroRecibo' in depositoCreado) {
+        alert('Depósito creado exitosamente. Recibo #' + (depositoCreado as DepositoBancarioUI).numeroRecibo.toString().padStart(4, '0'))
+      } else {
+        alert('Depósito creado exitosamente.')
+      }
     } else if (submitState.error) {
       onError(submitState.error)
     }

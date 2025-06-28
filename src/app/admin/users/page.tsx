@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { adminUserService, companyService } from '@/lib/services/adminServices'
+import { handleServiceError } from '@/utils/errorHandler'
 import { User, Company } from '@/types/database'
 import { useAsyncState, useAsyncList } from '@/hooks/useAsyncState'
 import { useForm } from 'react-hook-form'
@@ -55,8 +56,8 @@ export default function UsersPage() {
   // Estados con useAsyncState
   const { data: users, loading: usersLoading, error: usersError, execute: loadUsers } = useAsyncList<UserWithCompany>()
   const { data: companies, loading: companiesLoading, error: companiesError, execute: loadCompanies } = useAsyncList<Company>()
-  const { loading: saving, error: saveError, execute: saveUser } = useAsyncState<any>()
-  const { loading: deleteLoading, error: deleteError, execute: deleteUser } = useAsyncState<any>()
+  const { loading: saving, error: saveError, execute: saveUser } = useAsyncState<unknown>()
+  const { loading: deleteLoading, error: deleteError, execute: deleteUser } = useAsyncState<unknown>()
   
   // Estados locales para UI
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
@@ -109,8 +110,7 @@ export default function UsersPage() {
     await loadUsers(async () => {
       const { data: usersData, error: usersError } = await adminUserService.getAllUsers()
       if (usersError) {
-        const errorMessage = usersError instanceof Error ? usersError.message : 'Error desconocido'
-        throw new Error('Error al cargar usuarios: ' + errorMessage)
+        throw new Error(handleServiceError(usersError, 'Error al cargar usuarios'))
       }
       return usersData || []
     })
@@ -119,8 +119,7 @@ export default function UsersPage() {
     await loadCompanies(async () => {
       const { data: companiesData, error: companiesError } = await companyService.getAllCompanies()
       if (companiesError) {
-        const errorMessage = companiesError instanceof Error ? companiesError.message : 'Error desconocido'
-        throw new Error('Error al cargar compañías: ' + errorMessage)
+        throw new Error(handleServiceError(companiesError, 'Error al cargar compañías'))
       }
       return companiesData || []
     })
@@ -153,8 +152,7 @@ export default function UsersPage() {
       const { error: updateError } = await adminUserService.updateUser(editingUser.id, updates)
       
       if (updateError) {
-        const errorMessage = updateError instanceof Error ? updateError.message : 'Error desconocido'
-        throw new Error('Error al actualizar usuario: ' + errorMessage)
+        throw new Error(handleServiceError(updateError, 'Error al actualizar usuario'))
       }
 
       setSuccessMessage('Usuario actualizado exitosamente')
@@ -173,7 +171,7 @@ export default function UsersPage() {
       const { error } = await adminUserService.toggleUserStatus(user.id, !user.is_active)
       
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        const errorMessage = handleServiceError(error)
         throw new Error('Error al cambiar estado: ' + errorMessage)
       }
 
@@ -189,7 +187,7 @@ export default function UsersPage() {
       const { error } = await adminUserService.deleteUser(userId)
       
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        const errorMessage = handleServiceError(error)
         throw new Error('Error al eliminar usuario: ' + errorMessage)
       }
 
@@ -222,8 +220,7 @@ export default function UsersPage() {
       })
 
       if (createError) {
-        const errorMessage = createError instanceof Error ? createError.message : 'Error desconocido'
-        throw new Error('Error al crear usuario: ' + errorMessage)
+        throw new Error(handleServiceError(createError, 'Error al crear usuario'))
       }
 
       setSuccessMessage('Usuario creado exitosamente')

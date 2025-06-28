@@ -276,11 +276,11 @@ export function assertValid(validation: ValidationResult, context?: string): voi
 /**
  * Decorator para validar parámetros de métodos automáticamente
  */
-export function validateParams<T extends any[], R>(
-  validators: Array<(param: any) => ValidationResult>,
+export function validateParams<T extends unknown[], R>(
+  validators: Array<(param: unknown) => ValidationResult>,
   originalMethod: (...args: T) => R
 ) {
-  return function(this: any, ...args: T): R {
+  return function(this: unknown, ...args: T): R {
     for (let i = 0; i < validators.length && i < args.length; i++) {
       const validation = validators[i](args[i])
       assertValid(validation, `Parámetro ${i + 1}`)

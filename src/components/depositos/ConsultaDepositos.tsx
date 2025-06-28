@@ -16,6 +16,7 @@ import { DepositoBancarioUI, BancoDepositoUI, FiltrosDepositos } from '@/types/d
 import { Company } from '@/types/database'
 import { formatearFecha } from '@/utils/dateUtils'
 import { downloadDepositoPDF } from '@/utils/pdfDepositosBancarios'
+import { handleServiceError } from '@/utils/errorHandler'
 import { 
   MagnifyingGlassIcon,
   CalendarDaysIcon,
@@ -60,8 +61,7 @@ export function ConsultaDepositos({ onError }: Props) {
       // Cargar bancos
       const { data: bancosData, error: bancosError } = await bancosDepositosService.getBancos()
       if (bancosError) {
-        const errorMessage = bancosError instanceof Error ? bancosError.message : 'Error desconocido'
-        onError('Error al cargar bancos: ' + errorMessage)
+        onError('Error al cargar bancos: ' + handleServiceError(bancosError, 'Error desconocido'))
         return
       }
       setBancos(bancosData || [])
@@ -70,15 +70,13 @@ export function ConsultaDepositos({ onError }: Props) {
       if (user?.role === 'master') {
         const { data: companiesData, error: companiesError } = await companyService.getAllCompanies()
         if (companiesError) {
-          const errorMessage = companiesError instanceof Error ? companiesError.message : 'Error desconocido'
-          onError('Error al cargar compañías: ' + errorMessage)
+          onError('Error al cargar compañías: ' + handleServiceError(companiesError, 'Error desconocido'))
           return
         }
         setCompanies(companiesData?.filter(c => c.is_active) || [])
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      onError('Error al cargar datos: ' + errorMessage)
+      onError('Error al cargar datos: ' + handleServiceError(err, 'Error desconocido'))
     }
   }
 
@@ -100,22 +98,20 @@ export function ConsultaDepositos({ onError }: Props) {
       )
 
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        onError('Error al cargar depósitos: ' + errorMessage)
+        onError('Error al cargar depósitos: ' + handleServiceError(error, 'Error desconocido'))
         return
       }
 
       setDepositos(data || [])
       setTotalItems(count || 0)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      onError('Error al cargar depósitos: ' + errorMessage)
+      onError('Error al cargar depósitos: ' + handleServiceError(err, 'Error desconocido'))
     } finally {
       setLoading(false)
     }
   }
 
-  const handleFilterChange = (key: keyof FiltrosDepositos, value: any) => {
+  const handleFilterChange = (key: keyof FiltrosDepositos, value: FiltrosDepositos[keyof FiltrosDepositos]) => {
     setTempFiltros(prev => ({
       ...prev,
       [key]: value || undefined
@@ -145,8 +141,7 @@ export function ConsultaDepositos({ onError }: Props) {
     try {
       await downloadDepositoPDF(depositoId, depositosService.getReciboData.bind(depositosService))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      onError('Error al generar PDF: ' + errorMessage)
+      onError('Error al generar PDF: ' + handleServiceError(err, 'Error desconocido'))
     }
   }
 
@@ -206,7 +201,7 @@ export function ConsultaDepositos({ onError }: Props) {
                 <input
                   type="date"
                   value={tempFiltros.fechaDesde ? formatDate(tempFiltros.fechaDesde) : ''}
-                  onChange={(e) => handleFilterChange('fechaDesde', e.target.value ? new Date(e.target.value) : null)}
+                  onChange={(e) => handleFilterChange('fechaDesde', e.target.value ? new Date(e.target.value) : undefined)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -220,7 +215,7 @@ export function ConsultaDepositos({ onError }: Props) {
                 <input
                   type="date"
                   value={tempFiltros.fechaHasta ? formatDate(tempFiltros.fechaHasta) : ''}
-                  onChange={(e) => handleFilterChange('fechaHasta', e.target.value ? new Date(e.target.value) : null)}
+                  onChange={(e) => handleFilterChange('fechaHasta', e.target.value ? new Date(e.target.value) : undefined)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>

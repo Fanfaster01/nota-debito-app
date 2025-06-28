@@ -17,7 +17,7 @@ import { handleServiceError, createErrorResponse, createSuccessResponse } from '
 export class FacturaService {
   private supabase = createClient()
 
-  async createFactura(factura: Factura, companyId: string, userId: string): Promise<{ data: FacturaDB | null, error: any }> {
+  async createFactura(factura: Factura, companyId: string, userId: string): Promise<{ data: FacturaDB | null, error: unknown }> {
     try {
       const facturaDB = mapFacturaToDB(factura, companyId, userId)
       
@@ -34,7 +34,7 @@ export class FacturaService {
     }
   }
 
-  async getFacturasByCompany(companyId: string): Promise<{ data: Factura[] | null, error: any }> {
+  async getFacturasByCompany(companyId: string): Promise<{ data: Factura[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('facturas')
@@ -52,7 +52,7 @@ export class FacturaService {
     }
   }
 
-  async getFacturaById(id: string): Promise<{ data: FacturaDB | null, error: any }> {
+  async getFacturaById(id: string): Promise<{ data: FacturaDB | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('facturas')
@@ -67,7 +67,7 @@ export class FacturaService {
     }
   }
 
-  async updateFactura(id: string, factura: Partial<Factura>): Promise<{ data: FacturaDB | null, error: any }> {
+  async updateFactura(id: string, factura: Partial<Factura>): Promise<{ data: FacturaDB | null, error: unknown }> {
     try {
       // Note: Aquí podrías implementar un mapper parcial si necesitas actualizar facturas
       const { data, error } = await this.supabase
@@ -84,7 +84,7 @@ export class FacturaService {
     }
   }
 
-  async deleteFactura(id: string): Promise<{ error: any }> {
+  async deleteFactura(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('facturas')
@@ -108,7 +108,7 @@ export class NotaCreditoService {
     facturaId: string,
     companyId: string, 
     userId: string
-  ): Promise<{ data: NotaCreditoDB | null, error: any }> {
+  ): Promise<{ data: NotaCreditoDB | null, error: unknown }> {
     try {
       const notaCreditoDB = mapNotaCreditoToDB(notaCredito, facturaId, companyId, userId)
       
@@ -125,7 +125,7 @@ export class NotaCreditoService {
     }
   }
 
-  async getNotasCreditoByFactura(facturaId: string): Promise<{ data: NotaCredito[] | null, error: any }> {
+  async getNotasCreditoByFactura(facturaId: string): Promise<{ data: NotaCredito[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('notas_credito')
@@ -143,7 +143,7 @@ export class NotaCreditoService {
     }
   }
 
-  async getNotasCreditoByCompany(companyId: string): Promise<{ data: NotaCredito[] | null, error: any }> {
+  async getNotasCreditoByCompany(companyId: string): Promise<{ data: NotaCredito[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('notas_credito')
@@ -161,7 +161,7 @@ export class NotaCreditoService {
     }
   }
 
-  async deleteNotaCredito(id: string): Promise<{ error: any }> {
+  async deleteNotaCredito(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('notas_credito')
@@ -233,7 +233,7 @@ export class NotaDebitoService {
     notasCreditoIds: string[],
     companyId: string,
     userId: string
-  ): Promise<{ data: NotaDebitoDB | null, error: any }> {
+  ): Promise<{ data: NotaDebitoDB | null, error: unknown }> {
     try {
       const notaDebitoDB = mapNotaDebitoToDB(notaDebito, facturaId, companyId, userId)
       
@@ -271,7 +271,7 @@ export class NotaDebitoService {
     }
   }
 
-  async getNotasDebitoByCompany(companyId: string): Promise<{ data: NotaDebito[] | null, error: any }> {
+  async getNotasDebitoByCompany(companyId: string): Promise<{ data: NotaDebito[] | null, error: unknown }> {
     try {
       // Obtener notas de débito con sus facturas relacionadas
       const { data, error } = await this.supabase
@@ -323,7 +323,7 @@ export class NotaDebitoService {
     }
   }
 
-  async getNotaDebitoById(id: string): Promise<{ data: NotaDebito | null, error: any }> {
+  async getNotaDebitoById(id: string): Promise<{ data: NotaDebito | null, error: unknown }> {
     try {
       // Obtener nota de débito con factura
       const { data: notaDebitoDB, error: notaDebitoError } = await this.supabase
@@ -368,7 +368,7 @@ export class NotaDebitoService {
     }
   }
 
-  async deleteNotaDebito(id: string): Promise<{ error: any }> {
+  async deleteNotaDebito(id: string): Promise<{ error: unknown }> {
     try {
       // Primero eliminar las relaciones
       await this.supabase
@@ -399,7 +399,7 @@ export class NotaDebitoService {
       numeroNota?: string;
       numeroFactura?: string;
     }
-  ): Promise<{ data: NotaDebito[] | null, error: any }> {
+  ): Promise<{ data: NotaDebito[] | null, error: unknown }> {
     try {
       let query = this.supabase
         .from('notas_debito')
@@ -487,7 +487,7 @@ export class NotaDebitoService {
       fecha?: Date;
       tasaCambioPago?: number;
     }
-  ): Promise<{ data: NotaDebitoDB | null, error: any }> {
+  ): Promise<{ data: NotaDebitoDB | null, error: unknown }> {
     try {
       // Si se actualiza la tasa de cambio, recalcular todos los montos
       if (updates.tasaCambioPago) {
@@ -562,7 +562,7 @@ export class NotaDebitoService {
       montoTotalDiferencial: number;
       montoTotalFinal: number;
     } | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       let query = this.supabase
@@ -644,7 +644,7 @@ export class NotaDebitoService {
       const { data: notasDebito, error } = await this.searchNotasDebito(companyId, searchFilters);
       
       if (error) {
-        return { success: false, error: error.message || 'Error al buscar notas de débito' };
+        return { success: false, error: handleServiceError(error, 'Error al buscar notas de débito') };
       }
 
       if (!notasDebito) {
@@ -690,7 +690,7 @@ export class NotaDebitoService {
       });
 
       if (error) {
-        return { success: false, error: error.message || 'Error al actualizar nota de débito' };
+        return { success: false, error: handleServiceError(error, 'Error al actualizar nota de débito') };
       }
 
       return { success: true };
@@ -711,7 +711,7 @@ export class NotaDebitoService {
       const { error } = await this.deleteNotaDebito(id);
 
       if (error) {
-        return { success: false, error: error.message || 'Error al eliminar nota de débito' };
+        return { success: false, error: handleServiceError(error, 'Error al eliminar nota de débito') };
       }
 
       return { success: true };
@@ -728,7 +728,7 @@ export class NotaDebitoService {
 export class UserService {
   private supabase = createClient()
 
-  async getCurrentUser(): Promise<{ data: User | null, error: any }> {
+  async getCurrentUser(): Promise<{ data: User | null, error: unknown }> {
     try {
       const { data: authUser, error: authError } = await this.supabase.auth.getUser()
       
@@ -749,7 +749,7 @@ export class UserService {
     }
   }
 
-  async updateUserProfile(updates: Partial<User>): Promise<{ data: User | null, error: any }> {
+  async updateUserProfile(updates: Partial<User>): Promise<{ data: User | null, error: unknown }> {
     try {
       const { data: authUser } = await this.supabase.auth.getUser()
       

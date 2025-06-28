@@ -251,8 +251,8 @@ export const exportNotasDebitoToExcel = async (
     saveAs(blob, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
 
     return { success: true, error: null };
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error exportando a Excel:', error);
-    return { success: false, error: error.message || 'Error al exportar' };
+    return { success: false, error: (error as Error).message || 'Error al exportar' };
   }
 };

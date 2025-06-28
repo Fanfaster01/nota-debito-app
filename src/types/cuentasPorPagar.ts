@@ -142,7 +142,7 @@ export interface FormatoTxtBancario {
   formatoTemplate: {
     estructura: string[]
     separador: string
-    [key: string]: any
+    [key: string]: unknown
   }
   camposRequeridos: string[]
   separador: string

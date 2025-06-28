@@ -13,6 +13,7 @@ import { bancosDepositosService } from '@/lib/services/depositosService'
 import { BancoDepositoUI, BancoFormData } from '@/types/depositos'
 import { Tables } from '@/types/database'
 import { createClient } from '@/utils/supabase/client'
+import { handleServiceError } from '@/utils/errorHandler'
 import { 
   BuildingLibraryIcon,
   PlusIcon,
@@ -79,8 +80,7 @@ export function GestionBancos({ onError }: Props) {
       // Cargar todos los bancos (activos e inactivos)
       const { data, error } = await bancosDepositosService.getBancos()
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        onError('Error al cargar bancos: ' + errorMessage)
+        onError('Error al cargar bancos: ' + handleServiceError(error, 'Error desconocido'))
         return
       }
 
@@ -93,7 +93,7 @@ export function GestionBancos({ onError }: Props) {
         .order('nombre')
 
       if (allError) {
-        onError('Error al cargar bancos: ' + allError.message)
+        onError('Error al cargar bancos: ' + handleServiceError(allError, 'Error al cargar bancos'))
         return
       }
 
@@ -108,8 +108,7 @@ export function GestionBancos({ onError }: Props) {
 
       setBancos(bancosUI)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      onError('Error al cargar bancos: ' + errorMessage)
+      onError('Error al cargar bancos: ' + handleServiceError(err, 'Error desconocido'))
     } finally {
       setLoadingData(false)
     }
@@ -128,8 +127,7 @@ export function GestionBancos({ onError }: Props) {
         )
 
         if (updateError) {
-          const errorMessage = updateError instanceof Error ? updateError.message : 'Error desconocido'
-          onError('Error al actualizar banco: ' + errorMessage)
+          onError('Error al actualizar banco: ' + handleServiceError(updateError, 'Error desconocido'))
           return
         }
 
@@ -143,8 +141,7 @@ export function GestionBancos({ onError }: Props) {
         const { data: newBanco, error: createError } = await bancosDepositosService.createBanco(data)
 
         if (createError) {
-          const errorMessage = createError instanceof Error ? createError.message : 'Error desconocido'
-          onError('Error al crear banco: ' + errorMessage)
+          onError('Error al crear banco: ' + handleServiceError(createError, 'Error desconocido'))
           return
         }
 
@@ -154,8 +151,7 @@ export function GestionBancos({ onError }: Props) {
       reset()
       setShowForm(false)
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      onError('Error al guardar banco: ' + errorMessage)
+      onError('Error al guardar banco: ' + handleServiceError(err, 'Error desconocido'))
     } finally {
       setLoading(false)
     }
@@ -182,8 +178,7 @@ export function GestionBancos({ onError }: Props) {
       )
 
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        onError('Error al cambiar estado del banco: ' + errorMessage)
+        onError('Error al cambiar estado del banco: ' + handleServiceError(error, 'Error desconocido'))
         return
       }
 
@@ -191,8 +186,7 @@ export function GestionBancos({ onError }: Props) {
         b.id === banco.id ? updatedBanco! : b
       ))
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      onError('Error al cambiar estado del banco: ' + errorMessage)
+      onError('Error al cambiar estado del banco: ' + handleServiceError(err, 'Error desconocido'))
     }
   }
 

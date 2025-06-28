@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAsyncForm } from '@/hooks/useAsyncState'
+import { handleServiceError } from '@/utils/errorHandler'
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido').min(1, 'El email es requerido'),
@@ -63,7 +64,7 @@ export function LoginForm() {
       async () => {
         const { error } = await signIn(data.email, data.password)
         if (error) {
-          throw new Error(error.message || 'Error al iniciar sesión')
+          throw new Error(handleServiceError(error, 'Error al iniciar sesión'))
         }
         return void 0
       },
@@ -78,7 +79,7 @@ export function LoginForm() {
       async () => {
         const { error } = await signUp(data.email, data.password, data.fullName)
         if (error) {
-          throw new Error(error.message || 'Error al registrarse')
+          throw new Error(handleServiceError(error, 'Error al registrarse'))
         }
         return void 0
       },

@@ -145,7 +145,7 @@ export function useAsyncList<T>(initialData: T[] = []) {
   const updateItemById = useCallback((id: string | number, item: T) => {
     if (asyncState.data) {
       const newData = asyncState.data.map(existing => 
-        (existing as any).id === id ? item : existing
+        (existing as { id: string | number }).id === id ? item : existing
       )
       asyncState.setData(newData)
     }
@@ -179,7 +179,7 @@ export function useAsyncForm<T>() {
     } catch (error) {
       // Manejar errores de validación específicos del formulario
       if (error && typeof error === 'object' && 'validationErrors' in error) {
-        setFieldErrors((error as any).validationErrors)
+        setFieldErrors((error as { validationErrors: Record<string, string> }).validationErrors)
       }
       return null
     }

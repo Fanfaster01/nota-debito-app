@@ -8,6 +8,13 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { FiltrosCierres, cierresCajaService } from '@/lib/services/cierresCajaService'
 import { companyService } from '@/lib/services/adminServices'
+import { Company } from '@/types/database'
+
+interface CajeroSimple {
+  id: string
+  full_name: string
+  email: string
+}
 import { 
   FunnelIcon, 
   XMarkIcon,
@@ -41,8 +48,8 @@ export default function CierresCajaFilters({
   isMaster,
   companyId 
 }: CierresCajaFiltersProps) {
-  const [cajeros, setCajeros] = useState<any[]>([])
-  const [companies, setCompanies] = useState<any[]>([])
+  const [cajeros, setCajeros] = useState<CajeroSimple[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const {

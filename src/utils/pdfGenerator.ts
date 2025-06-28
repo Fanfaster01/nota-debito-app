@@ -1,14 +1,37 @@
 // src/utils/pdfGenerator.ts
 import { jsPDF } from 'jspdf'
 import 'jspdf-autotable'
-import { CreditoDetalladoUI } from '@/types/creditos'
+import { CreditoDetalladoUI, FiltrosCredito, AbonoUI } from '@/types/creditos'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-// Extender el tipo jsPDF para incluir autoTable
+interface TotalesEstadoCuenta {
+  totalCreditos: number
+  creditosPendientes: number
+  montoPendiente: number
+  montoAbonado: number
+}
+
+// Extender el tipo jsPDF para incluir autoTable con tipos más específicos
+interface AutoTableOptions {
+  head?: (string | number)[][]
+  body?: (string | number)[][]
+  startY?: number
+  margin?: { top?: number; left?: number; right?: number; bottom?: number }
+  styles?: Record<string, unknown>
+  headStyles?: Record<string, unknown>
+  bodyStyles?: Record<string, unknown>
+  columnStyles?: Record<string, unknown>
+  theme?: string
+  tableWidth?: string | number
+  showHead?: boolean
+  showFoot?: boolean
+}
+
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF
+    autoTable: (options: AutoTableOptions) => jsPDF
+    lastAutoTable?: { finalY: number }
   }
 }
 
@@ -19,7 +42,7 @@ const formatMoney = (amount: number) => {
   }).format(amount)
 }
 
-export const generateCreditosPDF = (creditos: CreditoDetalladoUI[], filtros?: any) => {
+export const generateCreditosPDF = (creditos: CreditoDetalladoUI[], filtros?: FiltrosCredito) => {
   const doc = new jsPDF()
   
   // Configuración de fuentes
@@ -145,9 +168,9 @@ export const generateCreditosPDF = (creditos: CreditoDetalladoUI[], filtros?: an
 }
 
 export const generateEstadoCuentaClientePDF = (
-  cliente: any,
+  cliente: Record<string, unknown>,
   creditos: CreditoDetalladoUI[],
-  totales: any
+  totales: TotalesEstadoCuenta
 ) => {
   const doc = new jsPDF()
   
@@ -189,7 +212,7 @@ export const generateEstadoCuentaClientePDF = (
   })
 
   // Tabla de créditos
-  const startY = (doc as any).lastAutoTable.finalY + 15
+  const startY = (doc as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15
   
   doc.setFontSize(12)
   doc.text('DETALLE DE CRÉDITOS:', 20, startY)
@@ -236,7 +259,7 @@ export const generateEstadoCuentaClientePDF = (
   doc.save(fileName)
 }
 
-export const generateReciboPagoPDF = (credito: CreditoDetalladoUI, abono: any) => {
+export const generateReciboPagoPDF = (credito: CreditoDetalladoUI, abono: AbonoUI) => {
   const doc = new jsPDF()
   
   // Encabezado
@@ -293,7 +316,7 @@ export const generateReciboPagoPDF = (credito: CreditoDetalladoUI, abono: any) =
   })
 
   // Saldo actualizado
-  const finalY = (doc as any).lastAutoTable.finalY + 15
+  const finalY = (doc as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 15
   
   doc.setFontSize(12)
   doc.text('SALDO ACTUALIZADO:', 20, finalY)

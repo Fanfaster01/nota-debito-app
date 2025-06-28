@@ -1,8 +1,15 @@
 // src/utils/supabase/client-wrapper.ts
 import { createClient as createSupabaseClient } from './client'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { handleServiceError } from '@/utils/errorHandler'
 
-// Wrapper para interceptar y corregir consultas malformadas
+// Configuración de logging (solo en desarrollo)
+const isDevMode = process.env.NODE_ENV === 'development'
+
+/**
+ * Wrapper para interceptar y corregir consultas malformadas de Supabase
+ * Proporciona fallbacks seguros en caso de errores de consulta
+ */
 export function createClient(): SupabaseClient {
   const client = createSupabaseClient()
   
@@ -15,13 +22,24 @@ export function createClient(): SupabaseClient {
     // Interceptar métodos que podrían estar causando problemas
     const originalSelect = query.select.bind(query)
     
-    query.select = function(columns?: string, options?: any) {
+    query.select = function(columns?: string, options?: Record<string, unknown>) {
       try {
         return originalSelect(columns, options)
       } catch (error) {
-        console.warn('[Supabase Wrapper] Error in select, trying fallback:', error)
-        // Fallback básico
-        return originalSelect('*')
+        if (isDevMode) {
+          console.warn('[Supabase Wrapper] Error in select, trying fallback:', handleServiceError(error))
+        }
+        
+        // Fallback seguro: intentar con selección básica
+        try {
+          return originalSelect('*')
+        } catch (fallbackError) {
+          if (isDevMode) {
+            console.error('[Supabase Wrapper] Fallback also failed:', handleServiceError(fallbackError))
+          }
+          // Re-lanzar el error original si el fallback también falla
+          throw error
+        }
       }
     }
     

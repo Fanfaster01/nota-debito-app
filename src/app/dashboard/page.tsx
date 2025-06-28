@@ -26,6 +26,7 @@ import {
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { formatearFecha } from '@/utils/dateUtils'
+import { handleServiceError } from '@/utils/errorHandler'
 
 interface DashboardStats {
   totalFacturas: number
@@ -128,14 +129,14 @@ export default function DashboardPage() {
     // Cargar estadísticas básicas
     await loadStats(async () => {
       const { data: statsData, error: statsError } = await dashboardService.getDashboardStats(companyId)
-      if (statsError) throw new Error(`Error al cargar estadísticas: ${statsError instanceof Error ? statsError.message : 'Error desconocido'}`)
+      if (statsError) throw new Error(handleServiceError(statsError, 'Error al cargar estadísticas'))
       return statsData
     })
 
     // Cargar actividad reciente
     await loadActivity(async () => {
       const { data: activityData, error: activityError } = await dashboardService.getRecentActivity(companyId, 10)
-      if (activityError) throw new Error(`Error al cargar actividad reciente: ${activityError instanceof Error ? activityError.message : 'Error desconocido'}`)
+      if (activityError) throw new Error(handleServiceError(activityError, 'Error al cargar actividad reciente'))
       return activityData || []
     })
   }
@@ -158,14 +159,14 @@ export default function DashboardPage() {
       // Cargar estadísticas globales
       await loadMasterStats(async () => {
         const { data: globalStats, error: globalError } = await dashboardService.getMasterDashboardStats()
-        if (globalError) throw new Error(`Error al cargar estadísticas globales: ${globalError instanceof Error ? globalError.message : 'Error desconocido'}`)
+        if (globalError) throw new Error(handleServiceError(globalError, 'Error al cargar estadísticas globales'))
         return globalStats
       })
     } else {
       // Cargar estadísticas de la compañía seleccionada
       await loadMasterStats(async () => {
         const { data: companyStats, error: companyError } = await dashboardService.getMasterDashboardStats(selectedCompanyId)
-        if (companyError) throw new Error(`Error al cargar estadísticas de la compañía: ${companyError instanceof Error ? companyError.message : 'Error desconocido'}`)
+        if (companyError) throw new Error(handleServiceError(companyError, 'Error al cargar estadísticas de la compañía'))
         return companyStats
       })
     }

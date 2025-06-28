@@ -49,7 +49,7 @@ export class ClienteService {
   }
 
   // Buscar cliente por documento
-  async buscarPorDocumento(tipoDocumento: string, numeroDocumento: string): Promise<{ data: ClienteUI | null, error: any }> {
+  async buscarPorDocumento(tipoDocumento: string, numeroDocumento: string): Promise<{ data: ClienteUI | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('clientes')
@@ -74,7 +74,7 @@ export class ClienteService {
   }
 
   // Buscar clientes por texto (número de documento o nombre)
-  async buscarClientes(texto: string): Promise<{ data: ClienteUI[] | null, error: any }> {
+  async buscarClientes(texto: string): Promise<{ data: ClienteUI[] | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('clientes')
@@ -97,7 +97,7 @@ export class ClienteService {
   }
 
   // Crear cliente
-  async crearCliente(cliente: Omit<ClienteUI, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ data: ClienteUI | null, error: any }> {
+  async crearCliente(cliente: Omit<ClienteUI, 'id' | 'createdAt' | 'updatedAt'>): Promise<{ data: ClienteUI | null, error: unknown }> {
     try {
       const clienteData = this.mapClienteToDB(cliente)
 
@@ -117,7 +117,7 @@ export class ClienteService {
   }
 
   // Actualizar cliente
-  async actualizarCliente(id: string, updates: Partial<ClienteUI>): Promise<{ data: ClienteUI | null, error: any }> {
+  async actualizarCliente(id: string, updates: Partial<ClienteUI>): Promise<{ data: ClienteUI | null, error: unknown }> {
     try {
       const updateData: TablesUpdate<'clientes'> = {}
       
@@ -144,7 +144,7 @@ export class ClienteService {
   }
 
   // Obtener cliente por ID
-  async obtenerCliente(id: string): Promise<{ data: ClienteUI | null, error: any }> {
+  async obtenerCliente(id: string): Promise<{ data: ClienteUI | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('clientes')
@@ -163,7 +163,7 @@ export class ClienteService {
   }
 
   // Desactivar cliente (soft delete)
-  async desactivarCliente(id: string): Promise<{ error: any }> {
+  async desactivarCliente(id: string): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('clientes')

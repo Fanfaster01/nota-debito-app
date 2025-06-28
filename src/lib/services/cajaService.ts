@@ -1,6 +1,6 @@
 // src/lib/services/cajaService.ts
 import { createClient } from '@/utils/supabase/client-wrapper'
-import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, CierreCaja, CierrePuntoVenta, TablesInsert, TablesUpdate, User } from '@/types/database'
+import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, CierreCaja, CierrePuntoVenta, TablesInsert, TablesUpdate, User, Cliente } from '@/types/database'
 import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, FiltrosCaja, ReporteCaja, CierreCajaFormData } from '@/types/caja'
 import { format } from 'date-fns'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
@@ -166,7 +166,7 @@ export class CajaService {
   }
 
   // Mapear Crédito de Caja de DB a UI
-  private mapCreditoCajaFromDB(creditoDB: CreditoCaja & { cliente?: any, usuario?: any }): CreditoCajaUI {
+  private mapCreditoCajaFromDB(creditoDB: CreditoCaja & { cliente?: Cliente, usuario?: User }): CreditoCajaUI {
     return {
       id: creditoDB.id,
       cajaId: creditoDB.caja_id,
@@ -198,7 +198,7 @@ export class CajaService {
   }
 
   // Verificar si hay una caja abierta para el usuario (sin importar la fecha)
-  async verificarCajaAbierta(userId: string): Promise<{ data: CajaUI | null, error: any }> {
+  async verificarCajaAbierta(userId: string): Promise<{ data: CajaUI | null, error: unknown }> {
     return this.safeExecuteWithRollback(async () => {
       assertValid(validate.userId(userId))
 
@@ -233,7 +233,7 @@ export class CajaService {
   }
 
   // Verificar si ya existe una caja para una fecha específica
-  async verificarCajaDelDia(userId: string, fecha: Date): Promise<{ data: CajaUI | null, error: any }> {
+  async verificarCajaDelDia(userId: string, fecha: Date): Promise<{ data: CajaUI | null, error: unknown }> {
     try {
       const fechaString = format(fecha, 'yyyy-MM-dd')
 
@@ -266,7 +266,7 @@ export class CajaService {
   }
 
   // Abrir caja
-  async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, montoAperturaUsd: number = 0, tasaDia: number, tipoMoneda: 'USD' | 'EUR' = 'USD'): Promise<{ data: CajaUI | null, error: any }> {
+  async abrirCaja(userId: string, companyId: string, montoApertura: number = 0, montoAperturaUsd: number = 0, tasaDia: number, tipoMoneda: 'USD' | 'EUR' = 'USD'): Promise<{ data: CajaUI | null, error: unknown }> {
     try {
       // Verificar si ya existe una caja abierta (sin importar la fecha)
       const { data: cajaAbierta } = await this.verificarCajaAbierta(userId)
@@ -333,7 +333,7 @@ export class CajaService {
   }
 
   // Cerrar caja
-  async cerrarCaja(cajaId: string, montoCierre: number, observaciones?: string, datosCompletos?: CierreCajaFormData): Promise<{ data: CajaUI | null, error: any }> {
+  async cerrarCaja(cajaId: string, montoCierre: number, observaciones?: string, datosCompletos?: CierreCajaFormData): Promise<{ data: CajaUI | null, error: unknown }> {
     try {
       // Iniciar transacción
       const updates: TablesUpdate<'cajas'> = {
@@ -415,7 +415,7 @@ export class CajaService {
       efectivo: CierreCaja | null, 
       puntoVenta: (CierrePuntoVenta & { banco: { nombre: string, codigo: string } })[] 
     } | null, 
-    error: any 
+    error: unknown 
   }> {
     try {
       // Obtener detalles del efectivo
@@ -465,7 +465,7 @@ export class CajaService {
       detallesEfectivo: CierreCaja | null,
       detallesPuntoVenta: (CierrePuntoVenta & { banco: { nombre: string, codigo: string } })[]
     }> | null,
-    error: any
+    error: unknown
   }> {
     try {
       // Primero obtener las cajas
@@ -503,13 +503,13 @@ export class CajaService {
   }
 
   // Obtener cajas con filtros
-  async getCajas(companyId: string, filtros?: FiltrosCaja): Promise<{ data: CajaUI[] | null, error: any }> {
+  async getCajas(companyId: string, filtros?: FiltrosCaja): Promise<{ data: CajaUI[] | null, error: unknown }> {
     try {
       // Validar que companyId sea una string válida
       try {
         assertValid(validate.companyId(companyId))
       } catch (error) {
-        return { data: null, error: error instanceof Error ? error.message : 'companyId inválido' }
+        return { data: null, error: handleServiceError(error, 'companyId inválido') }
       }
 
       let query = this.supabase
@@ -556,7 +556,7 @@ export class CajaService {
   }
 
   // Obtener caja por ID con todos sus pagos
-  async getCajaConPagos(cajaId: string): Promise<{ data: CajaUI | null, error: any }> {
+  async getCajaConPagos(cajaId: string): Promise<{ data: CajaUI | null, error: unknown }> {
     try {
       const { data, error } = await this.supabase
         .from('cajas')
@@ -600,7 +600,7 @@ export class CajaService {
   }
 
   // Agregar pago móvil
-  async agregarPagoMovil(pagoMovil: Omit<PagoMovilUI, 'id' | 'fechaHora'>): Promise<{ data: PagoMovilUI | null, error: any }> {
+  async agregarPagoMovil(pagoMovil: Omit<PagoMovilUI, 'id' | 'fechaHora'>): Promise<{ data: PagoMovilUI | null, error: unknown }> {
     return this.safeExecuteWithRollback(async () => {
       // Validaciones básicas
       assertValid(validate.companyId(pagoMovil.cajaId), 'cajaId')
@@ -662,7 +662,7 @@ export class CajaService {
   }
 
   // Agregar pago Zelle
-  async agregarPagoZelle(pagoZelle: Omit<PagoZelleUI, 'id' | 'fechaHora' | 'montoBs'>): Promise<{ data: PagoZelleUI | null, error: any }> {
+  async agregarPagoZelle(pagoZelle: Omit<PagoZelleUI, 'id' | 'fechaHora' | 'montoBs'>): Promise<{ data: PagoZelleUI | null, error: unknown }> {
     try {
       // Verificar que la caja esté abierta y obtener la tasa del día
       const { data: caja, error: cajaError } = await this.supabase
@@ -726,7 +726,7 @@ export class CajaService {
   }
 
   // Actualizar pago móvil
-  async actualizarPagoMovil(pagoId: string, updates: Partial<Omit<PagoMovilUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId'>>): Promise<{ data: PagoMovilUI | null, error: any }> {
+  async actualizarPagoMovil(pagoId: string, updates: Partial<Omit<PagoMovilUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId'>>): Promise<{ data: PagoMovilUI | null, error: unknown }> {
     try {
       // Obtener el pago actual para calcular diferencia
       const { data: pagoActual, error: getError } = await this.supabase
@@ -794,7 +794,7 @@ export class CajaService {
   }
 
   // Actualizar pago Zelle
-  async actualizarPagoZelle(pagoId: string, updates: Partial<Omit<PagoZelleUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId' | 'montoBs'>>): Promise<{ data: PagoZelleUI | null, error: any }> {
+  async actualizarPagoZelle(pagoId: string, updates: Partial<Omit<PagoZelleUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId' | 'montoBs'>>): Promise<{ data: PagoZelleUI | null, error: unknown }> {
     try {
       // Obtener el pago actual para calcular diferencia
       const { data: pagoActual, error: getError } = await this.supabase
@@ -873,7 +873,7 @@ export class CajaService {
   }
 
   // Eliminar pago móvil
-  async eliminarPagoMovil(pagoId: string): Promise<{ error: any }> {
+  async eliminarPagoMovil(pagoId: string): Promise<{ error: unknown }> {
     try {
       // Obtener el pago para actualizar totales
       const { data: pago, error: getError } = await this.supabase
@@ -915,7 +915,7 @@ export class CajaService {
   }
 
   // Eliminar pago Zelle
-  async eliminarPagoZelle(pagoId: string): Promise<{ error: any }> {
+  async eliminarPagoZelle(pagoId: string): Promise<{ error: unknown }> {
     try {
       // Obtener el pago para actualizar totales
       const { data: pago, error: getError } = await this.supabase
@@ -958,7 +958,7 @@ export class CajaService {
   }
 
   // Actualizar tasa del día
-  async actualizarTasaDia(cajaId: string, nuevaTasa: number): Promise<{ error: any }> {
+  async actualizarTasaDia(cajaId: string, nuevaTasa: number): Promise<{ error: unknown }> {
     try {
       const { error } = await this.supabase
         .from('cajas')
@@ -974,7 +974,7 @@ export class CajaService {
   }
 
   // Agregar nota de crédito de caja
-  async agregarNotaCreditoCaja(notaCredito: Omit<NotaCreditoCajaUI, 'id' | 'fechaHora'>): Promise<{ data: NotaCreditoCajaUI | null, error: any }> {
+  async agregarNotaCreditoCaja(notaCredito: Omit<NotaCreditoCajaUI, 'id' | 'fechaHora'>): Promise<{ data: NotaCreditoCajaUI | null, error: unknown }> {
     try {
       // Verificar que la caja esté abierta
       const { data: caja, error: cajaError } = await this.supabase
@@ -1040,7 +1040,7 @@ export class CajaService {
   }
 
   // Actualizar nota de crédito de caja
-  async actualizarNotaCreditoCaja(notaId: string, updates: Partial<Omit<NotaCreditoCajaUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId'>>): Promise<{ data: NotaCreditoCajaUI | null, error: any }> {
+  async actualizarNotaCreditoCaja(notaId: string, updates: Partial<Omit<NotaCreditoCajaUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId'>>): Promise<{ data: NotaCreditoCajaUI | null, error: unknown }> {
     try {
       // Obtener la nota actual para calcular diferencia
       const { data: notaActual, error: getError } = await this.supabase
@@ -1113,7 +1113,7 @@ export class CajaService {
   }
 
   // Eliminar nota de crédito de caja
-  async eliminarNotaCreditoCaja(notaId: string): Promise<{ error: any }> {
+  async eliminarNotaCreditoCaja(notaId: string): Promise<{ error: unknown }> {
     try {
       // Obtener la nota para actualizar totales
       const { data: nota, error: getError } = await this.supabase
@@ -1155,7 +1155,7 @@ export class CajaService {
   }
 
   // Agregar crédito de caja
-  async agregarCreditoCaja(credito: Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'montoUsd' | 'tasa' | 'estado'>): Promise<{ data: CreditoCajaUI | null, error: any }> {
+  async agregarCreditoCaja(credito: Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'montoUsd' | 'tasa' | 'estado'>): Promise<{ data: CreditoCajaUI | null, error: unknown }> {
     try {
       // Verificar que la caja esté abierta y obtener la tasa
       const { data: caja, error: cajaError } = await this.supabase
@@ -1247,7 +1247,7 @@ export class CajaService {
   }
 
   // Actualizar crédito de caja
-  async actualizarCreditoCaja(creditoId: string, updates: Partial<Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId' | 'montoUsd' | 'tasa' | 'estado'>>): Promise<{ data: CreditoCajaUI | null, error: any }> {
+  async actualizarCreditoCaja(creditoId: string, updates: Partial<Omit<CreditoCajaUI, 'id' | 'fechaHora' | 'cajaId' | 'userId' | 'companyId' | 'montoUsd' | 'tasa' | 'estado'>>): Promise<{ data: CreditoCajaUI | null, error: unknown }> {
     try {
       // Obtener el crédito actual para calcular diferencia
       const { data: creditoActual, error: getError } = await this.supabase
@@ -1339,7 +1339,7 @@ export class CajaService {
   }
 
   // Eliminar crédito de caja
-  async eliminarCreditoCaja(creditoId: string): Promise<{ error: any }> {
+  async eliminarCreditoCaja(creditoId: string): Promise<{ error: unknown }> {
     try {
       // Obtener el crédito para actualizar totales
       const { data: credito, error: getError } = await this.supabase
@@ -1382,7 +1382,7 @@ export class CajaService {
   }
 
   // Generar reporte de caja
-  async generarReporteCaja(cajaId: string): Promise<{ data: ReporteCaja | null, error: any }> {
+  async generarReporteCaja(cajaId: string): Promise<{ data: ReporteCaja | null, error: unknown }> {
     try {
       const { data: caja, error: cajaError } = await this.getCajaConPagos(cajaId)
       
@@ -1420,13 +1420,13 @@ export class CajaService {
   }
 
   // Obtener resumen de cajas para dashboard
-  async getResumenCajas(companyId: string, dias: number = 7): Promise<{ data: any, error: any }> {
+  async getResumenCajas(companyId: string, dias: number = 7): Promise<{ data: unknown, error: unknown }> {
     try {
       // Validar que companyId sea una string válida
       try {
         assertValid(validate.companyId(companyId))
       } catch (error) {
-        return { data: null, error: error instanceof Error ? error.message : 'companyId inválido' }
+        return { data: null, error: handleServiceError(error, 'companyId inválido') }
       }
 
       const fechaInicio = new Date()

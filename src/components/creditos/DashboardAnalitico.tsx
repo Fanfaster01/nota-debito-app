@@ -27,16 +27,63 @@ import {
 } from '@heroicons/react/24/outline'
 import { format, subDays } from 'date-fns'
 
+// Interfaces específicas para el dashboard
+interface CreditoDataItem {
+  mes: string
+  creditos: number
+  monto: number
+  pagados: number
+  pendientes: number
+}
+
+interface EstadisticasCreditos {
+  totalCreditos: number
+  montoTotal: number
+  creditosPagados: number
+  creditosPendientes: number
+  promedioCredito: number
+  tasaPago: number
+  montoPendienteTotal: number
+}
+
+interface TendenciaItem {
+  fecha: string
+  nuevos: number
+  pagados: number
+  monto: number
+}
+
+interface AlertStatsData {
+  creditosVencidos: number
+  creditosProximosAVencer: number
+  clientesConMultiplesCreditos: number
+  montoTotalVencido: number
+  montoTotalProximoAVencer: number
+}
+
+interface ClienteTopItem {
+  cliente: {
+    id: string
+    nombre: string
+    tipo_documento: string
+    numero_documento: string
+  }
+  creditos: unknown[]
+  totalPendiente: number
+  cantidadCreditos: number
+}
+
 // const COLORS = ['#3B82F6', '#EF4444', '#F59E0B', '#10B981', '#8B5CF6'] // Not used
 
 export default function DashboardAnalitico() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [creditosData, setCreditosData] = useState<any[]>([])
-  const [estadisticas, setEstadisticas] = useState<any>(null)
-  const [tendencias, setTendencias] = useState<any[]>([])
-  const [alertStats, setAlertStats] = useState<any>(null)
-  const [clientesTop, setClientesTop] = useState<any[]>([])
+  const [creditosData, setCreditosData] = useState<CreditoDataItem[]>([])
+  const [pieData, setPieData] = useState<{ name: string; value: number; color: string }[]>([])
+  const [estadisticas, setEstadisticas] = useState<EstadisticasCreditos | null>(null)
+  const [tendencias, setTendencias] = useState<TendenciaItem[]>([])
+  const [alertStats, setAlertStats] = useState<AlertStatsData | null>(null)
+  const [clientesTop, setClientesTop] = useState<ClienteTopItem[]>([])
 
   const isMaster = user?.role === 'master'
   const companyId = isMaster ? undefined : user?.company_id || undefined
@@ -65,15 +112,37 @@ export default function DashboardAnalitico() {
   const loadEstadisticas = async () => {
     const { data: resumen } = await creditoService.getResumenCreditos(companyId)
     if (resumen) {
-      setEstadisticas(resumen)
+      // Convertir ResumenCreditos a EstadisticasCreditos
+      const estadisticasConvertidas: EstadisticasCreditos = {
+        totalCreditos: resumen.totalCreditos,
+        montoTotal: resumen.montoPendienteTotal + resumen.montoAbonado,
+        creditosPagados: resumen.creditosPagados,
+        creditosPendientes: resumen.creditosPendientes,
+        promedioCredito: resumen.totalCreditos > 0 ? (resumen.montoPendienteTotal + resumen.montoAbonado) / resumen.totalCreditos : 0,
+        tasaPago: resumen.totalCreditos > 0 ? (resumen.creditosPagados / resumen.totalCreditos) * 100 : 0,
+        montoPendienteTotal: resumen.montoPendienteTotal
+      }
+      setEstadisticas(estadisticasConvertidas)
       
       // Datos para gráfico de pie
-      const pieData = [
+      const pieDataValues = [
         { name: 'Pagados', value: resumen.creditosPagados, color: '#10B981' },
         { name: 'Pendientes', value: resumen.creditosPendientes, color: '#F59E0B' },
         { name: 'Vencidos', value: resumen.creditosVencidos, color: '#EF4444' }
       ]
-      setCreditosData(pieData)
+      setPieData(pieDataValues)
+      
+      // Datos para gráfico - crear datos mock compatibles con CreditoDataItem
+      const creditosDataMock: CreditoDataItem[] = [
+        {
+          mes: 'Actual',
+          creditos: resumen.totalCreditos,
+          monto: resumen.montoPendienteTotal + resumen.montoAbonado,
+          pagados: resumen.creditosPagados,
+          pendientes: resumen.creditosPendientes
+        }
+      ]
+      setCreditosData(creditosDataMock)
     }
   }
 
@@ -131,8 +200,33 @@ export default function DashboardAnalitico() {
 
   const loadClientesTop = async () => {
     const { data: clientesMultiples } = await notificationService.getClientesConMultiplesCreditos(companyId)
-    if (clientesMultiples) {
-      setClientesTop(clientesMultiples.slice(0, 5))
+    if (clientesMultiples && Array.isArray(clientesMultiples)) {
+      // Convertir los datos a la estructura esperada con type guards
+      const clientesConvertidos: ClienteTopItem[] = clientesMultiples
+        .map((item: unknown) => {
+          if (typeof item === 'object' && item !== null) {
+            const obj = item as Record<string, unknown>
+            if (obj.cliente && typeof obj.cliente === 'object' && obj.cliente !== null) {
+              const cliente = obj.cliente as Record<string, unknown>
+              return {
+                cliente: {
+                  id: typeof cliente.id === 'string' ? cliente.id : '',
+                  nombre: typeof cliente.nombre === 'string' ? cliente.nombre : 'Sin nombre',
+                  tipo_documento: typeof cliente.tipo_documento === 'string' ? cliente.tipo_documento : 'V',
+                  numero_documento: typeof cliente.numero_documento === 'string' ? cliente.numero_documento : '0'
+                },
+                creditos: Array.isArray(obj.creditos) ? obj.creditos : [],
+                totalPendiente: typeof obj.totalPendiente === 'number' ? obj.totalPendiente : 0,
+                cantidadCreditos: typeof obj.cantidadCreditos === 'number' ? obj.cantidadCreditos : 0
+              }
+            }
+          }
+          return null
+        })
+        .filter((item): item is ClienteTopItem => item !== null)
+        .slice(0, 5)
+      
+      setClientesTop(clientesConvertidos)
     }
   }
 
@@ -219,7 +313,7 @@ export default function DashboardAnalitico() {
           <ResponsiveContainer width="100%" height={250}>
             <PieChart>
               <Pie
-                data={creditosData}
+                data={pieData}
                 cx="50%"
                 cy="50%"
                 innerRadius={60}
@@ -227,7 +321,7 @@ export default function DashboardAnalitico() {
                 paddingAngle={5}
                 dataKey="value"
               >
-                {creditosData.map((entry, index) => (
+                {pieData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
@@ -252,7 +346,7 @@ export default function DashboardAnalitico() {
               />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip 
-                formatter={(value: any) => [value, 'Créditos']}
+                formatter={(value: number) => [value, 'Créditos']}
                 labelFormatter={(label) => `Fecha: ${label}`}
               />
               <Area
@@ -285,7 +379,7 @@ export default function DashboardAnalitico() {
               tickFormatter={(value) => `Bs ${formatMoney(value)}`}
             />
             <Tooltip 
-              formatter={(value: any, name: string) => [
+              formatter={(value: number, name: string) => [
                 `Bs ${formatMoney(value)}`, 
                 name === 'monto' ? 'Créditos Otorgados' : 'Abonos Recibidos'
               ]}

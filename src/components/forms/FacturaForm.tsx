@@ -13,6 +13,7 @@ import { proveedorService, ProveedorWithCuentas, ProveedorFormData } from '@/lib
 import { ProveedorModalNew } from './ProveedorModalNew';
 import { PlusIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
 import debounce from 'lodash/debounce';
+import { handleServiceError } from '@/utils/errorHandler';
 
 interface FacturaFormProps {
   onSubmit: (data: Factura) => void;
@@ -192,8 +193,7 @@ export const FacturaForm: React.FC<FacturaFormProps> = ({ onSubmit, defaultValue
       
       if (error) {
         console.error('Error al crear proveedor:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-        alert('Error al crear el proveedor: ' + errorMessage);
+        alert('Error al crear el proveedor: ' + handleServiceError(error, 'Error desconocido'));
         return;
       }
 

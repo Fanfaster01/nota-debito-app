@@ -2,43 +2,54 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/database'
 
+// Configuración de debugging
+const DEBUG_MODE = process.env.NODE_ENV === 'development'
+const MONITORED_TABLES: (keyof Database['public']['Tables'])[] = ['creditos_caja']
+
+// Helper para logging condicional
+const debugLog = (message: string, data?: unknown) => {
+  if (DEBUG_MODE) {
+    console.log(`[Supabase Safe Client] ${message}`, data || '')
+  }
+}
+
+/**
+ * Cliente Supabase con debugging y type safety mejorado
+ * Monitorea tablas específicas para debugging en desarrollo
+ */
 export function createClient() {
   const client = createBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  // Interceptar el método from para debugging
-  const originalFrom = client.from.bind(client);
+  // Interceptar el método from para debugging en tablas monitoreadas
+  const originalFrom = client.from.bind(client)
   
-  (client as any).from = function(table: keyof Database['public']['Tables']) {
-    const tableClient = originalFrom(table);
+  // Type-safe override del método from
+  client.from = function(table: keyof Database['public']['Tables']) {
+    const tableClient = originalFrom(table)
     
-    if (table === 'creditos_caja') {
-      console.log('[Supabase Safe Client] Creating query for creditos_caja table');
+    // Solo aplicar debugging a tablas monitoreadas
+    if (MONITORED_TABLES.includes(table)) {
+      debugLog(`Creating query for ${table} table`)
       
-      // Interceptar el método select
-      const originalSelect = tableClient.select.bind(tableClient);
-      (tableClient as any).select = function(...args: any[]) {
-        console.log('[Supabase Safe Client] Select called with:', args);
-        const selectClient = originalSelect(...args);
+      // Interceptar el método select con logging básico
+      const originalSelect = tableClient.select.bind(tableClient)
+      tableClient.select = function(columns?: string, options?: Record<string, unknown>) {
+        debugLog(`Select called on ${table}`, { columns, options })
         
-        // Interceptar el método eq si existe
-        const originalEq = selectClient.eq?.bind(selectClient);
-        if (originalEq) {
-          (selectClient as any).eq = function(column: string, value: any) {
-            console.log('[Supabase Safe Client] .eq() called with:', { column, value });
-            // Si alguien intenta usar .eq('estado', 'pendiente'), funciona normalmente
-            return originalEq(column, value);
-          };
+        try {
+          return originalSelect(columns, options)
+        } catch (error) {
+          debugLog(`Error in select for ${table}`, error)
+          throw error
         }
-        
-        return selectClient;
-      };
+      }
     }
     
-    return tableClient;
-  };
+    return tableClient
+  }
 
   return client;
 }

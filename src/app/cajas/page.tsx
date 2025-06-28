@@ -19,6 +19,7 @@ import CreditoCajaList from '@/components/cajas/CreditoCajaList'
 import { TicketModal } from '@/components/cajas/TicketModal'
 import { cajaService } from '@/lib/services/cajaService'
 import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, ReporteCaja, CierreCajaFormData } from '@/types/caja'
+import { handleServiceError } from '@/utils/errorHandler'
 import { 
   DocumentArrowDownIcon,
   ExclamationTriangleIcon,
@@ -66,13 +67,13 @@ export default function CajasPage() {
     // Cargar caja principal y todos sus datos
     await loadCaja(async () => {
       const { data: cajaData, error: cajaError } = await cajaService.verificarCajaAbierta(user.id)
-      if (cajaError) throw new Error('Error al verificar caja: ' + cajaError.message)
+      if (cajaError) throw new Error('Error al verificar caja: ' + handleServiceError(cajaError))
       
       // Si hay caja abierta, cargar también sus pagos
       if (cajaData?.id) {
         const { data: cajaConPagos, error: pagosError } = await cajaService.getCajaConPagos(cajaData.id)
         if (pagosError) {
-          console.warn('Error al cargar pagos:', pagosError.message)
+          console.warn('Error al cargar pagos:', handleServiceError(pagosError))
         } else if (cajaConPagos) {
           // Actualizar listas usando execute para evitar conflictos de estado
           loadPagosMovil(async () => cajaConPagos.pagosMovil || [])
@@ -101,7 +102,7 @@ export default function CajasPage() {
         tipoMoneda
       )
 
-      if (abrirError) throw new Error('Error al abrir caja: ' + abrirError.message)
+      if (abrirError) throw new Error('Error al abrir caja: ' + handleServiceError(abrirError))
 
       // Limpiar listas al abrir nueva caja
       resetPagosMovil()
@@ -137,7 +138,7 @@ export default function CajasPage() {
         data // Pasar todos los datos del cierre para almacenarlos si es necesario
       )
 
-      if (cerrarError) throw new Error('Error al cerrar caja: ' + cerrarError.message)
+      if (cerrarError) throw new Error('Error al cerrar caja: ' + handleServiceError(cerrarError))
 
       setSuccessMessage('Caja cerrada exitosamente')
       
@@ -162,7 +163,7 @@ export default function CajasPage() {
     await loadCaja(async () => {
       const { error: updateError } = await cajaService.actualizarTasaDia(caja.id!, nuevaTasa)
 
-      if (updateError) throw new Error('Error al actualizar tasa: ' + updateError.message)
+      if (updateError) throw new Error('Error al actualizar tasa: ' + handleServiceError(updateError))
 
       setSuccessMessage('Tasa actualizada exitosamente')
       setTimeout(() => setSuccessMessage(null), 3000)
@@ -186,7 +187,7 @@ export default function CajasPage() {
           data
         )
 
-        if (updateError) throw new Error('Error al actualizar pago: ' + updateError.message)
+        if (updateError) throw new Error('Error al actualizar pago: ' + handleServiceError(updateError))
 
         setEditingPagoMovil(null)
         setSuccessMessage('Pago actualizado exitosamente')
@@ -214,7 +215,7 @@ export default function CajasPage() {
 
         const { data: pagoCreado, error: createError } = await cajaService.agregarPagoMovil(nuevoPago)
 
-        if (createError) throw new Error('Error al agregar pago: ' + createError.message)
+        if (createError) throw new Error('Error al agregar pago: ' + handleServiceError(createError))
 
         setSuccessMessage('Pago agregado exitosamente')
         
@@ -240,7 +241,7 @@ export default function CajasPage() {
     await loadPagosMovil(async () => {
       const { error: deleteError } = await cajaService.eliminarPagoMovil(pagoId)
 
-      if (deleteError) throw new Error('Error al eliminar pago: ' + deleteError.message)
+      if (deleteError) throw new Error('Error al eliminar pago: ' + handleServiceError(deleteError))
 
       setSuccessMessage('Pago eliminado exitosamente')
       
@@ -272,7 +273,7 @@ export default function CajasPage() {
           }
         )
 
-        if (updateError) throw new Error('Error al actualizar pago: ' + updateError.message)
+        if (updateError) throw new Error('Error al actualizar pago: ' + handleServiceError(updateError))
 
         setEditingPagoZelle(null)
         setSuccessMessage('Pago actualizado exitosamente')
@@ -299,7 +300,7 @@ export default function CajasPage() {
 
         const { data: pagoCreado, error: createError } = await cajaService.agregarPagoZelle(nuevoPago)
 
-        if (createError) throw new Error('Error al agregar pago: ' + createError.message)
+        if (createError) throw new Error('Error al agregar pago: ' + handleServiceError(createError))
 
         setSuccessMessage('Pago agregado exitosamente')
         
@@ -325,7 +326,7 @@ export default function CajasPage() {
     await loadPagosZelle(async () => {
       const { error: deleteError } = await cajaService.eliminarPagoZelle(pagoId)
 
-      if (deleteError) throw new Error('Error al eliminar pago: ' + deleteError.message)
+      if (deleteError) throw new Error('Error al eliminar pago: ' + handleServiceError(deleteError))
 
       setSuccessMessage('Pago eliminado exitosamente')
       
@@ -344,7 +345,7 @@ export default function CajasPage() {
     await loadReporte(async () => {
       const { data: reporte, error: reporteError } = await cajaService.generarReporteCaja(caja.id!)
 
-      if (reporteError) throw new Error('Error al generar reporte: ' + reporteError.message)
+      if (reporteError) throw new Error('Error al generar reporte: ' + handleServiceError(reporteError))
 
       setShowTicketModal(true)
       return reporte

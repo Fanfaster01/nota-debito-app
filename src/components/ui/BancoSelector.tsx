@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { bancoService } from '@/lib/services/bancoService'
+import { handleServiceError } from '@/utils/errorHandler'
 import { PlusIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -88,7 +89,7 @@ export const BancoSelector: React.FC<BancoSelectorProps> = ({
 
       if (error) {
         console.error('Error creando banco:', error)
-        alert('Error al crear el banco: ' + error.message)
+        alert('Error al crear el banco: ' + handleServiceError(error))
         return
       }
 

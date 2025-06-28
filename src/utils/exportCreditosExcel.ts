@@ -1,11 +1,11 @@
 // src/utils/exportCreditosExcel.ts
 import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
-import { CreditoDetalladoUI } from '@/types/creditos'
+import { CreditoDetalladoUI, FiltrosCredito } from '@/types/creditos'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
-export const exportCreditosToExcel = async (creditos: CreditoDetalladoUI[], filtros?: any) => {
+export const exportCreditosToExcel = async (creditos: CreditoDetalladoUI[], filtros?: FiltrosCredito) => {
   const workbook = new ExcelJS.Workbook()
   
   workbook.creator = 'Sistema de Créditos'
@@ -181,9 +181,9 @@ export const exportCreditosToExcel = async (creditos: CreditoDetalladoUI[], filt
 }
 
 export const exportEstadoCuentaClienteToExcel = async (
-  cliente: any,
+  cliente: Record<string, unknown>,
   creditos: CreditoDetalladoUI[],
-  totales: any
+  totales: Record<string, unknown>
 ) => {
   const workbook = new ExcelJS.Workbook()
   

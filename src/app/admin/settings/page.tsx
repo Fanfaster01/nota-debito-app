@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { settingsService, SystemStats } from '@/lib/services/settingsService'
+import { handleServiceError } from '@/utils/errorHandler'
 import { useAsyncState } from '@/hooks/useAsyncState'
 import { 
   CogIcon,
@@ -52,7 +53,7 @@ export default function SettingsPage() {
   
   // Estados con useAsyncState
   const { data: systemStats, loading: statsLoading, error: statsError, execute: loadSystemStatsData } = useAsyncState<SystemStats | null>()
-  const { loading: saveLoading, error: saveError, execute: saveSettings } = useAsyncState<any>()
+  const { loading: saveLoading, error: saveError, execute: saveSettings } = useAsyncState<unknown>()
   
   // Estados locales para UI
   const [success, setSuccess] = useState<string | null>(null)
@@ -117,8 +118,7 @@ export default function SettingsPage() {
         user_registration_alerts: Boolean(config.notifications.user_registration_alerts),
       })
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setLocalError('Error al cargar configuraciones: ' + errorMessage)
+      setLocalError('Error al cargar configuraciones: ' + handleServiceError(err, 'Error desconocido'))
     }
   }
 
@@ -150,7 +150,7 @@ export default function SettingsPage() {
       const { error } = await settingsService.updateMultipleSettings(settingsToUpdate)
       
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        const errorMessage = handleServiceError(error)
         throw new Error('Error al guardar la configuración: ' + errorMessage)
       }
       
@@ -167,7 +167,7 @@ export default function SettingsPage() {
       const { error } = await settingsService.updateMultipleSettings(data)
       
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        const errorMessage = handleServiceError(error)
         throw new Error('Error al guardar las notificaciones: ' + errorMessage)
       }
       
@@ -184,7 +184,7 @@ export default function SettingsPage() {
       const { error } = await settingsService.performManualBackup()
       
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        const errorMessage = handleServiceError(error)
         throw new Error('Error al realizar el backup: ' + errorMessage)
       }
       
@@ -202,7 +202,7 @@ export default function SettingsPage() {
       const { error } = await settingsService.clearSystemCache()
       
       if (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        const errorMessage = handleServiceError(error)
         throw new Error('Error al limpiar el caché: ' + errorMessage)
       }
       
@@ -276,7 +276,7 @@ export default function SettingsPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'general' | 'notifications' | 'security' | 'backup' | 'system')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600'

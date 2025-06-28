@@ -139,7 +139,7 @@ export const exportCierresListToExcel = async (
   }
 
   // Hoja de punto de venta
-  const datosPuntoVenta: any[] = []
+  const datosPuntoVenta: Record<string, unknown>[] = []
   cierres.forEach(cierre => {
     cierre.detallesPuntoVenta.forEach(pv => {
       datosPuntoVenta.push({

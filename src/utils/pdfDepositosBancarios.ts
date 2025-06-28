@@ -1,6 +1,7 @@
 // src/utils/pdfDepositosBancarios.ts
 import jsPDF from 'jspdf'
 import { ReciboDepositoData } from '@/types/depositos'
+import { handleServiceError } from '@/utils/errorHandler'
 
 export const generateDepositoPDF = (deposito: ReciboDepositoData): void => {
   // Crear PDF en tamaño media carta (carta es 8.5 x 11, media carta es 8.5 x 5.5)
@@ -137,19 +138,19 @@ export const generateDepositoPDF = (deposito: ReciboDepositoData): void => {
 }
 
 // Función para obtener datos del depósito y generar PDF
-export const downloadDepositoPDF = async (depositoId: string, getReciboData: (id: string) => Promise<any>): Promise<void> => {
+export const downloadDepositoPDF = async (depositoId: string, getReciboData: (id: string) => Promise<{ data: unknown, error: unknown }>): Promise<void> => {
   try {
     const { data: reciboData, error } = await getReciboData(depositoId)
     
     if (error) {
-      throw new Error(error.message || 'Error al obtener datos del depósito')
+      throw new Error(handleServiceError(error, 'Error al obtener datos del depósito'))
     }
     
     if (!reciboData) {
       throw new Error('No se encontraron datos del depósito')
     }
     
-    generateDepositoPDF(reciboData)
+    generateDepositoPDF(reciboData as ReciboDepositoData)
   } catch (error) {
     console.error('Error al generar PDF:', error)
     throw error

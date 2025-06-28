@@ -150,7 +150,7 @@ export class CierresCajaService {
                                      (detallesEfectivo?.efectivo_bs || 0)
 
         const totalPuntoVenta = detallesPuntoVenta.reduce((sum: number, pv: unknown) => {
-          const pvData = pv as any // Type assertion for database object
+          const pvData = pv as { monto_bs?: number } // Type assertion for database object
           return sum + (pvData.monto_bs || 0)
         }, 0)
 

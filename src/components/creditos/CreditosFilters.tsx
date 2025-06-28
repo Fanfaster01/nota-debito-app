@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { ClienteSearch } from '@/components/forms/ClienteSearch'
 import { ClienteUI } from '@/lib/services/clienteService'
 import { companyService } from '@/lib/services/adminServices'
+import { Company } from '@/types/database'
 import { 
   MagnifyingGlassIcon,
   XMarkIcon
@@ -18,7 +19,7 @@ interface CreditosFiltersProps {
 }
 
 export default function CreditosFilters({ filters, onFilterChange, isMaster }: CreditosFiltersProps) {
-  const [companies, setCompanies] = useState<any[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
   const [showClienteSearch, setShowClienteSearch] = useState(false)
   const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
 

@@ -196,7 +196,16 @@ export function NotasDebitoContent({ embedded = false }: NotasDebitoContentProps
           <div className="p-6">
             <NotasDebitoFilters
               filters={filtros}
-              onFilterChange={setFiltros}
+              onFilterChange={(newFilters) => {
+                // Convertir NotasDebitoFilters a formato esperado
+                setFiltros({
+                  fechaDesde: newFilters.fechaDesde || '',
+                  fechaHasta: newFilters.fechaHasta || '',
+                  proveedor: newFilters.proveedor || '',
+                  numeroNota: newFilters.numeroNota || '',
+                  numeroFactura: newFilters.numeroFactura || ''
+                })
+              }}
               onSearch={() => cargarNotasDebito()}
               onClear={limpiarFiltros}
               loading={cargandoNotas}

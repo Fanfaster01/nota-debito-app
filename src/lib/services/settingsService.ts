@@ -81,31 +81,54 @@ export class SettingsService {
         .from('system_settings')
         .select('value')
         .eq('key', key)
-        .single()
+        .maybeSingle()
 
-      return { data: data?.value || null, error }
+      if (error) {
+        return { data: null, error }
+      }
+
+      return { data: data?.value || null, error: null }
     } catch (err) {
-      console.error('Error getting setting:', err)
+      // console.error('Error getting setting:', err)
       return { data: null, error: handleServiceError(err, 'Error al obtener configuración') }
     }
   }
 
-  // Actualizar una configuración
-  async updateSetting(key: string, value: unknown): Promise<{ error: unknown }> {
+  // Actualizar una configuración (o crearla si no existe)
+  async updateSetting(key: string, value: unknown, category: string = 'general'): Promise<{ error: unknown }> {
     try {
-      const { error } = await this.supabase
+      // Intentar actualizar primero
+      const { data, error: updateError } = await this.supabase
         .from('system_settings')
-        .update({ value: value })
+        .update({ value: value, updated_at: new Date().toISOString() })
         .eq('key', key)
+        .select()
 
-      // Log la acción
-      if (!error) {
+      // Si no se actualizó ninguna fila, crear nueva configuración
+      if (!updateError && (!data || data.length === 0)) {
+        const { error: insertError } = await this.supabase
+          .from('system_settings')
+          .insert({ 
+            key, 
+            value, 
+            category,
+            description: `Auto-created setting for ${key}`
+          })
+
+        if (insertError) {
+          return { error: insertError }
+        }
+
+        await this.logAction('setting_created', { key, value, category })
+      } else if (updateError) {
+        return { error: updateError }
+      } else {
         await this.logAction('setting_updated', { key, value })
       }
 
-      return { error }
+      return { error: null }
     } catch (err) {
-      console.error('Error updating setting:', err)
+      // console.error('Error updating setting:', err)
       return { error: handleServiceError(err, 'Error al actualizar configuración') }
     }
   }
@@ -176,9 +199,19 @@ export class SettingsService {
         this.supabase.from('users').select('*', { count: 'exact', head: true }).eq('is_active', true)
       ])
 
-      // Obtener información adicional del sistema
-      const lastBackupSetting = await this.getSetting('last_backup_date')
-      const backupSizeSetting = await this.getSetting('last_backup_size')
+      // Obtener información adicional del sistema (sin fallar si no existen)
+      const [lastBackupSetting, backupSizeSetting] = await Promise.allSettled([
+        this.getSetting('last_backup_date'),
+        this.getSetting('last_backup_size')
+      ])
+
+      const lastBackupData = lastBackupSetting.status === 'fulfilled' && lastBackupSetting.value.data 
+        ? lastBackupSetting.value.data as string 
+        : 'Nunca'
+      
+      const backupSizeData = backupSizeSetting.status === 'fulfilled' && backupSizeSetting.value.data
+        ? backupSizeSetting.value.data as string
+        : 'N/A'
 
       return {
         data: {
@@ -190,8 +223,8 @@ export class SettingsService {
           databaseSize: '2.4 GB', // Esto requeriría consulta específica del servidor
           activeSessions: Math.floor(Math.random() * 20) + 1, // Simulado por ahora
           serverUptime: this.calculateUptime(),
-          lastBackup: (lastBackupSetting.data as string) || 'Nunca',
-          backupSize: (backupSizeSetting.data as string) || 'N/A'
+          lastBackup: lastBackupData,
+          backupSize: backupSizeData
         },
         error: null
       }
@@ -209,8 +242,8 @@ export class SettingsService {
       const backupSize = `${(Math.random() * 2 + 1).toFixed(1)} GB`
 
       // Guardar información del backup
-      await this.updateSetting('last_backup_date', backupDate)
-      await this.updateSetting('last_backup_size', backupSize)
+      await this.updateSetting('last_backup_date', backupDate, 'backup')
+      await this.updateSetting('last_backup_size', backupSize, 'backup')
 
       // Log la acción
       await this.logAction('manual_backup_performed', { 

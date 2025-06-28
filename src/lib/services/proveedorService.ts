@@ -100,7 +100,7 @@ export class ProveedorService {
         .order('nombre')
 
       if (error) {
-        return { success: false, error: error.message }
+        return { success: false, error: handleServiceError(error, 'Error al buscar proveedores') }
       }
 
       if (!proveedores) {

@@ -74,8 +74,8 @@ export function handleValidationError(error: unknown): Record<string, string> {
     const validationErrors = (error as { errors: unknown }).errors
     if (Array.isArray(validationErrors)) {
       const errorMap: Record<string, string> = {}
-      validationErrors.forEach((err: any) => {
-        if (err.path && err.message) {
+      validationErrors.forEach((err: Record<string, unknown>) => {
+        if (err.path && Array.isArray(err.path) && err.message && typeof err.message === 'string') {
           errorMap[err.path.join('.')] = err.message
         }
       })

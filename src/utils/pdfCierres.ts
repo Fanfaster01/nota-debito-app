@@ -5,6 +5,18 @@ import { CierreDetalladoUI, ResumenCierres } from '@/lib/services/cierresCajaSer
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+// Extender el tipo jsPDF para incluir lastAutoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    lastAutoTable?: { finalY: number }
+  }
+}
+
+// Helper para obtener finalY de forma type-safe
+const getAutoTableFinalY = (doc: jsPDF, defaultY: number = 50): number => {
+  return doc.lastAutoTable?.finalY ?? defaultY
+}
+
 const formatMoney = (amount: number) => {
   return new Intl.NumberFormat('es-VE', {
     minimumFractionDigits: 2,
@@ -66,7 +78,7 @@ export const generateCierresListPDF = (
   })
 
   // Estadísticas al final
-  const finalY = (doc as any).lastAutoTable.finalY + 10
+  const finalY = getAutoTableFinalY(doc, 60) + 10
   
   doc.setFontSize(12)
   doc.setFont('helvetica', 'bold')
@@ -151,7 +163,7 @@ export const generateCierreDetallePDF = (
     }
   })
 
-  yPos = (doc as any).lastAutoTable.finalY + 15
+  yPos = getAutoTableFinalY(doc) + 15
 
   // Desglose de transacciones
   doc.setFont('helvetica', 'bold')
@@ -180,7 +192,7 @@ export const generateCierreDetallePDF = (
     }
   })
 
-  yPos = (doc as any).lastAutoTable.finalY + 15
+  yPos = getAutoTableFinalY(doc) + 15
 
   // Detalles de efectivo si existen
   if (cierre.detallesEfectivo) {
@@ -218,7 +230,7 @@ export const generateCierreDetallePDF = (
       }
     })
 
-    yPos = (doc as any).lastAutoTable.finalY + 10
+    yPos = getAutoTableFinalY(doc) + 10
   }
 
   // Punto de venta si existen
@@ -259,7 +271,7 @@ export const generateCierreDetallePDF = (
 
   // Observaciones si existen
   if (cierre.caja.observaciones) {
-    yPos = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 15 : yPos + 15
+    yPos = getAutoTableFinalY(doc, yPos) + 15
     
     // Verificar si necesitamos nueva página
     if (yPos > 250) {
@@ -326,7 +338,7 @@ export const generateResumenCierresPDF = (
 
   // Usuarios más activos
   if (resumen.usuariosMasActivos.length > 0) {
-    yPos = (doc as any).lastAutoTable.finalY + 20
+    yPos = getAutoTableFinalY(doc) + 20
 
     doc.setFont('helvetica', 'bold')
     doc.text('Usuarios Más Activos', 14, yPos)
@@ -360,7 +372,7 @@ export const generateResumenCierresPDF = (
   }
 
   // Conclusiones y recomendaciones
-  yPos = (doc as any).lastAutoTable.finalY + 20
+  yPos = getAutoTableFinalY(doc) + 20
 
   doc.setFont('helvetica', 'bold')
   doc.text('Conclusiones y Recomendaciones', 14, yPos)

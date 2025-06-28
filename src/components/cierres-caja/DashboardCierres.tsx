@@ -54,14 +54,30 @@ interface CajeroStats {
   tendencia: 'mejorando' | 'estable' | 'empeorando'
 }
 
+interface DistribucionDiscrepancia {
+  rango: string
+  cantidad: number
+  porcentaje: number
+}
+
+interface AlertaDiscrepancia {
+  id: string
+  tipo: string
+  descripcion: string
+  urgencia: 'alta' | 'media' | 'baja'
+  fecha: string
+  cajero?: string
+  monto?: number
+}
+
 export default function DashboardCierres() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
   const [resumen, setResumen] = useState<ResumenCierres | null>(null)
   const [tendencias, setTendencias] = useState<TendenciaData[]>([])
   const [cajeroStats, setCajeroStats] = useState<CajeroStats[]>([])
-  const [distribucionDiscrepancias, setDistribucionDiscrepancias] = useState<any[]>([])
-  const [alertas, setAlertas] = useState<any[]>([])
+  const [distribucionDiscrepancias, setDistribucionDiscrepancias] = useState<DistribucionDiscrepancia[]>([])
+  const [alertas, setAlertas] = useState<AlertaDiscrepancia[]>([])
   const [periodoAnalisis, setPeriodoAnalisis] = useState<30 | 60 | 90>(30)
 
   const isMaster = user?.role === 'master'
@@ -287,7 +303,17 @@ export default function DashboardCierres() {
   const loadAlertas = async () => {
     const { data } = await cierresCajaService.getAlertasDiscrepancias(companyId, 0) // Obtener todas las alertas
     if (data) {
-      setAlertas(data.slice(0, 10)) // Solo las 10 más importantes
+      // Mapear las alertas al formato esperado
+      const alertasMapeadas: AlertaDiscrepancia[] = data.slice(0, 10).map((alerta, index) => ({
+        id: `alerta-${index}-${alerta.cierre.id}`,
+        tipo: alerta.tipoAlerta,
+        descripcion: alerta.mensaje,
+        urgencia: alerta.severidad === 'alta' ? 'alta' : alerta.severidad === 'media' ? 'media' : 'baja',
+        fecha: alerta.cierre.caja.fecha.toString(),
+        cajero: alerta.cierre.caja.usuario?.full_name || undefined,
+        monto: alerta.cierre.resumen.discrepanciaTotal
+      }))
+      setAlertas(alertasMapeadas)
     }
   }
 
@@ -419,7 +445,7 @@ export default function DashboardCierres() {
                 tickFormatter={(value) => `${value}%`}
               />
               <Tooltip 
-                formatter={(value: any) => [`${value.toFixed(1)}%`, 'Eficiencia']}
+                formatter={(value: number) => [`${value.toFixed(1)}%`, 'Eficiencia']}
                 labelFormatter={(label) => `Fecha: ${label}`}
               />
               <Area
@@ -483,7 +509,7 @@ export default function DashboardCierres() {
               tickFormatter={(value) => `Bs ${formatMoney(value)}`}
             />
             <Tooltip 
-              formatter={(value: any, name: string) => [
+              formatter={(value: number, name: string) => [
                 name === 'totalCierres' ? value : `Bs ${formatMoney(value)}`,
                 name === 'totalCierres' ? 'Cierres' : 'Monto Total'
               ]}
@@ -559,24 +585,24 @@ export default function DashboardCierres() {
               <div 
                 key={index} 
                 className={`p-3 rounded-lg border ${
-                  alerta.severidad === 'alta' ? 'bg-red-50 border-red-200' :
-                  alerta.severidad === 'media' ? 'bg-yellow-50 border-yellow-200' :
+                  alerta.urgencia === 'alta' ? 'bg-red-50 border-red-200' :
+                  alerta.urgencia === 'media' ? 'bg-yellow-50 border-yellow-200' :
                   'bg-blue-50 border-blue-200'
                 }`}
               >
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      {format(alerta.cierre.caja.fecha, 'dd/MM/yyyy')} - {alerta.cierre.caja.usuario?.full_name || 'Sin cajero'}
+                      {format(new Date(alerta.fecha), 'dd/MM/yyyy')} - {alerta.cajero || 'Sin cajero'}
                     </p>
-                    <p className="text-sm text-gray-600">{alerta.mensaje}</p>
+                    <p className="text-sm text-gray-600">{alerta.descripcion}</p>
                   </div>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    alerta.severidad === 'alta' ? 'bg-red-100 text-red-800' :
-                    alerta.severidad === 'media' ? 'bg-yellow-100 text-yellow-800' :
+                    alerta.urgencia === 'alta' ? 'bg-red-100 text-red-800' :
+                    alerta.urgencia === 'media' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-blue-100 text-blue-800'
                   }`}>
-                    {alerta.severidad}
+                    {alerta.urgencia}
                   </span>
                 </div>
               </div>

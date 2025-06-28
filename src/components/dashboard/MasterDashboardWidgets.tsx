@@ -1,8 +1,9 @@
 // src/components/dashboard/MasterDashboardWidgets.tsx
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import { Card } from '@/components/ui/Card'
+import { Button } from '@/components/ui/Button'
 import { MasterDashboardStats, CompanyRanking } from '@/lib/services/adminServices'
 import { 
   ChartBarIcon,
@@ -14,7 +15,9 @@ import {
   BanknotesIcon,
   ClockIcon,
   CheckCircleIcon,
-  XCircleIcon
+  XCircleIcon,
+  BellIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 
 interface WidgetProps {
@@ -385,6 +388,8 @@ export function CompanyRankingWidget({ companies }: CompanyRankingProps) {
 
 // Widget de alertas
 export function AlertasWidget({ stats }: WidgetProps) {
+  const [showingDetails, setShowingDetails] = useState(false)
+  
   const getSeveridadColor = (cantidad: number, tipo: 'leve' | 'media' | 'alta') => {
     if (cantidad === 0) return 'text-gray-400'
     switch (tipo) {
@@ -394,6 +399,8 @@ export function AlertasWidget({ stats }: WidgetProps) {
       default: return 'text-gray-600'
     }
   }
+  
+  const totalAlertas = stats.alertasActivas || 0
 
   return (
     <Card title="Sistema de Alertas">
@@ -422,22 +429,44 @@ export function AlertasWidget({ stats }: WidgetProps) {
 
         {/* Estado general */}
         <div className={`p-3 rounded-lg text-center ${
-          stats.alertasActivas === 0 ? 'bg-green-50 text-green-700' :
+          totalAlertas === 0 ? 'bg-green-50 text-green-700' :
           stats.alertasSeveridad.altas > 0 ? 'bg-red-50 text-red-700' :
           stats.alertasSeveridad.medias > 0 ? 'bg-yellow-50 text-yellow-700' :
           'bg-blue-50 text-blue-700'
         }`}>
-          {stats.alertasActivas === 0 ? (
+          {totalAlertas === 0 ? (
             <div className="flex items-center justify-center">
               <CheckCircleIcon className="h-5 w-5 mr-2" />
               <span className="font-medium">Sistema Operando Normalmente</span>
             </div>
           ) : (
-            <div className="flex items-center justify-center">
-              <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
-              <span className="font-medium">
-                {stats.alertasActivas} {stats.alertasActivas === 1 ? 'Alerta Activa' : 'Alertas Activas'}
-              </span>
+            <div className="space-y-2">
+              <div className="flex items-center justify-center">
+                <BellIcon className="h-5 w-5 mr-2" />
+                <span className="font-medium">
+                  {totalAlertas} {totalAlertas === 1 ? 'Alerta Activa' : 'Alertas Activas'}
+                </span>
+              </div>
+              <div className="text-xs opacity-75">
+                Incluye créditos vencidos, próximos a vencer y discrepancias
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowingDetails(!showingDetails)}
+                className="mt-2 text-xs"
+              >
+                <EyeIcon className="h-3 w-3 mr-1" />
+                {showingDetails ? 'Ocultar' : 'Ver'} Detalles
+              </Button>
+              {showingDetails && (
+                <div className="mt-2 text-xs text-left space-y-1 bg-white bg-opacity-50 p-2 rounded">
+                  <div>• Revisa la sección de créditos para pagos vencidos</div>
+                  <div>• Verifica discrepancias en cierres de caja</div>
+                  <div>• Las alertas se actualizan automáticamente</div>
+                  <div>• Marca como leídas en sus respectivas secciones</div>
+                </div>
+              )}
             </div>
           )}
         </div>

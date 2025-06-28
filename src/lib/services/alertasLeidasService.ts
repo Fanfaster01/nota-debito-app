@@ -15,7 +15,7 @@ export class AlertasLeidasService {
   private supabase = createClient()
 
   // Obtener todas las alertas leídas para un usuario y compañía
-  async getAlertasLeidas(userId: string, companyId?: string): Promise<{ data: string[] | null, error: any }> {
+  async getAlertasLeidas(userId: string, companyId?: string): Promise<{ data: string[] | null, error: unknown }> {
     try {
       let query = this.supabase
         .from('alertas_leidas')
@@ -41,7 +41,7 @@ export class AlertasLeidasService {
   }
 
   // Marcar una alerta como leída
-  async marcarAlertaLeida(userId: string, alertaId: string, companyId?: string): Promise<{ error: any }> {
+  async marcarAlertaLeida(userId: string, alertaId: string, companyId?: string): Promise<{ error: unknown }> {
     try {
       // Primero intentar insertar
       const { error: insertError } = await this.supabase
@@ -80,7 +80,7 @@ export class AlertasLeidasService {
   }
 
   // Marcar múltiples alertas como leídas
-  async marcarMultiplesAlertasLeidas(userId: string, alertasIds: string[], companyId?: string): Promise<{ error: any }> {
+  async marcarMultiplesAlertasLeidas(userId: string, alertasIds: string[], companyId?: string): Promise<{ error: unknown }> {
     try {
       // Procesar cada alerta individualmente para manejar conflictos
       for (const alertaId of alertasIds) {
@@ -95,7 +95,7 @@ export class AlertasLeidasService {
   }
 
   // Desmarcar una alerta como leída (por si se necesita)
-  async desmarcarAlertaLeida(userId: string, alertaId: string, companyId?: string): Promise<{ error: any }> {
+  async desmarcarAlertaLeida(userId: string, alertaId: string, companyId?: string): Promise<{ error: unknown }> {
     try {
       let query = this.supabase
         .from('alertas_leidas')
@@ -119,7 +119,7 @@ export class AlertasLeidasService {
   }
 
   // Limpiar alertas leídas antiguas (opcional, para mantenimiento)
-  async limpiarAlertasAntiguas(diasAntiguedad: number = 30): Promise<{ error: any }> {
+  async limpiarAlertasAntiguas(diasAntiguedad: number = 30): Promise<{ error: unknown }> {
     try {
       const fechaLimite = new Date()
       fechaLimite.setDate(fechaLimite.getDate() - diasAntiguedad)

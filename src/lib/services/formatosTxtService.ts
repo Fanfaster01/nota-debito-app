@@ -9,7 +9,7 @@ import type { FormatoTxtBancario, FacturaCuentaPorPagar, ProveedorConBanco } fro
 interface FormatoTemplateStructure {
   estructura: string[]
   separador: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 class FormatosTxtService {
@@ -130,7 +130,7 @@ class FormatosTxtService {
       try {
         assertValid(validate.companyId(formatoId), 'ID de formato')
       } catch (error) {
-        return { data: null, error: error instanceof Error ? error.message : 'ID de formato inválido' }
+        return { data: null, error: handleServiceError(error, 'ID de formato inválido') }
       }
 
       if (!facturas || facturas.length === 0) {

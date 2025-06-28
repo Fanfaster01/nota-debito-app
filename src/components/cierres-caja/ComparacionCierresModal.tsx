@@ -14,6 +14,14 @@ import {
 } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
 
+interface DiferenciasData {
+  diferenciaSistemico: number
+  diferenciaEfectivo: number
+  diferenciaPuntoVenta: number
+  diferenciaDiscrepancia: number
+  mejorPrecision: 'cierre1' | 'cierre2'
+}
+
 interface ComparacionCierresModalProps {
   cierres: CierreDetalladoUI[]
   isOpen: boolean
@@ -92,7 +100,7 @@ export default function ComparacionCierresModal({
   const generarRecomendaciones = (
     cierre1: CierreDetalladoUI, 
     cierre2: CierreDetalladoUI, 
-    diferencias: any
+    diferencias: DiferenciasData
   ): string[] => {
     const recomendaciones: string[] = []
 

@@ -15,6 +15,13 @@ interface CreditoCajaListProps {
   onCreditoEliminado: (creditoId: string) => void
 }
 
+interface CreditoFormData {
+  numeroFactura: string
+  nombreCliente: string
+  telefonoCliente: string
+  montoBs: string | number
+}
+
 export default function CreditoCajaList({ 
   creditos, 
   onCreditoActualizado, 
@@ -25,7 +32,7 @@ export default function CreditoCajaList({
   const deleteState = useAsyncState<void>()
   
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Record<string, any>>({})
+  const [formData, setFormData] = useState<Record<string, CreditoFormData>>({})
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const iniciarEdicion = (credito: CreditoCajaUI) => {
@@ -57,7 +64,7 @@ export default function CreditoCajaList({
           numeroFactura: datos.numeroFactura,
           nombreCliente: datos.nombreCliente,
           telefonoCliente: datos.telefonoCliente,
-          montoBs: parseFloat(datos.montoBs)
+          montoBs: typeof datos.montoBs === 'string' ? parseFloat(datos.montoBs) : datos.montoBs
         })
 
         if (updateError) {
@@ -99,11 +106,11 @@ export default function CreditoCajaList({
     }
   }
 
-  const actualizarCampo = (creditoId: string, campo: string, valor: string) => {
+  const actualizarCampo = (creditoId: string, campo: keyof CreditoFormData, valor: string) => {
     setFormData(prev => ({
       ...prev,
       [creditoId]: {
-        ...prev[creditoId],
+        ...(prev[creditoId] || {}),
         [campo]: valor
       }
     }))
@@ -176,7 +183,7 @@ export default function CreditoCajaList({
           <tbody className="bg-white divide-y divide-gray-200">
             {creditos.map((credito) => {
               const estaEditando = editandoId === credito.id
-              const datos = estaEditando ? formData[credito.id!] : credito
+              const datos = estaEditando ? formData[credito.id!] : null
 
               return (
                 <tr key={credito.id} className={estaEditando ? 'bg-blue-50' : ''}>
@@ -187,7 +194,7 @@ export default function CreditoCajaList({
                     {estaEditando ? (
                       <input
                         type="text"
-                        value={datos.numeroFactura}
+                        value={datos?.numeroFactura || ''}
                         onChange={(e) => actualizarCampo(credito.id!, 'numeroFactura', e.target.value)}
                         className="w-24 px-2 py-1 border border-gray-300 rounded-md text-sm"
                       />
@@ -199,7 +206,7 @@ export default function CreditoCajaList({
                     {estaEditando ? (
                       <input
                         type="text"
-                        value={datos.nombreCliente}
+                        value={datos?.nombreCliente || ''}
                         onChange={(e) => actualizarCampo(credito.id!, 'nombreCliente', e.target.value)}
                         className="w-full px-2 py-1 border border-gray-300 rounded-md text-sm"
                       />
@@ -211,7 +218,7 @@ export default function CreditoCajaList({
                     {estaEditando ? (
                       <input
                         type="text"
-                        value={datos.telefonoCliente}
+                        value={datos?.telefonoCliente || ''}
                         onChange={(e) => actualizarCampo(credito.id!, 'telefonoCliente', e.target.value)}
                         className="w-32 px-2 py-1 border border-gray-300 rounded-md text-sm"
                       />
@@ -224,7 +231,7 @@ export default function CreditoCajaList({
                       <input
                         type="number"
                         step="0.01"
-                        value={datos.montoBs}
+                        value={datos?.montoBs || ''}
                         onChange={(e) => actualizarCampo(credito.id!, 'montoBs', e.target.value)}
                         className="w-28 px-2 py-1 border border-gray-300 rounded-md text-sm text-right"
                       />

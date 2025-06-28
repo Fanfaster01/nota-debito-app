@@ -22,12 +22,24 @@ import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { exportEstadoCuentaClienteToExcel } from '@/utils/exportCreditosExcel'
 import { generateEstadoCuentaClientePDF } from '@/utils/pdfGenerator'
+import { Cliente } from '@/types/database'
+
+interface EstadoCuentaCliente {
+  cliente: Cliente
+  creditos: CreditoDetalladoUI[]
+  totales: {
+    totalCreditos: number
+    creditosPendientes: number
+    montoPendiente: number
+    montoAbonado: number
+  }
+}
 
 export default function EstadoCuentaPage() {
   const { user } = useAuth()
   
   // Estados con useAsyncState
-  const { data: estadoCuenta, loading, error, execute: loadEstadoCuentaData } = useAsyncState<any>()
+  const { data: estadoCuenta, loading, error, execute: loadEstadoCuentaData } = useAsyncState<EstadoCuentaCliente | null>()
   
   // Estados locales para UI
   const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)

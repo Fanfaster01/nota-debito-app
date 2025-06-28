@@ -7,11 +7,27 @@ import type {
   NotaDebitoGenerada 
 } from '@/types/cuentasPorPagar'
 
+// Tipos específicos para autoTable
+interface AutoTableConfig {
+  head?: (string | number)[][]
+  body?: (string | number)[][]
+  startY?: number
+  margin?: { top?: number; left?: number; right?: number; bottom?: number }
+  styles?: Record<string, unknown>
+  headStyles?: Record<string, unknown>
+  bodyStyles?: Record<string, unknown>
+  columnStyles?: Record<string, unknown>
+  theme?: string
+  tableWidth?: string | number
+  showHead?: boolean
+  showFoot?: boolean
+}
+
 // Extend jsPDF type for autoTable
 declare module 'jspdf' {
   interface jsPDF {
-    autoTable: (options: any) => jsPDF
-    lastAutoTable: {
+    autoTable: (options: AutoTableConfig) => jsPDF
+    lastAutoTable?: {
       finalY: number
     }
   }
@@ -107,7 +123,7 @@ export function generarReciboPDF(
     margin: { left: margin, right: margin }
   })
 
-  yPosition = doc.lastAutoTable.finalY + 15
+  yPosition = (doc.lastAutoTable?.finalY ?? yPosition) + 15
 
   // Resumen de montos
   doc.setFontSize(12)
@@ -244,7 +260,7 @@ export function generarNotasDebitoPDF(
       margin: { left: margin, right: margin }
     })
 
-    yPosition = doc.lastAutoTable.finalY + 15
+    yPosition = (doc.lastAutoTable?.finalY ?? yPosition) + 15
 
     // Monto final
     doc.setFontSize(14)
@@ -329,13 +345,15 @@ export function previsualizarPDF(dataUri: string, titulo: string): void {
 
 /**
  * Obtener información de la empresa para los PDFs
+ * @param company - Objeto de empresa con propiedades de tipo desconocido
+ * @returns EmpresaInfo con valores seguros y por defecto
  */
-export function getEmpresaInfoFromCompany(company: any): EmpresaInfo {
+export function getEmpresaInfoFromCompany(company: Record<string, unknown>): EmpresaInfo {
   return {
-    nombre: company.name || 'Empresa',
-    rif: company.rif || 'J-00000000-0',
-    direccion: company.address || 'Dirección no especificada',
-    telefono: company.phone,
-    email: company.email
+    nombre: typeof company.name === 'string' ? company.name : 'Empresa',
+    rif: typeof company.rif === 'string' ? company.rif : 'J-00000000-0',
+    direccion: typeof company.address === 'string' ? company.address : 'Dirección no especificada',
+    telefono: typeof company.phone === 'string' ? company.phone : undefined,
+    email: typeof company.email === 'string' ? company.email : undefined
   }
 }

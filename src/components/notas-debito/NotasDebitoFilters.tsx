@@ -4,15 +4,17 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { MagnifyingGlassIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 
+interface NotasDebitoFilters {
+  fechaDesde?: string
+  fechaHasta?: string
+  proveedor?: string
+  numeroNota?: string
+  numeroFactura?: string
+}
+
 interface NotasDebitoFiltersProps {
-  filters: {
-    fechaDesde?: string
-    fechaHasta?: string
-    proveedor?: string
-    numeroNota?: string
-    numeroFactura?: string
-  }
-  onFilterChange: (filters: any) => void
+  filters: NotasDebitoFilters
+  onFilterChange: (filters: NotasDebitoFilters) => void
   onSearch: () => void
   onClear: () => void
   loading?: boolean

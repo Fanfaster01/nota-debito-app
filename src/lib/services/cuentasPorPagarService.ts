@@ -78,7 +78,7 @@ class CuentasPorPagarService {
       this.validateCompanyId(companyId)
       
       const cleanCompanyId = companyId.trim()
-      console.log('Intentando consulta de facturas para company:', cleanCompanyId)
+      // DEBUG: console.log('Intentando consulta de facturas para company:', cleanCompanyId)
       
       // Intentar consulta con columnas extendidas
       let queryResult = await supabase
@@ -120,7 +120,7 @@ class CuentasPorPagarService {
       
       // Si hay error, intentar consulta básica
       if (queryResult.error && queryResult.error.message?.includes('does not exist')) {
-        console.log('Columnas extendidas no disponibles, usando consulta básica')
+        // DEBUG: console.log('Columnas extendidas no disponibles, usando consulta básica')
         
         queryResult = await supabase
           .from('facturas')
@@ -183,7 +183,7 @@ class CuentasPorPagarService {
         facturas: facturasConCalculos
       }
 
-      console.log('Facturas obtenidas:', paginacion.facturas.length)
+      // DEBUG: console.log('Facturas obtenidas:', paginacion.facturas.length)
       return paginacion
     }, 'getFacturas', null)
   }
@@ -379,7 +379,7 @@ class CuentasPorPagarService {
       
       // Si hay error, intentar consulta básica
       if (queryResult.error && queryResult.error.message?.includes('does not exist')) {
-        console.log('Columnas extendidas no disponibles en métricas, usando consulta básica')
+        // DEBUG: console.log('Columnas extendidas no disponibles en métricas, usando consulta básica')
         
         queryResult = await supabase
           .from('facturas')
@@ -480,7 +480,7 @@ class CuentasPorPagarService {
       
       // Si hay error, intentar consulta básica
       if (queryResult.error && queryResult.error.message?.includes('does not exist')) {
-        console.log('Columnas extendidas no disponibles en gráficos, usando consulta básica')
+        // DEBUG: console.log('Columnas extendidas no disponibles en gráficos, usando consulta básica')
         
         queryResult = await supabase
           .from('facturas')
@@ -662,10 +662,10 @@ class CuentasPorPagarService {
     request: GenerarReciboRequest
   ): Promise<{ data: GenerarReciboResponse | null; error: string | null }> {
     try {
-      console.log('🚀 Iniciando generación de recibo:', { companyId, userId, request })
+      // DEBUG: console.log('🚀 Iniciando generación de recibo:', { companyId, userId, request })
       
       // 1. Validar facturas
-      console.log('📋 Paso 1: Validando facturas...')
+      // DEBUG: console.log('📋 Paso 1: Validando facturas...')
       const validacionResult = await this.validarFacturasParaPago(request.facturasIds)
       if (validacionResult.error || !validacionResult.data) {
         console.error('❌ Error en validación:', validacionResult.error)
@@ -677,10 +677,10 @@ class CuentasPorPagarService {
         console.error('❌ Facturas inválidas:', validacion.invalidas)
         throw new Error(`Facturas inválidas: ${validacion.invalidas.map(i => i.motivo).join(', ')}`)
       }
-      console.log('✅ Validación exitosa, facturas válidas:', validacion.validas.length)
+      // DEBUG: console.log('✅ Validación exitosa, facturas válidas:', validacion.validas.length)
 
       // 2. Generar número de recibo
-      console.log('🔢 Paso 2: Generando número de recibo...')
+      // DEBUG: console.log('🔢 Paso 2: Generando número de recibo...')
       let numeroRecibo: string
       try {
         const { data, error } = await supabase
@@ -711,10 +711,10 @@ class CuentasPorPagarService {
             }
           }
           numeroRecibo = `REC-${nextNumber.toString().padStart(5, '0')}`
-          console.log('✅ Número generado manualmente:', numeroRecibo)
+          // DEBUG: console.log('✅ Número generado manualmente:', numeroRecibo)
         } else {
           numeroRecibo = data
-          console.log('✅ Número generado por RPC:', numeroRecibo)
+          // DEBUG: console.log('✅ Número generado por RPC:', numeroRecibo)
         }
       } catch (err) {
         console.error('❌ Error generando número de recibo:', err)
@@ -722,16 +722,16 @@ class CuentasPorPagarService {
       }
 
       // 3. Generar notas de débito si es necesario
-      console.log('📄 Paso 3: Generando notas de débito...')
+      // DEBUG: console.log('📄 Paso 3: Generando notas de débito...')
       const notasDebito: NotaDebitoGenerada[] = []
       if (request.tipoPago === 'deposito') {
-        console.log('💰 Tipo de pago es depósito, generando notas de débito...')
+        // DEBUG: console.log('💰 Tipo de pago es depósito, generando notas de débito...')
         for (const factura of validacion.validas) {
           try {
             const notaDebito = await this.generarNotaDebitoPorDiferencial(factura, userId)
             if (notaDebito) {
               notasDebito.push(notaDebito)
-              console.log('✅ Nota de débito generada para factura:', factura.numero)
+              // DEBUG: console.log('✅ Nota de débito generada para factura:', factura.numero)
             }
           } catch (error) {
             console.error('❌ Error generando nota de débito para factura:', factura.numero, error)
@@ -739,10 +739,10 @@ class CuentasPorPagarService {
           }
         }
       }
-      console.log('✅ Notas de débito generadas:', notasDebito.length)
+      // DEBUG: console.log('✅ Notas de débito generadas:', notasDebito.length)
 
       // 4. Crear recibo de pago
-      console.log('📝 Paso 4: Creando recibo de pago...')
+      // DEBUG: console.log('📝 Paso 4: Creando recibo de pago...')
       const reciboData = {
         numero_recibo: numeroRecibo,
         company_id: companyId,
@@ -757,7 +757,7 @@ class CuentasPorPagarService {
         created_by: userId
       }
 
-      console.log('💾 Insertando recibo en la base de datos:', reciboData)
+      // DEBUG: console.log('💾 Insertando recibo en la base de datos:', reciboData)
       
       // Validate user ID format
       assertValid(validate.userId(userId), 'Usuario ID')
@@ -773,7 +773,7 @@ class CuentasPorPagarService {
           console.error('❌ No se puede acceder a la tabla recibos_pago:', accessError)
           throw new Error(`Error de acceso a tabla: ${accessError.message}`)
         }
-        console.log('✅ Tabla recibos_pago es accesible')
+        // DEBUG: console.log('✅ Tabla recibos_pago es accesible')
       } catch (err) {
         console.error('❌ Error verificando acceso a tabla:', err)
         throw err
@@ -795,15 +795,15 @@ class CuentasPorPagarService {
         })
         throw new Error(`Error insertando recibo: ${errorRecibo?.message || errorRecibo?.code || 'Unknown error'}`)
       }
-      console.log('✅ Recibo creado exitosamente:', recibo.id)
+      // DEBUG: console.log('✅ Recibo creado exitosamente:', recibo.id)
 
       // 5. Actualizar estado de facturas
-      console.log('🔄 Paso 5: Actualizando estado de facturas...')
+      // DEBUG: console.log('🔄 Paso 5: Actualizando estado de facturas...')
       const nuevoEstado = request.tipoPago === 'efectivo' ? 'pagada' : 'pendiente_aprobacion'
       for (const facturaId of request.facturasIds) {
         try {
           await this.updateEstadoPago(facturaId, nuevoEstado)
-          console.log('✅ Factura actualizada:', facturaId, 'a estado:', nuevoEstado)
+          // DEBUG: console.log('✅ Factura actualizada:', facturaId, 'a estado:', nuevoEstado)
         } catch (error) {
           console.error('❌ Error actualizando factura:', facturaId, error)
           throw error
@@ -811,7 +811,7 @@ class CuentasPorPagarService {
       }
 
       // 6. Generar archivos PDF y TXT
-      console.log('📎 Paso 6: Preparando respuesta...')
+      // DEBUG: console.log('📎 Paso 6: Preparando respuesta...')
       const response: GenerarReciboResponse = {
         recibo: this.mapToReciboPago(recibo),
         notasDebito,
@@ -820,17 +820,17 @@ class CuentasPorPagarService {
       }
 
       if (request.formatoTxtId && request.tipoPago === 'deposito') {
-        console.log('📄 Generando archivo TXT...')
+        // DEBUG: console.log('📄 Generando archivo TXT...')
         try {
           response.archivoTxt = await this.generarArchivoTxt(validacion.validas, request.formatoTxtId)
-          console.log('✅ Archivo TXT generado')
+          // DEBUG: console.log('✅ Archivo TXT generado')
         } catch (error) {
           console.error('❌ Error generando archivo TXT:', error)
           throw error
         }
       }
 
-      console.log('🎉 Recibo generado exitosamente!')
+      // DEBUG: console.log('🎉 Recibo generado exitosamente!')
       return { data: response, error: null }
     } catch (err) {
       console.error('Error al generar recibo:', err)
@@ -843,58 +843,64 @@ class CuentasPorPagarService {
   // ============================================================================
 
   private mapToFacturaCuentaPorPagar(data: unknown): FacturaCuentaPorPagar {
-    const factura = data as any // Type assertion for complex database object
+    const factura = data as Record<string, unknown> // Type assertion for complex database object
     return {
-      id: factura.id,
-      numero: factura.numero,
-      numeroControl: factura.numero_control,
-      fecha: factura.fecha,
-      fechaVencimiento: factura.fecha_vencimiento || undefined,
-      estadoPago: factura.estado_pago || 'pendiente', // Valor por defecto
-      fechaPago: factura.fecha_pago || undefined,
-      notasPago: factura.notas_pago || undefined,
-      tipoPago: factura.tipo_pago || 'deposito', // Valor por defecto
-      proveedorNombre: factura.proveedor_nombre,
-      proveedorRif: factura.proveedor_rif,
-      proveedorDireccion: factura.proveedor_direccion,
-      clienteNombre: factura.cliente_nombre,
-      clienteRif: factura.cliente_rif,
-      clienteDireccion: factura.cliente_direccion,
-      subTotal: factura.sub_total,
-      montoExento: factura.monto_exento,
-      baseImponible: factura.base_imponible,
-      alicuotaIVA: factura.alicuota_iva,
-      iva: factura.iva,
-      total: factura.total,
-      tasaCambio: factura.tasa_cambio,
-      montoUSD: factura.monto_usd,
-      porcentajeRetencion: factura.porcentaje_retencion,
-      retencionIVA: factura.retencion_iva,
-      companyId: factura.company_id,
-      createdBy: factura.created_by,
-      createdAt: factura.created_at,
-      updatedAt: factura.updated_at
+      id: typeof factura.id === 'string' ? factura.id : '',
+      numero: typeof factura.numero === 'string' ? factura.numero : '',
+      numeroControl: typeof factura.numero_control === 'string' ? factura.numero_control : '',
+      fecha: typeof factura.fecha === 'string' ? factura.fecha : '',
+      fechaVencimiento: typeof factura.fecha_vencimiento === 'string' ? factura.fecha_vencimiento : undefined,
+      estadoPago: (typeof factura.estado_pago === 'string' && ['pendiente', 'pagada', 'pendiente_aprobacion', 'vencida'].includes(factura.estado_pago)) 
+        ? factura.estado_pago as 'pendiente' | 'pagada' | 'pendiente_aprobacion' | 'vencida'
+        : 'pendiente',
+      fechaPago: typeof factura.fecha_pago === 'string' ? factura.fecha_pago : undefined,
+      notasPago: typeof factura.notas_pago === 'string' ? factura.notas_pago : undefined,
+      tipoPago: (typeof factura.tipo_pago === 'string' && ['efectivo', 'deposito'].includes(factura.tipo_pago))
+        ? factura.tipo_pago as 'efectivo' | 'deposito'
+        : 'deposito',
+      proveedorNombre: typeof factura.proveedor_nombre === 'string' ? factura.proveedor_nombre : '',
+      proveedorRif: typeof factura.proveedor_rif === 'string' ? factura.proveedor_rif : '',
+      proveedorDireccion: typeof factura.proveedor_direccion === 'string' ? factura.proveedor_direccion : '',
+      clienteNombre: typeof factura.cliente_nombre === 'string' ? factura.cliente_nombre : '',
+      clienteRif: typeof factura.cliente_rif === 'string' ? factura.cliente_rif : '',
+      clienteDireccion: typeof factura.cliente_direccion === 'string' ? factura.cliente_direccion : '',
+      subTotal: typeof factura.sub_total === 'number' ? factura.sub_total : 0,
+      montoExento: typeof factura.monto_exento === 'number' ? factura.monto_exento : 0,
+      baseImponible: typeof factura.base_imponible === 'number' ? factura.base_imponible : 0,
+      alicuotaIVA: typeof factura.alicuota_iva === 'number' ? factura.alicuota_iva : 0,
+      iva: typeof factura.iva === 'number' ? factura.iva : 0,
+      total: typeof factura.total === 'number' ? factura.total : 0,
+      tasaCambio: typeof factura.tasa_cambio === 'number' ? factura.tasa_cambio : 1,
+      montoUSD: typeof factura.monto_usd === 'number' ? factura.monto_usd : 0,
+      porcentajeRetencion: typeof factura.porcentaje_retencion === 'number' ? factura.porcentaje_retencion : 0,
+      retencionIVA: typeof factura.retencion_iva === 'number' ? factura.retencion_iva : 0,
+      companyId: typeof factura.company_id === 'string' ? factura.company_id : '',
+      createdBy: typeof factura.created_by === 'string' ? factura.created_by : '',
+      createdAt: typeof factura.created_at === 'string' ? factura.created_at : '',
+      updatedAt: typeof factura.updated_at === 'string' ? factura.updated_at : ''
     }
   }
 
   private mapToReciboPago(data: unknown): ReciboPago {
-    const recibo = data as any // Type assertion for complex database object
+    const recibo = data as Record<string, unknown> // Type assertion for complex database object
     return {
-      id: recibo.id,
-      numeroRecibo: recibo.numero_recibo,
-      companyId: recibo.company_id,
-      tipoRecibo: recibo.tipo_recibo,
-      tipoPago: recibo.tipo_pago,
-      facturasIds: JSON.parse(recibo.facturas_ids),
-      montoTotalBs: recibo.monto_total_bs,
-      montoTotalUsd: recibo.monto_total_usd,
-      bancoDestino: recibo.banco_destino,
-      formatoTxtId: recibo.formato_txt_id,
-      archivoTxtGenerado: recibo.archivo_txt_generado,
-      notas: recibo.notas,
-      createdBy: recibo.created_by,
-      createdAt: recibo.created_at,
-      updatedAt: recibo.updated_at
+      id: typeof recibo.id === 'string' ? recibo.id : '',
+      numeroRecibo: typeof recibo.numero_recibo === 'string' ? recibo.numero_recibo : '',
+      companyId: typeof recibo.company_id === 'string' ? recibo.company_id : '',
+      tipoRecibo: (typeof recibo.tipo_recibo === 'string' && ['individual', 'lote'].includes(recibo.tipo_recibo))
+        ? recibo.tipo_recibo as 'individual' | 'lote'
+        : 'individual',
+      tipoPago: recibo.tipo_pago as 'efectivo' | 'deposito',
+      facturasIds: JSON.parse(typeof recibo.facturas_ids === 'string' ? recibo.facturas_ids : '[]'),
+      montoTotalBs: typeof recibo.monto_total_bs === 'number' ? recibo.monto_total_bs : 0,
+      montoTotalUsd: typeof recibo.monto_total_usd === 'number' ? recibo.monto_total_usd : undefined,
+      bancoDestino: typeof recibo.banco_destino === 'string' ? recibo.banco_destino : undefined,
+      formatoTxtId: typeof recibo.formato_txt_id === 'string' ? recibo.formato_txt_id : undefined,
+      archivoTxtGenerado: typeof recibo.archivo_txt_generado === 'boolean' ? recibo.archivo_txt_generado : false,
+      notas: typeof recibo.notas === 'string' ? recibo.notas : undefined,
+      createdBy: typeof recibo.created_by === 'string' ? recibo.created_by : '',
+      createdAt: typeof recibo.created_at === 'string' ? recibo.created_at : '',
+      updatedAt: typeof recibo.updated_at === 'string' ? recibo.updated_at : ''
     }
   }
 
@@ -919,7 +925,7 @@ class CuentasPorPagarService {
     userId: string
   ): Promise<NotaDebitoGenerada | null> {
     try {
-      console.log('🔄 Verificando diferencial cambiario para factura:', factura.numero)
+      // DEBUG: console.log('🔄 Verificando diferencial cambiario para factura:', factura.numero)
       
       // Importar el servicio de notas de débito automáticas
       const { notasDebitoAutomaticasService } = await import('./notasDebitoAutomaticasService')
@@ -937,11 +943,11 @@ class CuentasPorPagarService {
       const diferencial = Math.abs(tasaActual - factura.tasaCambio) * factura.montoUSD
       
       if (diferencial <= 0.01) { // Umbral mínimo
-        console.log('ℹ️ No hay diferencial cambiario significativo para factura:', factura.numero, 'Diferencial:', diferencial)
+        // DEBUG: console.log('ℹ️ No hay diferencial cambiario significativo para factura:', factura.numero, 'Diferencial:', diferencial)
         return null
       }
       
-      console.log('💱 Diferencial encontrado:', diferencial, 'para factura:', factura.numero)
+      // DEBUG: console.log('💱 Diferencial encontrado:', diferencial, 'para factura:', factura.numero)
       
       // Generar la nota de débito automática
       const notaDebitoResult = await notasDebitoAutomaticasService.generarNotaDebitoAutomatica(
@@ -956,7 +962,7 @@ class CuentasPorPagarService {
         return null
       }
       
-      console.log('✅ Nota de débito automática generada:', notaDebitoResult.data.id)
+      // DEBUG: console.log('✅ Nota de débito automática generada:', notaDebitoResult.data.id)
       return notaDebitoResult.data
       
     } catch (error) {
@@ -1082,7 +1088,7 @@ class CuentasPorPagarService {
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'companyId inválido'
+        error: handleServiceError(error, 'companyId inválido')
       }
     }
     

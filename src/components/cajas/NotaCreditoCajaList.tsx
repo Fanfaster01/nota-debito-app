@@ -14,13 +14,21 @@ interface NotaCreditoCajaListProps {
   onNotaEliminada: (notaId: string) => void
 }
 
+interface NotaFormData {
+  numeroNotaCredito: string
+  facturaAfectada: string
+  montoBs: string | number
+  nombreCliente: string
+  explicacion: string
+}
+
 export default function NotaCreditoCajaList({ 
   notasCredito, 
   onNotaActualizada, 
   onNotaEliminada 
 }: NotaCreditoCajaListProps) {
   const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [formData, setFormData] = useState<Record<string, any>>({})
+  const [formData, setFormData] = useState<Record<string, NotaFormData>>({})
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -55,13 +63,13 @@ export default function NotaCreditoCajaList({
       const { data, error: updateError } = await cajaService.actualizarNotaCreditoCaja(notaId, {
         numeroNotaCredito: datos.numeroNotaCredito,
         facturaAfectada: datos.facturaAfectada,
-        montoBs: parseFloat(datos.montoBs),
+        montoBs: typeof datos.montoBs === 'string' ? parseFloat(datos.montoBs) : datos.montoBs,
         nombreCliente: datos.nombreCliente,
         explicacion: datos.explicacion
       })
 
       if (updateError) {
-        setError(updateError.message || 'Error al actualizar la nota de crédito')
+        setError((updateError instanceof Error ? updateError.message : String(updateError)) || 'Error al actualizar la nota de crédito')
         return
       }
 
@@ -82,7 +90,7 @@ export default function NotaCreditoCajaList({
       const { error: deleteError } = await cajaService.eliminarNotaCreditoCaja(notaId)
 
       if (deleteError) {
-        setError(deleteError.message || 'Error al eliminar la nota de crédito')
+        setError((deleteError instanceof Error ? deleteError.message : String(deleteError)) || 'Error al eliminar la nota de crédito')
         return
       }
 

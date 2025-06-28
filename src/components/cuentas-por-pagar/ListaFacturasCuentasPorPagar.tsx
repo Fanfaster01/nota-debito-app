@@ -87,7 +87,7 @@ export function ListaFacturasCuentasPorPagar({
     }
   }
 
-  const handleFiltroChange = (campo: keyof FiltrosCuentasPorPagar, valor: any) => {
+  const handleFiltroChange = (campo: keyof FiltrosCuentasPorPagar, valor: FiltrosCuentasPorPagar[keyof FiltrosCuentasPorPagar]) => {
     setFiltros(prev => ({
       ...prev,
       [campo]: valor || undefined

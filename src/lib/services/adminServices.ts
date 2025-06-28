@@ -482,6 +482,41 @@ export class DashboardService {
         console.warn('CierresCajaService no disponible:', handleServiceError(error, 'Error al cargar CierresCajaService'))
       }
 
+      // Obtener alertas de notificaciones de créditos
+      try {
+        const { notificationService } = await import('./notificationService')
+        const { data: notificacionesData } = await notificationService.generateNotifications(companyId)
+        
+        // Obtener usuario actual para filtrar alertas leídas
+        const { data: { user } } = await this.supabase.auth.getUser()
+        
+        if (notificacionesData && user) {
+          // Obtener alertas leídas
+          const { alertasLeidasService } = await import('./alertasLeidasService')
+          const { data: alertasLeidasIds } = await alertasLeidasService.getAlertasLeidas(user.id, companyId)
+          
+          // Filtrar alertas no leídas
+          const alertasNoLeidas = notificacionesData.filter(notif => 
+            !alertasLeidasIds?.includes(notif.id)
+          )
+          
+          // Convertir notificaciones a formato de alertas
+          const alertasNotificaciones: Alerta[] = alertasNoLeidas.map(notif => ({
+            severidad: notif.priority === 'high' ? 'alta' : 
+                      notif.priority === 'medium' ? 'media' : 'leve',
+            id: notif.id,
+            type: notif.type,
+            title: notif.title,
+            message: notif.message
+          }))
+          
+          // Agregar a las alertas existentes
+          alertas = [...alertas, ...alertasNotificaciones]
+        }
+      } catch (error) {
+        console.warn('NotificationService no disponible:', handleServiceError(error, 'Error al cargar NotificationService'))
+      }
+
       try {
         const { creditoService } = await import('./creditoService')
         const { data: creditosData } = await creditoService.getResumenCreditos(companyId)

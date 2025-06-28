@@ -54,8 +54,8 @@ export const NotasDebitoList: React.FC<NotasDebitoListProps> = ({
   const sortedNotasDebito = [...notasDebito].sort((a, b) => {
     if (!sortField) return 0
 
-    let aValue: any
-    let bValue: any
+    let aValue: string | number | undefined
+    let bValue: string | number | undefined
 
     switch (sortField) {
       case 'numero':
