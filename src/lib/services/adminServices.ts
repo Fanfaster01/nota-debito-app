@@ -1,6 +1,7 @@
 // src/lib/services/adminServices.ts
 import { createClient } from '@/utils/supabase/client'
 import { Company, User, TablesInsert, TablesUpdate } from '@/types/database'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 // Servicio para gestionar compañías
 export class CompanyService {
@@ -15,8 +16,9 @@ export class CompanyService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating company:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear la compañía') }
     }
   }
 
@@ -28,8 +30,9 @@ export class CompanyService {
         .order('name')
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting all companies:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener las compañías') }
     }
   }
 
@@ -42,8 +45,9 @@ export class CompanyService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting company by id:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener la compañía') }
     }
   }
 
@@ -57,8 +61,9 @@ export class CompanyService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating company:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar la compañía') }
     }
   }
 
@@ -70,8 +75,9 @@ export class CompanyService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error deleting company:', err)
+      return { error: handleServiceError(err, 'Error al eliminar la compañía') }
     }
   }
 
@@ -99,8 +105,9 @@ export class AdminUserService {
         .order('created_at', { ascending: false })
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting all users:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener los usuarios') }
     }
   }
 
@@ -120,8 +127,9 @@ export class AdminUserService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting user by id:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener el usuario') }
     }
   }
 
@@ -142,8 +150,9 @@ export class AdminUserService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating user:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar el usuario') }
     }
   }
 
@@ -167,8 +176,9 @@ export class AdminUserService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error deleting user:', err)
+      return { error: handleServiceError(err, 'Error al eliminar el usuario') }
     }
   }
 
@@ -181,8 +191,9 @@ export class AdminUserService {
         .order('full_name')
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting users by company:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener usuarios de la compañía') }
     }
   }
 
@@ -207,7 +218,7 @@ export class AdminUserService {
       })
 
       if (authError || !authData.user) {
-        return { data: null, error: authError || new Error('No se pudo crear el usuario') }
+        return { data: null, error: handleServiceError(authError || new Error('No se pudo crear el usuario'), 'Error al crear usuario en auth') }
       }
 
       // Luego crear el perfil en la tabla users
@@ -235,12 +246,13 @@ export class AdminUserService {
         // Si falla la creación del perfil, intentar eliminar el usuario de auth
         // Nota: Esto puede requerir permisos de service_role
         console.error('Error creating user profile:', profileError)
-        return { data: null, error: profileError }
+        return { data: null, error: handleServiceError(profileError, 'Error al crear perfil de usuario') }
       }
 
       return { data: userProfile, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating user:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear el usuario') }
     }
   }
 }
@@ -380,8 +392,9 @@ export class DashboardService {
       }
 
       return { data: stats, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting dashboard stats:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener estadísticas del dashboard') }
     }
   }
 
@@ -451,7 +464,7 @@ export class DashboardService {
           Object.assign(cajaResumen, cajaData)
         }
       } catch (error) {
-        console.warn('CajaService no disponible:', error)
+        console.warn('CajaService no disponible:', handleServiceError(error, 'Error al cargar CajaService'))
       }
 
       try {
@@ -466,7 +479,7 @@ export class DashboardService {
           alertas = alertasData as Alerta[]
         }
       } catch (error) {
-        console.warn('CierresCajaService no disponible:', error)
+        console.warn('CierresCajaService no disponible:', handleServiceError(error, 'Error al cargar CierresCajaService'))
       }
 
       try {
@@ -476,7 +489,7 @@ export class DashboardService {
           Object.assign(creditosResumen, creditosData)
         }
       } catch (error) {
-        console.warn('CreditoService no disponible:', error)
+        console.warn('CreditoService no disponible:', handleServiceError(error, 'Error al cargar CreditoService'))
       }
 
       // Construir estadísticas completas
@@ -517,8 +530,9 @@ export class DashboardService {
       }
 
       return { data: masterStats, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting master dashboard stats:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener estadísticas master del dashboard') }
     }
   }
 
@@ -558,8 +572,9 @@ export class DashboardService {
             usuariosActivos: company.users?.length || 0,
             isActive: company.is_active
           })
-        } catch (error) {
+        } catch (err) {
           // Si falla para una compañía, continuar con las demás
+          console.warn('Error getting stats for company:', company.name, handleServiceError(err, 'Error al obtener estadísticas de compañía'))
           ranking.push({
             id: company.id,
             name: company.name,
@@ -577,8 +592,9 @@ export class DashboardService {
       ranking.sort((a, b) => b.totalVentas - a.totalVentas)
 
       return { data: ranking, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting company ranking:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener ranking de compañías') }
     }
   }
 
@@ -592,8 +608,9 @@ export class DashboardService {
         .order('name')
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting active companies:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener compañías activas') }
     }
   }
 
@@ -662,8 +679,9 @@ export class DashboardService {
         .slice(0, limit)
 
       return { data: sortedActivities, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting recent activity:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener actividad reciente') }
     }
   }
 }

@@ -2,6 +2,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { CreditoDetalladoUI, AbonoUI, FiltrosCredito, ResumenCreditos } from '@/types/creditos'
 import { TablesInsert } from '@/types/database'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export class CreditoService {
   private supabase = createClient()
@@ -169,8 +170,9 @@ export class CreditoService {
       }
 
       return { data: creditos, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting creditos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener créditos') }
     }
   }
 
@@ -219,8 +221,9 @@ export class CreditoService {
       creditoMapped.usuario = usuario || undefined
 
       return { data: creditoMapped, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting credito:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener crédito') }
     }
   }
 
@@ -253,8 +256,9 @@ export class CreditoService {
       if (error) return { data: null, error }
 
       return await this.getCredito(id)
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating credito:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar crédito') }
     }
   }
 
@@ -295,8 +299,9 @@ export class CreditoService {
       if (error) return { data: null, error }
 
       return { data: this.mapAbonoFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error registering abono:', err)
+      return { data: null, error: handleServiceError(err, 'Error al registrar abono') }
     }
   }
 
@@ -314,7 +319,7 @@ export class CreditoService {
       const saldoPendiente = credito.monto_bs - (credito.monto_abonado || 0)
       
       if (saldoPendiente > 0) {
-        return { error: new Error('El crédito tiene saldo pendiente. Debe registrar el pago completo.') }
+        return { error: handleServiceError(new Error('El crédito tiene saldo pendiente. Debe registrar el pago completo.'), 'Saldo pendiente') }
       }
 
       const { error } = await this.supabase
@@ -326,8 +331,9 @@ export class CreditoService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error marking credito as paid:', err)
+      return { error: handleServiceError(err, 'Error al marcar crédito como pagado') }
     }
   }
 
@@ -365,8 +371,9 @@ export class CreditoService {
       }
 
       return { data: resumen, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting resumen creditos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener resumen de créditos') }
     }
   }
 
@@ -417,8 +424,9 @@ export class CreditoService {
         },
         error: null
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting estado cuenta cliente:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener estado de cuenta del cliente') }
     }
   }
 }

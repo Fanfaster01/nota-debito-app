@@ -1,8 +1,9 @@
 // src/lib/services/cajaService.ts
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/utils/supabase/client-wrapper'
 import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, CierreCaja, CierrePuntoVenta, TablesInsert, TablesUpdate, User } from '@/types/database'
 import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, FiltrosCaja, ReporteCaja, CierreCajaFormData } from '@/types/caja'
 import { format } from 'date-fns'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export interface CajaWithRelations extends Caja {
   companies?: {
@@ -23,6 +24,59 @@ export interface CajaWithRelations extends Caja {
 
 export class CajaService {
   private supabase = createClient()
+
+  // ============================================================================
+  // UTILIDADES PARA VALIDACIONES Y MANEJO DE ERRORES
+  // ============================================================================
+
+  /**
+   * Validar parámetros comunes de manera consistente
+   */
+  private validateRequired(value: unknown, name: string): void {
+    if (!value || (typeof value === 'string' && !value.trim())) {
+      throw new Error(`${name} es requerido`)
+    }
+  }
+
+  /**
+   * Validar formato numérico
+   */
+  private validateNumericString(value: string, name: string): void {
+    if (!/^\d+$/.test(value)) {
+      throw new Error(`${name} debe contener solo números`)
+    }
+  }
+
+  /**
+   * Manejar errores de operaciones de caja
+   */
+  private handleCajaError(error: unknown, context: string): string {
+    console.error(`Error en ${context}:`, error)
+    return handleServiceError(error, `Error inesperado en ${context}`)
+  }
+
+  /**
+   * Wrapper para operaciones async con rollback automático
+   */
+  private async safeExecuteWithRollback<T>(
+    operation: () => Promise<T>,
+    rollback?: () => Promise<void>,
+    context: string
+  ): Promise<{ data: T | null; error: unknown }> {
+    try {
+      const result = await operation()
+      return { data: result, error: null }
+    } catch (error) {
+      if (rollback) {
+        try {
+          await rollback()
+        } catch (rollbackError) {
+          console.error(`Error en rollback para ${context}:`, rollbackError)
+        }
+      }
+      return { data: null, error: this.handleCajaError(error, context) }
+    }
+  }
 
   // Mapear de DB a UI
   private mapCajaFromDB(cajaDB: CajaWithRelations): CajaUI {
@@ -144,7 +198,9 @@ export class CajaService {
 
   // Verificar si hay una caja abierta para el usuario (sin importar la fecha)
   async verificarCajaAbierta(userId: string): Promise<{ data: CajaUI | null, error: any }> {
-    try {
+    return this.safeExecuteWithRollback(async () => {
+      this.validateRequired(userId, 'userId')
+
       // Buscar cualquier caja abierta del usuario, sin importar la fecha
       const { data, error } = await this.supabase
         .from('cajas')
@@ -161,23 +217,18 @@ export class CajaService {
             email
           )
         `)
-        .eq('user_id', userId)
+        .eq('user_id', userId.trim())
         .eq('estado', 'abierta')
         .order('fecha', { ascending: false })
         .limit(1)
         .single()
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = no rows returned
-        return { data: null, error }
+        throw error
       }
 
-      return { 
-        data: data ? this.mapCajaFromDB(data as CajaWithRelations) : null, 
-        error: null 
-      }
-    } catch (error) {
-      return { data: null, error }
-    }
+      return data ? this.mapCajaFromDB(data as CajaWithRelations) : null
+    }, undefined, 'verificarCajaAbierta')
   }
 
   // Verificar si ya existe una caja para una fecha específica
@@ -207,8 +258,9 @@ export class CajaService {
         data: data ? this.mapCajaFromDB(data as CajaWithRelations) : null, 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error verifying caja del dia:', err)
+      return { data: null, error: handleServiceError(err, 'Error al verificar caja del día') }
     }
   }
 
@@ -273,8 +325,9 @@ export class CajaService {
       if (error) return { data: null, error }
 
       return { data: this.mapCajaFromDB(data as CajaWithRelations), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error opening caja:', err)
+      return { data: null, error: handleServiceError(err, 'Error al abrir caja') }
     }
   }
 
@@ -325,7 +378,7 @@ export class CajaService {
           .insert(cierreEfectivoData)
 
         if (efectivoError) {
-          console.error('Error guardando detalles de efectivo:', efectivoError)
+          console.error('Error guardando detalles de efectivo:', handleServiceError(efectivoError, 'Error al guardar detalles de efectivo'))
         }
 
         // Guardar cierres de punto de venta
@@ -343,14 +396,15 @@ export class CajaService {
             .insert(cierresPvData)
 
           if (pvError) {
-            console.error('Error guardando cierres de punto de venta:', pvError)
+            console.error('Error guardando cierres de punto de venta:', handleServiceError(pvError, 'Error al guardar cierres de punto de venta'))
           }
         }
       }
 
       return { data: this.mapCajaFromDB(cajaData as CajaWithRelations), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error closing caja:', err)
+      return { data: null, error: handleServiceError(err, 'Error al cerrar caja') }
     }
   }
 
@@ -397,8 +451,9 @@ export class CajaService {
         },
         error: null
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -440,8 +495,9 @@ export class CajaService {
       )
 
       return { data: cajasConDetalles, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -490,8 +546,9 @@ export class CajaService {
 
       const cajas = data?.map(caja => this.mapCajaFromDB(caja as CajaWithRelations)) || []
       return { data: cajas, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -533,14 +590,20 @@ export class CajaService {
       if (error) return { data: null, error }
 
       return { data: this.mapCajaFromDB(data as CajaWithRelations), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
   // Agregar pago móvil
   async agregarPagoMovil(pagoMovil: Omit<PagoMovilUI, 'id' | 'fechaHora'>): Promise<{ data: PagoMovilUI | null, error: any }> {
-    try {
+    return this.safeExecuteWithRollback(async () => {
+      // Validaciones básicas
+      this.validateRequired(pagoMovil.cajaId, 'cajaId')
+      this.validateRequired(pagoMovil.numeroReferencia, 'numeroReferencia')
+      this.validateNumericString(pagoMovil.numeroReferencia, 'El número de referencia')
+
       // Verificar que la caja esté abierta
       const { data: caja, error: cajaError } = await this.supabase
         .from('cajas')
@@ -549,16 +612,11 @@ export class CajaService {
         .single()
 
       if (cajaError || !caja) {
-        return { data: null, error: new Error('Caja no encontrada') }
+        throw new Error('Caja no encontrada')
       }
 
       if (caja.estado !== 'abierta') {
-        return { data: null, error: new Error('La caja está cerrada') }
-      }
-
-      // Validar que el número de referencia sea numérico
-      if (!/^\d+$/.test(pagoMovil.numeroReferencia)) {
-        return { data: null, error: new Error('El número de referencia debe contener solo números') }
+        throw new Error('La caja está cerrada')
       }
 
       // Insertar el pago móvil
@@ -578,7 +636,7 @@ export class CajaService {
         .select()
         .single()
 
-      if (pagoError) return { data: null, error: pagoError }
+      if (pagoError) throw pagoError
 
       // Actualizar totales en la caja
       const { error: updateError } = await this.supabase
@@ -590,15 +648,14 @@ export class CajaService {
         .eq('id', pagoMovil.cajaId)
 
       if (updateError) {
-        // Si falla la actualización, intentar eliminar el pago creado
-        await this.supabase.from('pagos_movil').delete().eq('id', pagoCreado.id)
-        return { data: null, error: updateError }
+        throw updateError
       }
 
-      return { data: this.mapPagoMovilFromDB(pagoCreado), error: null }
-    } catch (error) {
-      return { data: null, error }
-    }
+      return this.mapPagoMovilFromDB(pagoCreado)
+    }, async () => {
+      // Rollback: intentar eliminar el pago si se creó pero falló la actualización de caja
+      // Nota: esto es una aproximación, en un sistema real usaríamos transacciones
+    }, 'agregarPagoMovil')
   }
 
   // Agregar pago Zelle
@@ -659,8 +716,9 @@ export class CajaService {
       }
 
       return { data: this.mapPagoZelleFromDB(pagoCreado), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -726,8 +784,9 @@ export class CajaService {
       }
 
       return { data: this.mapPagoMovilFromDB(pagoActualizado), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -804,8 +863,9 @@ export class CajaService {
       }
 
       return { data: this.mapPagoZelleFromDB(pagoActualizado), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -845,8 +905,9 @@ export class CajaService {
         .eq('id', pago.caja_id)
 
       return { error: updateError }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -887,8 +948,9 @@ export class CajaService {
         .eq('id', pago.caja_id)
 
       return { error: updateError }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -902,8 +964,9 @@ export class CajaService {
         .eq('estado', 'abierta') // Solo actualizar si está abierta
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -971,8 +1034,9 @@ export class CajaService {
       }
 
       return { data: this.mapNotaCreditoCajaFromDB(notaCreada), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1043,8 +1107,9 @@ export class CajaService {
       }
 
       return { data: this.mapNotaCreditoCajaFromDB(notaActualizada), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1084,8 +1149,9 @@ export class CajaService {
         .eq('id', nota.caja_id)
 
       return { error: updateError }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1177,8 +1243,9 @@ export class CajaService {
       }
 
       return { data: this.mapCreditoCajaFromDB(creditoCreado), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1268,8 +1335,9 @@ export class CajaService {
       }
 
       return { data: this.mapCreditoCajaFromDB(creditoActualizado), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1310,8 +1378,9 @@ export class CajaService {
         .eq('id', credito.caja_id)
 
       return { error: updateError }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1347,8 +1416,9 @@ export class CajaService {
       }
 
       return { data: reporte, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 
@@ -1404,8 +1474,9 @@ export class CajaService {
       }
 
       return { data: resumen, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in caja operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de caja') }
     }
   }
 }

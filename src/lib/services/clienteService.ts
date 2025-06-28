@@ -1,6 +1,7 @@
 // src/lib/services/clienteService.ts
 import { createClient } from '@/utils/supabase/client'
 import { Cliente, TablesInsert, TablesUpdate } from '@/types/database'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export interface ClienteUI {
   id?: string
@@ -66,8 +67,9 @@ export class ClienteService {
         data: data ? this.mapClienteFromDB(data) : null, 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error searching cliente by documento:', err)
+      return { data: null, error: handleServiceError(err, 'Error al buscar cliente por documento') }
     }
   }
 
@@ -88,8 +90,9 @@ export class ClienteService {
         data: data ? data.map(c => this.mapClienteFromDB(c)) : [], 
         error: null 
       }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error searching clientes:', err)
+      return { data: null, error: handleServiceError(err, 'Error al buscar clientes') }
     }
   }
 
@@ -107,8 +110,9 @@ export class ClienteService {
       if (error) return { data: null, error }
 
       return { data: this.mapClienteFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating cliente:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear cliente') }
     }
   }
 
@@ -133,8 +137,9 @@ export class ClienteService {
       if (error) return { data: null, error }
 
       return { data: this.mapClienteFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating cliente:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar cliente') }
     }
   }
 
@@ -151,8 +156,9 @@ export class ClienteService {
       if (error) return { data: null, error }
 
       return { data: this.mapClienteFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting cliente:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener cliente') }
     }
   }
 
@@ -165,8 +171,9 @@ export class ClienteService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error deactivating cliente:', err)
+      return { error: handleServiceError(err, 'Error al desactivar cliente') }
     }
   }
 }

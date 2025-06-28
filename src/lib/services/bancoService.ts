@@ -1,6 +1,7 @@
 // src/lib/services/bancoService.ts
 import { createClient } from '@/utils/supabase/client'
 import { Banco, TablesInsert } from '@/types/database'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export class BancoService {
   private supabase = createClient()
@@ -15,8 +16,9 @@ export class BancoService {
         .order('nombre')
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting all bancos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener todos los bancos') }
     }
   }
 
@@ -30,8 +32,9 @@ export class BancoService {
         .order('codigo')
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting bancos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener lista de bancos') }
     }
   }
 
@@ -46,8 +49,9 @@ export class BancoService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting banco by codigo:', err)
+      return { data: null, error: handleServiceError(err, 'Error al buscar banco por código') }
     }
   }
 
@@ -61,8 +65,9 @@ export class BancoService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error creating banco:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear banco') }
     }
   }
 
@@ -77,8 +82,9 @@ export class BancoService {
         .single()
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error updating banco:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar banco') }
     }
   }
 
@@ -91,8 +97,9 @@ export class BancoService {
         .eq('id', id)
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error deactivating banco:', err)
+      return { error: handleServiceError(err, 'Error al desactivar banco') }
     }
   }
 
@@ -107,7 +114,8 @@ export class BancoService {
         .single()
 
       return !error && !!data
-    } catch (error) {
+    } catch (err) {
+      console.error('Error checking codigo exists:', err)
       return false
     }
   }

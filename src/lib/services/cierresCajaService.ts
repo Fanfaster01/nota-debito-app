@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/client'
 import { format } from 'date-fns'
 import { CajaUI } from '@/types/caja'
 import { CierreCaja, CierrePuntoVenta } from '@/types/database'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export interface CierreDetalladoUI {
   id: string // ID del cierre (puede ser del cierre_caja o de la caja si no hay cierre_caja)
@@ -194,8 +195,9 @@ export class CierresCajaService {
       }
 
       return { data: cierresDetallados, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting cierres detallados:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener cierres detallados') }
     }
   }
 
@@ -275,8 +277,9 @@ export class CierresCajaService {
       }
 
       return { data: resumen, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting resumen cierres:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener resumen de cierres') }
     }
   }
 
@@ -291,8 +294,9 @@ export class CierresCajaService {
         .order('full_name')
 
       return { data, error }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting cajeros:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener cajeros') }
     }
   }
 
@@ -312,7 +316,7 @@ export class CierresCajaService {
       const cierre2 = cierres.find(c => c.caja.id === cierre2Id)
 
       if (!cierre1 || !cierre2) {
-        return { data: null, error: new Error('Uno o ambos cierres no encontrados') }
+        return { data: null, error: handleServiceError(new Error('Uno o ambos cierres no encontrados'), 'Cierres no encontrados') }
       }
 
       const comparacion = {
@@ -324,8 +328,9 @@ export class CierresCajaService {
       }
 
       return { data: { cierre1, cierre2, comparacion }, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error comparing cierres:', err)
+      return { data: null, error: handleServiceError(err, 'Error al comparar cierres') }
     }
   }
 
@@ -397,8 +402,9 @@ export class CierresCajaService {
       })
 
       return { data: alertas, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting alertas discrepancias:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener alertas de discrepancias') }
     }
   }
 }

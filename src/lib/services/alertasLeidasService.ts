@@ -1,5 +1,6 @@
 // src/lib/services/alertasLeidasService.ts
 import { createClient } from '@/utils/supabase/client'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export interface AlertaLeida {
   id: string
@@ -33,8 +34,9 @@ export class AlertasLeidasService {
 
       const alertasIds = data?.map(item => item.alerta_id) || []
       return { data: alertasIds, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error getting alertas leidas:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener alertas leídas') }
     }
   }
 
@@ -71,8 +73,9 @@ export class AlertasLeidasService {
       }
 
       return { error: insertError }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error marking alerta as read:', err)
+      return { error: handleServiceError(err, 'Error al marcar alerta como leída') }
     }
   }
 
@@ -85,8 +88,9 @@ export class AlertasLeidasService {
       }
 
       return { error: null }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error marking multiple alertas as read:', err)
+      return { error: handleServiceError(err, 'Error al marcar múltiples alertas como leídas') }
     }
   }
 
@@ -108,8 +112,9 @@ export class AlertasLeidasService {
       const { error } = await query
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error unmarking alerta as read:', err)
+      return { error: handleServiceError(err, 'Error al desmarcar alerta como leída') }
     }
   }
 
@@ -125,8 +130,9 @@ export class AlertasLeidasService {
         .lt('fecha_leida', fechaLimite.toISOString())
 
       return { error }
-    } catch (error) {
-      return { error }
+    } catch (err) {
+      console.error('Error cleaning old alertas:', err)
+      return { error: handleServiceError(err, 'Error al limpiar alertas antiguas') }
     }
   }
 }

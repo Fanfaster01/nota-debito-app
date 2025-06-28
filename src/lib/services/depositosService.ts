@@ -1,5 +1,5 @@
 // src/lib/services/depositosService.ts
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/utils/supabase/client-wrapper'
 import { 
   BancoDeposito, 
   DepositoBancario, 
@@ -12,9 +12,18 @@ import {
   ReciboDepositoData
 } from '@/types/depositos'
 import { TablesInsert, TablesUpdate } from '@/types/database'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 export class BancosDepositosService {
   private supabase = createClient()
+
+  /**
+   * Manejar errores de manera consistente
+   */
+  private handleError(error: unknown, context: string): string {
+    console.error(`Error en ${context}:`, error)
+    return handleServiceError(error, `Error inesperado en ${context}`)
+  }
 
   // Mapear de DB a UI
   private mapBancoFromDB(bancoDB: BancoDeposito): BancoDepositoUI {
@@ -37,12 +46,12 @@ export class BancosDepositosService {
         .eq('is_active', true)
         .order('nombre')
 
-      if (error) return { data: null, error }
+      if (error) throw error
 
       const bancos = data?.map(banco => this.mapBancoFromDB(banco)) || []
       return { data: bancos, error: null }
     } catch (error) {
-      return { data: null, error }
+      return { data: null, error: this.handleError(error, 'getBancos') }
     }
   }
 
@@ -63,8 +72,9 @@ export class BancosDepositosService {
       if (error) return { data: null, error }
 
       return { data: this.mapBancoFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
     }
   }
 
@@ -86,8 +96,9 @@ export class BancosDepositosService {
       if (error) return { data: null, error }
 
       return { data: this.mapBancoFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
     }
   }
 
@@ -104,14 +115,32 @@ export class BancosDepositosService {
       if (error) return { data: null, error }
 
       return { data: this.mapBancoFromDB(data), error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
     }
   }
 }
 
 export class DepositosService {
   private supabase = createClient()
+
+  /**
+   * Validar parámetros requeridos
+   */
+  private validateRequired(value: unknown, name: string): void {
+    if (!value || (typeof value === 'string' && !value.trim())) {
+      throw new Error(`${name} es requerido`)
+    }
+  }
+
+  /**
+   * Manejar errores de manera consistente
+   */
+  private handleError(error: unknown, context: string): string {
+    console.error(`Error en ${context}:`, error)
+    return handleServiceError(error, `Error inesperado en ${context}`)
+  }
 
   // Mapear de DB a UI
   private mapDepositoFromDB(depositoDB: unknown): DepositoBancarioUI {
@@ -221,8 +250,9 @@ export class DepositosService {
       }
 
       return { data: depositos, error: null, count: count || 0 }
-    } catch (error) {
-      return { data: null, error, count: 0 }
+    } catch (err) {
+      console.error('Error getting depositos:', err)
+      return { data: null, error: handleServiceError(err, 'Error al obtener depósitos'), count: 0 }
     }
   }
 
@@ -233,6 +263,15 @@ export class DepositosService {
     companyId: string
   ): Promise<{ data: DepositoBancarioUI | null, error: unknown }> {
     try {
+      // Validaciones básicas
+      this.validateRequired(depositoData.bancoId, 'bancoId')
+      this.validateRequired(userId, 'userId')
+      this.validateRequired(companyId, 'companyId')
+      
+      if (depositoData.montoBs <= 0) {
+        throw new Error('El monto debe ser mayor que cero')
+      }
+
       const newDeposito: TablesInsert<'depositos_bancarios'> = {
         company_id: depositoData.companyId || companyId,
         banco_id: depositoData.bancoId,
@@ -268,11 +307,11 @@ export class DepositosService {
         `)
         .single()
 
-      if (error) return { data: null, error }
+      if (error) throw error
 
       return { data: this.mapDepositoFromDB(data), error: null }
     } catch (error) {
-      return { data: null, error }
+      return { data: null, error: this.handleError(error, 'createDeposito') }
     }
   }
 
@@ -319,8 +358,9 @@ export class DepositosService {
       }
 
       return { data: deposito, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
     }
   }
 
@@ -330,11 +370,11 @@ export class DepositosService {
       const { data: deposito, error } = await this.getDeposito(depositoId)
       
       if (error || !deposito) {
-        return { data: null, error: error || new Error('Depósito no encontrado') }
+        return { data: null, error: handleServiceError(error || new Error('Depósito no encontrado'), 'Depósito no encontrado') }
       }
 
       if (!deposito.banco || !deposito.company || !deposito.usuario) {
-        return { data: null, error: new Error('Datos incompletos del depósito') }
+        return { data: null, error: handleServiceError(new Error('Datos incompletos del depósito'), 'Datos incompletos') }
       }
 
       const reciboData: ReciboDepositoData = {
@@ -356,8 +396,9 @@ export class DepositosService {
       }
 
       return { data: reciboData, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
     }
   }
 
@@ -420,8 +461,9 @@ export class DepositosService {
       }
 
       return { data: resumen, error: null }
-    } catch (error) {
-      return { data: null, error }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
     }
   }
 }

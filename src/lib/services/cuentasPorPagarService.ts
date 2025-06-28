@@ -1,5 +1,6 @@
 // Servicio para el módulo de Cuentas por Pagar
-import { createClient } from '@/utils/supabase/client'
+import { createClient } from '@/utils/supabase/client-wrapper'
+import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
 
 const supabase = createClient()
 import type {
@@ -24,6 +25,44 @@ import type {
 
 class CuentasPorPagarService {
   // ============================================================================
+  // UTILIDADES INTERNAS PARA MANEJO DE ERRORES
+  // ============================================================================
+
+  /**
+   * Validar companyId de manera consistente
+   */
+  private validateCompanyId(companyId: string): void {
+    if (!companyId?.trim()) {
+      throw new Error('companyId es requerido y debe ser una string válida')
+    }
+  }
+
+  /**
+   * Manejar errores de Supabase de manera consistente
+   */
+  private handleSupabaseError(error: unknown, context: string): string {
+    console.error(`Error en ${context}:`, error)
+    return handleServiceError(error, `Error inesperado en ${context}`)
+  }
+
+  /**
+   * Wrapper para operaciones async con manejo de errores consistente
+   */
+  private async safeExecute<T>(
+    operation: () => Promise<T>,
+    context: string,
+    defaultValue: T
+  ): Promise<{ data: T | null; error: string | null }> {
+    try {
+      const result = await operation()
+      return { data: result, error: null }
+    } catch (error) {
+      const errorMessage = this.handleSupabaseError(error, context)
+      return { data: defaultValue, error: errorMessage }
+    }
+  }
+
+  // ============================================================================
   // GESTIÓN DE FACTURAS
   // ============================================================================
 
@@ -36,13 +75,11 @@ class CuentasPorPagarService {
     page = 1,
     limit = 20
   ): Promise<{ data: PaginacionFacturas | null; error: string | null }> {
-    // Validar que companyId sea una string válida
-    if (!companyId || !companyId.trim()) {
-      return { data: null, error: 'companyId es requerido y debe ser una string válida' }
-    }
-    
-    try {
-      console.log('Intentando consulta de facturas para company:', companyId)
+    return this.safeExecute(async () => {
+      this.validateCompanyId(companyId)
+      
+      const cleanCompanyId = companyId.trim()
+      console.log('Intentando consulta de facturas para company:', cleanCompanyId)
       
       // Intentar consulta con columnas extendidas
       let queryResult = await supabase
@@ -78,7 +115,7 @@ class CuentasPorPagarService {
           created_at,
           updated_at
         `, { count: 'exact' })
-        .eq('company_id', companyId)
+        .eq('company_id', cleanCompanyId)
         .order('created_at', { ascending: false })
         .range((page - 1) * limit, page * limit - 1)
       
@@ -119,7 +156,7 @@ class CuentasPorPagarService {
             created_at,
             updated_at
           `, { count: 'exact' })
-          .eq('company_id', companyId)
+          .eq('company_id', cleanCompanyId)
           .order('created_at', { ascending: false })
           .range((page - 1) * limit, page * limit - 1)
       }
@@ -127,8 +164,7 @@ class CuentasPorPagarService {
       const { data, error, count } = queryResult
 
       if (error) {
-        console.error('Supabase query error:', error)
-        throw new Error(`Error en consulta: ${error.message || JSON.stringify(error)}`)
+        throw error // El wrapper se encargará del manejo
       }
 
       const facturas: FacturaCuentaPorPagar[] = data?.map(this.mapToFacturaCuentaPorPagar) || []
@@ -149,19 +185,19 @@ class CuentasPorPagarService {
       }
 
       console.log('Facturas obtenidas:', paginacion.facturas.length)
-      return { data: paginacion, error: null }
-    } catch (error) {
-      console.error('Error al obtener facturas:', error)
-      const errorMessage = error instanceof Error ? error.message : 'Error al obtener las facturas'
-      return { data: null, error: errorMessage }
-    }
+      return paginacion
+    }, 'getFacturas', null)
   }
 
   /**
    * Obtener múltiples facturas por IDs
    */
   async getFacturasByIds(ids: string[]): Promise<{ data: FacturaCuentaPorPagar[] | null; error: string | null }> {
-    try {
+    return this.safeExecute(async () => {
+      if (!ids?.length) {
+        throw new Error('Se requiere al menos un ID de factura')
+      }
+
       const { data, error } = await supabase
         .from('facturas')
         .select('*')
@@ -169,23 +205,23 @@ class CuentasPorPagarService {
 
       if (error) throw error
 
-      const facturas = data?.map(this.mapToFacturaCuentaPorPagar) || []
-      return { data: facturas, error: null }
-    } catch (error) {
-      console.error('Error al obtener facturas:', error)
-      return { data: null, error: 'Error al obtener las facturas' }
-    }
+      return data?.map(this.mapToFacturaCuentaPorPagar) || []
+    }, 'getFacturasByIds', null)
   }
 
   /**
    * Obtener una factura por ID
    */
   async getFacturaById(id: string): Promise<{ data: FacturaCuentaPorPagar | null; error: string | null }> {
-    try {
+    return this.safeExecute(async () => {
+      if (!id?.trim()) {
+        throw new Error('ID de factura es requerido')
+      }
+
       const { data, error } = await supabase
         .from('facturas')
         .select('*')
-        .eq('id', id)
+        .eq('id', id.trim())
         .single()
 
       if (error) throw error
@@ -194,11 +230,8 @@ class CuentasPorPagarService {
       factura.diasVencimiento = this.calcularDiasVencimiento(factura.fechaVencimiento)
       factura.montoFinalPagar = await this.calcularMontoFinalPagar(factura)
 
-      return { data: factura, error: null }
-    } catch (error) {
-      console.error('Error al obtener factura:', error)
-      return { data: null, error: 'Error al obtener la factura' }
-    }
+      return factura
+    }, 'getFacturaById', null)
   }
 
   /**
@@ -249,11 +282,9 @@ class CuentasPorPagarService {
       }
 
       return { data: this.mapToFacturaCuentaPorPagar(data), error: null }
-    } catch (error: unknown) {
-      console.error('Error al crear factura:', error)
-      const errorObj = error as { message?: string; details?: string }
-      const errorMessage = errorObj?.message || errorObj?.details || 'Error al crear la factura'
-      return { data: null, error: errorMessage }
+    } catch (err: unknown) {
+      console.error('Error al crear factura:', err)
+      return { data: null, error: handleServiceError(err, 'Error al crear la factura') }
     }
   }
 
@@ -278,9 +309,9 @@ class CuentasPorPagarService {
       if (error) throw error
 
       return { data: this.mapToFacturaCuentaPorPagar(data), error: null }
-    } catch (error) {
-      console.error('Error al actualizar factura:', error)
-      return { data: null, error: 'Error al actualizar la factura' }
+    } catch (err) {
+      console.error('Error al actualizar factura:', err)
+      return { data: null, error: handleServiceError(err, 'Error al actualizar la factura') }
     }
   }
 
@@ -314,9 +345,9 @@ class CuentasPorPagarService {
       if (error) throw error
 
       return { data: true, error: null }
-    } catch (error) {
-      console.error('Error al actualizar estado de pago:', error)
-      return { data: false, error: 'Error al actualizar el estado de pago' }
+    } catch (err) {
+      console.error('Error al actualizar estado de pago:', err)
+      return { data: false, error: handleServiceError(err, 'Error al actualizar el estado de pago') }
     }
   }
 
@@ -328,12 +359,11 @@ class CuentasPorPagarService {
    * Obtener métricas del dashboard
    */
   async getMetricas(companyId: string): Promise<{ data: MetricasCuentasPorPagar | null; error: string | null }> {
-    // Validar que companyId sea una string válida
-    if (!companyId || !companyId.trim()) {
-      return { data: null, error: 'companyId es requerido y debe ser una string válida' }
-    }
-    
-    try {
+    return this.safeExecute(async () => {
+      this.validateCompanyId(companyId)
+      
+      const cleanCompanyId = companyId.trim()
+      
       // Intentar consulta con columnas extendidas
       let queryResult = await supabase
         .from('facturas')
@@ -345,7 +375,7 @@ class CuentasPorPagarService {
           estado_pago,
           created_at
         `)
-        .eq('company_id', companyId)
+        .eq('company_id', cleanCompanyId)
       
       // Si hay error, intentar consulta básica
       if (queryResult.error && queryResult.error.message?.includes('does not exist')) {
@@ -361,14 +391,13 @@ class CuentasPorPagarService {
             estado_pago,
             created_at
           `)
-          .eq('company_id', companyId)
+          .eq('company_id', cleanCompanyId)
       }
       
       const { data: facturas, error } = queryResult
 
       if (error) {
-        console.error('Error en getMetricas:', error)
-        throw new Error(`Error en métricas: ${error.message || JSON.stringify(error)}`)
+        throw error // El wrapper se encargará del manejo
       }
 
       const hoy = new Date()
@@ -422,23 +451,19 @@ class CuentasPorPagarService {
         }
       }
 
-      return { data: metricas, error: null }
-    } catch (error) {
-      console.error('Error al obtener métricas:', error)
-      return { data: null, error: 'Error al obtener las métricas' }
-    }
+      return metricas
+    }, 'getMetricas', null)
   }
 
   /**
    * Obtener datos para gráficos
    */
   async getDatosGraficos(companyId: string): Promise<{ data: DatosGraficoCuentasPorPagar | null; error: string | null }> {
-    // Validar que companyId sea una string válida
-    if (!companyId || !companyId.trim()) {
-      return { data: null, error: 'companyId es requerido y debe ser una string válida' }
-    }
-    
-    try {
+    return this.safeExecute(async () => {
+      this.validateCompanyId(companyId)
+      
+      const cleanCompanyId = companyId.trim()
+      
       // Intentar consulta con columnas extendidas
       let queryResult = await supabase
         .from('facturas')
@@ -451,7 +476,7 @@ class CuentasPorPagarService {
           proveedor_nombre,
           created_at
         `)
-        .eq('company_id', companyId)
+        .eq('company_id', cleanCompanyId)
       
       // Si hay error, intentar consulta básica
       if (queryResult.error && queryResult.error.message?.includes('does not exist')) {
@@ -468,7 +493,7 @@ class CuentasPorPagarService {
             proveedor_nombre,
             created_at
           `)
-          .eq('company_id', companyId)
+          .eq('company_id', cleanCompanyId)
       }
       
       const { data: facturas, error } = queryResult
@@ -524,11 +549,8 @@ class CuentasPorPagarService {
           .slice(0, 10)
       }
 
-      return { data: datos, error: null }
-    } catch (error) {
-      console.error('Error al obtener datos de gráficos:', error)
-      return { data: null, error: 'Error al obtener los datos de gráficos' }
-    }
+      return datos
+    }, 'getDatosGraficos', null)
   }
 
   // ============================================================================
@@ -573,9 +595,9 @@ class CuentasPorPagarService {
       }
 
       return { proveedoresSinCuenta, error: null }
-    } catch (error) {
-      console.error('Error validando cuentas bancarias:', error)
-      return { proveedoresSinCuenta: [], error: 'Error validando cuentas bancarias' }
+    } catch (err) {
+      console.error('Error validando cuentas bancarias:', err)
+      return { proveedoresSinCuenta: [], error: handleServiceError(err, 'Error validando cuentas bancarias') }
     }
   }
 
@@ -625,9 +647,9 @@ class CuentasPorPagarService {
       validacion.requiereNotasDebito = validacion.validas.some(f => f.tipoPago === 'deposito')
 
       return { data: validacion, error: null }
-    } catch (error) {
-      console.error('Error al validar facturas:', error)
-      return { data: null, error: 'Error al validar las facturas' }
+    } catch (err) {
+      console.error('Error al validar facturas:', err)
+      return { data: null, error: handleServiceError(err, 'Error al validar las facturas') }
     }
   }
 
@@ -813,9 +835,9 @@ class CuentasPorPagarService {
 
       console.log('🎉 Recibo generado exitosamente!')
       return { data: response, error: null }
-    } catch (error) {
-      console.error('Error al generar recibo:', error)
-      return { data: null, error: error instanceof Error ? error.message : 'Error al generar el recibo' }
+    } catch (err) {
+      console.error('Error al generar recibo:', err)
+      return { data: null, error: handleServiceError(err, 'Error al generar el recibo') }
     }
   }
 
@@ -1102,7 +1124,7 @@ class CuentasPorPagarService {
       )
 
       if (error) {
-        console.error('Error obteniendo notas de débito automáticas:', error)
+        console.error('Error obteniendo notas de débito automáticas:', handleServiceError(error, 'Error al obtener notas de débito automáticas'))
         return { success: false, error: 'Error al obtener las notas de débito' }
       }
 
@@ -1171,7 +1193,7 @@ class CuentasPorPagarService {
         }
       }
     } catch (error) {
-      console.error('Error en getNotasDebitoAutomaticas:', error)
+      console.error('Error en getNotasDebitoAutomaticas:', handleServiceError(error, 'Error al obtener notas de débito automáticas'))
       return {
         success: false,
         error: 'Error al obtener las notas de débito automáticas'
