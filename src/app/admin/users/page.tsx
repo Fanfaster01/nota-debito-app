@@ -60,10 +60,11 @@ export default function UsersPage() {
   
   // Estados locales para UI
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [localError, setLocalError] = useState<string | null>(null)
   
   // Loading y error consolidados
-  const loading = usersLoading || companiesLoading
-  const error = usersError || companiesError || saveError || deleteError
+  const loading = usersLoading || companiesLoading || saving || deleteLoading
+  const error = usersError || companiesError || saveError || deleteError || localError
   const [editingUser, setEditingUser] = useState<UserWithCompany | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -97,7 +98,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (currentUser?.role !== 'master') {
-      setError('No tienes permisos para acceder a esta página')
+      setLocalError('No tienes permisos para acceder a esta página')
       return
     }
     loadData()
@@ -131,18 +132,17 @@ export default function UsersPage() {
     setValue('email', user.email)
     setValue('role', user.role)
     setValue('company_id', user.company_id || null)
-    setError(null)
+    setLocalError(null)
     setSuccessMessage(null)
   }
 
   const handleFormSubmit = async (data: UserUpdateFormData) => {
     if (!editingUser) return
 
-    setSaving(true)
-    setError(null)
-    setSuccessMessage(null)
+    await saveUser(async () => {
+      setLocalError(null)
+      setSuccessMessage(null)
 
-    try {
       const updates = {
         full_name: data.full_name,
         email: data.email,
@@ -154,8 +154,7 @@ export default function UsersPage() {
       
       if (updateError) {
         const errorMessage = updateError instanceof Error ? updateError.message : 'Error desconocido'
-        setError('Error al actualizar usuario: ' + errorMessage)
-        return
+        throw new Error('Error al actualizar usuario: ' + errorMessage)
       }
 
       setSuccessMessage('Usuario actualizado exitosamente')
@@ -165,66 +164,55 @@ export default function UsersPage() {
       
       // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al actualizar usuario: ' + errorMessage)
-    } finally {
-      setSaving(false)
-    }
+      return true
+    })
   }
 
   const handleToggleStatus = async (user: UserWithCompany) => {
-    try {
+    await saveUser(async () => {
       const { error } = await adminUserService.toggleUserStatus(user.id, !user.is_active)
       
       if (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        setError('Error al cambiar estado: ' + errorMessage)
-        return
+        throw new Error('Error al cambiar estado: ' + errorMessage)
       }
 
       await loadData()
       setSuccessMessage(`Usuario ${!user.is_active ? 'activado' : 'desactivado'} exitosamente`)
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al cambiar estado: ' + errorMessage)
-    }
+      return true
+    })
   }
 
   const handleDeleteUser = async (userId: string) => {
-    try {
+    await deleteUser(async () => {
       const { error } = await adminUserService.deleteUser(userId)
       
       if (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        setError('Error al eliminar usuario: ' + errorMessage)
-        return
+        throw new Error('Error al eliminar usuario: ' + errorMessage)
       }
 
       setDeleteConfirm(null)
       await loadData()
       setSuccessMessage('Usuario eliminado exitosamente')
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al eliminar usuario: ' + errorMessage)
-    }
+      return true
+    })
   }
 
   const handleCancelEdit = () => {
     setEditingUser(null)
     reset()
-    setError(null)
+    setLocalError(null)
     setSuccessMessage(null)
   }
 
   const handleCreateUser = async (data: UserCreateFormData) => {
-    setSaving(true)
-    setError(null)
-    setSuccessMessage(null)
+    await saveUser(async () => {
+      setLocalError(null)
+      setSuccessMessage(null)
 
-    try {
       const { data: newUser, error: createError } = await adminUserService.createUser({
         email: data.email,
         password: data.password,
@@ -235,8 +223,7 @@ export default function UsersPage() {
 
       if (createError) {
         const errorMessage = createError instanceof Error ? createError.message : 'Error desconocido'
-        setError('Error al crear usuario: ' + errorMessage)
-        return
+        throw new Error('Error al crear usuario: ' + errorMessage)
       }
 
       setSuccessMessage('Usuario creado exitosamente')
@@ -246,18 +233,14 @@ export default function UsersPage() {
       
       // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al crear usuario: ' + errorMessage)
-    } finally {
-      setSaving(false)
-    }
+      return newUser
+    })
   }
 
   const handleCancelCreate = () => {
     setShowCreateModal(false)
     resetCreate()
-    setError(null)
+    setLocalError(null)
     setSuccessMessage(null)
   }
 
@@ -332,7 +315,7 @@ export default function UsersPage() {
           <div className="p-4 bg-red-50 border border-red-200 rounded-md">
             <p className="text-red-600">{error}</p>
             <button 
-              onClick={() => setError(null)}
+              onClick={() => setLocalError(null)}
               className="mt-2 text-sm text-red-500 hover:text-red-700"
             >
               Cerrar
@@ -410,7 +393,7 @@ export default function UsersPage() {
                     disabled={saving}
                   >
                     <option value="">Sin compañía asignada</option>
-                    {companies.filter(c => c.is_active).map((company) => (
+                    {companies?.filter(c => c.is_active).map((company) => (
                       <option key={company.id} value={company.id}>
                         {company.name} ({company.rif})
                       </option>
@@ -502,7 +485,7 @@ export default function UsersPage() {
                     disabled={saving}
                   >
                     <option value="">Sin compañía asignada</option>
-                    {companies.filter(c => c.is_active).map((company) => (
+                    {companies?.filter(c => c.is_active).map((company) => (
                       <option key={company.id} value={company.id}>
                         {company.name} ({company.rif})
                       </option>
@@ -553,7 +536,7 @@ export default function UsersPage() {
 
         {/* Users List */}
         <Card title="Usuarios Registrados">
-          {users.length > 0 ? (
+          {users && users.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -579,7 +562,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user) => (
+                  {users?.map((user) => (
                     <tr key={user.id} className={!user.is_active ? 'opacity-50' : ''}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -672,7 +655,7 @@ export default function UsersPage() {
           <Card>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {users.filter(u => u.is_active).length}
+                {users?.filter(u => u.is_active).length || 0}
               </div>
               <div className="text-sm text-gray-500">Usuarios Activos</div>
             </div>
@@ -681,7 +664,7 @@ export default function UsersPage() {
           <Card>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {users.filter(u => u.company_id).length}
+                {users?.filter(u => u.company_id).length || 0}
               </div>
               <div className="text-sm text-gray-500">Con Compañía Asignada</div>
             </div>
@@ -690,7 +673,7 @@ export default function UsersPage() {
           <Card>
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
-                {users.filter(u => !u.company_id && u.role !== 'master').length}
+                {users?.filter(u => !u.company_id && u.role !== 'master').length || 0}
               </div>
               <div className="text-sm text-gray-500">Pendientes de Asignación</div>
             </div>

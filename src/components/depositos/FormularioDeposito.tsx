@@ -290,7 +290,7 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
             type="button" 
             variant="outline" 
             onClick={() => reset()}
-            disabled={loading}
+            disabled={submitState.loading}
           >
             Limpiar
           </Button>

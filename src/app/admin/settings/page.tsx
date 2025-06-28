@@ -57,10 +57,11 @@ export default function SettingsPage() {
   // Estados locales para UI
   const [success, setSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'security' | 'backup' | 'system'>('general')
+  const [localError, setLocalError] = useState<string | null>(null)
   
   // Loading y error consolidados
   const loading = statsLoading || saveLoading
-  const error = statsError || saveError
+  const error = statsError || saveError || localError
 
   // Formulario de configuración general
   const systemForm = useForm<SystemConfigFormData>({
@@ -117,7 +118,7 @@ export default function SettingsPage() {
       })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al cargar configuraciones: ' + errorMessage)
+      setLocalError('Error al cargar configuraciones: ' + errorMessage)
     }
   }
 
@@ -133,11 +134,10 @@ export default function SettingsPage() {
   }
 
   const handleSystemConfigSubmit = async (data: SystemConfigFormData) => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
+    await saveSettings(async () => {
+      setLocalError(null)
+      setSuccess(null)
 
-    try {
       const settingsToUpdate = {
         app_name: data.app_name,
         default_iva_rate: data.default_iva_rate,
@@ -151,83 +151,64 @@ export default function SettingsPage() {
       
       if (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        setError('Error al guardar la configuración: ' + errorMessage)
-      } else {
-        setSuccess('Configuración del sistema actualizada exitosamente')
+        throw new Error('Error al guardar la configuración: ' + errorMessage)
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al guardar la configuración: ' + errorMessage)
-    } finally {
-      setLoading(false)
-    }
+      
+      setSuccess('Configuración del sistema actualizada exitosamente')
+      return true
+    })
   }
 
   const handleNotificationConfigSubmit = async (data: NotificationConfigFormData) => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
+    await saveSettings(async () => {
+      setLocalError(null)
+      setSuccess(null)
 
-    try {
       const { error } = await settingsService.updateMultipleSettings(data)
       
       if (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        setError('Error al guardar las notificaciones: ' + errorMessage)
-      } else {
-        setSuccess('Configuración de notificaciones actualizada exitosamente')
+        throw new Error('Error al guardar las notificaciones: ' + errorMessage)
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al guardar las notificaciones: ' + errorMessage)
-    } finally {
-      setLoading(false)
-    }
+      
+      setSuccess('Configuración de notificaciones actualizada exitosamente')
+      return true
+    })
   }
 
   const handleManualBackup = async () => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
+    await saveSettings(async () => {
+      setLocalError(null)
+      setSuccess(null)
 
-    try {
       const { error } = await settingsService.performManualBackup()
       
       if (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        setError('Error al realizar el backup: ' + errorMessage)
-      } else {
-        setSuccess('Backup manual completado exitosamente')
-        await loadSystemStats()
+        throw new Error('Error al realizar el backup: ' + errorMessage)
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al realizar el backup: ' + errorMessage)
-    } finally {
-      setLoading(false)
-    }
+      
+      setSuccess('Backup manual completado exitosamente')
+      await loadSystemStats()
+      return true
+    })
   }
 
   const handleClearCache = async () => {
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
+    await saveSettings(async () => {
+      setLocalError(null)
+      setSuccess(null)
 
-    try {
       const { error } = await settingsService.clearSystemCache()
       
       if (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
-        setError('Error al limpiar el caché: ' + errorMessage)
-      } else {
-        setSuccess('Caché del sistema limpiado exitosamente')
+        throw new Error('Error al limpiar el caché: ' + errorMessage)
       }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError('Error al limpiar el caché: ' + errorMessage)
-    } finally {
-      setLoading(false)
-    }
+      
+      setSuccess('Caché del sistema limpiado exitosamente')
+      return true
+    })
   }
 
   // Control de acceso
@@ -266,7 +247,7 @@ export default function SettingsPage() {
             <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-3" />
             <p className="text-red-600">{error}</p>
             <button 
-              onClick={() => setError(null)}
+              onClick={() => setLocalError(null)}
               className="ml-auto text-sm text-red-500 hover:text-red-700"
             >
               ×

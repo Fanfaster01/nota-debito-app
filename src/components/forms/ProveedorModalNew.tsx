@@ -441,7 +441,7 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
               type="submit"
               disabled={submitState.loading}
             >
-              {isSubmitting ? 'Guardando...' : (editingProveedor ? 'Actualizar' : 'Guardar')} Proveedor
+              {submitState.loading ? 'Guardando...' : (editingProveedor ? 'Actualizar' : 'Guardar')} Proveedor
             </Button>
           </div>
         </form>

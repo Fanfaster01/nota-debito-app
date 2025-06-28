@@ -61,8 +61,8 @@ export class CajaService {
    */
   private async safeExecuteWithRollback<T>(
     operation: () => Promise<T>,
-    rollback?: () => Promise<void>,
-    context: string
+    context: string,
+    rollback?: () => Promise<void>
   ): Promise<{ data: T | null; error: unknown }> {
     try {
       const result = await operation()
@@ -229,7 +229,7 @@ export class CajaService {
       }
 
       return data ? this.mapCajaFromDB(data as CajaWithRelations) : null
-    }, undefined, 'verificarCajaAbierta')
+    }, 'verificarCajaAbierta')
   }
 
   // Verificar si ya existe una caja para una fecha específica
@@ -655,10 +655,10 @@ export class CajaService {
       }
 
       return this.mapPagoMovilFromDB(pagoCreado)
-    }, async () => {
+    }, 'registrarPagoMovil', async () => {
       // Rollback: intentar eliminar el pago si se creó pero falló la actualización de caja
       // Nota: esto es una aproximación, en un sistema real usaríamos transacciones
-    }, 'agregarPagoMovil')
+    })
   }
 
   // Agregar pago Zelle

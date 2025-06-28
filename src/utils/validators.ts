@@ -280,7 +280,7 @@ export function validateParams<T extends any[], R>(
   validators: Array<(param: any) => ValidationResult>,
   originalMethod: (...args: T) => R
 ) {
-  return function(...args: T): R {
+  return function(this: any, ...args: T): R {
     for (let i = 0; i < validators.length && i < args.length; i++) {
       const validation = validators[i](args[i])
       assertValid(validation, `Parámetro ${i + 1}`)

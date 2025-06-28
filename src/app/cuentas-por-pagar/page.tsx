@@ -258,7 +258,7 @@ export default function CuentasPorPagarPage() {
           <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             <div className="flex items-center">
               <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
-              <span>{error?.message || displayError}</span>
+              <span>{error || displayError}</span>
               <button
                 onClick={() => setDisplayError(null)}
                 className="ml-2 text-red-500 hover:text-red-700"

@@ -147,9 +147,13 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
           ...nuevoCliente as ClienteUI,
           createdBy: user.id
         })
-
+        
         if (error) {
           throw error
+        }
+        
+        if (!data) {
+          throw new Error('No se pudo crear el cliente')
         }
         
         return data
@@ -179,13 +183,13 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
         if (error) {
           throw error
         }
-        return data
+        return data ? [data] : []
       },
       'Error al buscar cliente'
     )
 
-    if (result) {
-      handleClienteSelect(result)
+    if (result && result.length > 0) {
+      handleClienteSelect(result[0])
     } else {
       // Si no existe, mostrar formulario para crear
       setShowNewClienteForm(true)

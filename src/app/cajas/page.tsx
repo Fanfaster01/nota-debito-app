@@ -47,10 +47,11 @@ export default function CajasPage() {
   const [editingPagoZelle, setEditingPagoZelle] = useState<PagoZelleUI | null>(null)
   const [showTicketModal, setShowTicketModal] = useState(false)
   const [activeTab, setActiveTab] = useState<'movil' | 'zelle' | 'creditos' | 'notasCredito'>('movil')
+  const [localError, setLocalError] = useState<string | null>(null)
   
   // Loading y error consolidados
   const loading = cajaLoading || movileLoading || zelleLoading || notasLoading || creditosLoading || reporteLoading
-  const error = cajaError || movilesError || zelleError || notasError || creditosError || reporteError
+  const error = cajaError || movilesError || zelleError || notasError || creditosError || reporteError || localError
 
   // Cargar caja actual al montar el componente
   useEffect(() => {
@@ -130,7 +131,7 @@ export default function CajasPage() {
       const montoCierre = totalEfectivoBs + totalPuntoVentaBs
 
       const { data: cajaCerrada, error: cerrarError } = await cajaService.cerrarCaja(
-        caja.id,
+        caja.id!,
         montoCierre,
         data.observaciones,
         data // Pasar todos los datos del cierre para almacenarlos si es necesario
@@ -463,7 +464,7 @@ export default function CajasPage() {
               <p className="text-red-600">{error}</p>
             </div>
             <button 
-              onClick={() => setError(null)}
+              onClick={() => setLocalError(null)}
               className="ml-3 text-sm text-red-500 hover:text-red-700"
             >
               ×
