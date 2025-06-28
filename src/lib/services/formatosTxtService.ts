@@ -1,6 +1,7 @@
 // Servicio para gestión de formatos TXT bancarios
 import { createClient } from '@/utils/supabase/client'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { validate, assertValid } from '@/utils/validators'
 
 const supabase = createClient()
 import type { FormatoTxtBancario, FacturaCuentaPorPagar, ProveedorConBanco } from '@/types/cuentasPorPagar'
@@ -126,8 +127,10 @@ class FormatosTxtService {
   ): Promise<{ data: string | null; error: string | null }> {
     try {
       // Validar parámetros de entrada
-      if (!formatoId || !formatoId.trim()) {
-        return { data: null, error: 'ID de formato es requerido' }
+      try {
+        assertValid(validate.companyId(formatoId), 'ID de formato')
+      } catch (error) {
+        return { data: null, error: error instanceof Error ? error.message : 'ID de formato inválido' }
       }
 
       if (!facturas || facturas.length === 0) {
