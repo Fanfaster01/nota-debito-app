@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { cajaService } from '@/lib/services/cajaService'
 import type { CreditoCajaUI } from '@/types/caja'
+import { useAsyncState } from '@/hooks/useAsyncState'
 
 interface CreditoCajaListProps {
   creditos: CreditoCajaUI[]
@@ -19,11 +20,13 @@ export default function CreditoCajaList({
   onCreditoActualizado, 
   onCreditoEliminado 
 }: CreditoCajaListProps) {
+  // Estados de edición y eliminación con useAsyncState
+  const updateState = useAsyncState<CreditoCajaUI>()
+  const deleteState = useAsyncState<void>()
+  
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [formData, setFormData] = useState<Record<string, any>>({})
-  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
 
   const iniciarEdicion = (credito: CreditoCajaUI) => {
     setEditandoId(credito.id!)
@@ -35,61 +38,64 @@ export default function CreditoCajaList({
         montoBs: credito.montoBs
       }
     })
-    setError(null)
+    updateState.clearError()
   }
 
   const cancelarEdicion = () => {
     setEditandoId(null)
     setFormData({})
-    setError(null)
+    updateState.clearError()
   }
 
   const guardarEdicion = async (creditoId: string) => {
     const datos = formData[creditoId]
     if (!datos) return
 
-    setError(null)
+    const result = await updateState.execute(
+      async () => {
+        const { data, error: updateError } = await cajaService.actualizarCreditoCaja(creditoId, {
+          numeroFactura: datos.numeroFactura,
+          nombreCliente: datos.nombreCliente,
+          telefonoCliente: datos.telefonoCliente,
+          montoBs: parseFloat(datos.montoBs)
+        })
 
-    try {
-      const { data, error: updateError } = await cajaService.actualizarCreditoCaja(creditoId, {
-        numeroFactura: datos.numeroFactura,
-        nombreCliente: datos.nombreCliente,
-        telefonoCliente: datos.telefonoCliente,
-        montoBs: parseFloat(datos.montoBs)
-      })
+        if (updateError) {
+          throw updateError
+        }
 
-      if (updateError) {
-        setError(updateError.message || 'Error al actualizar el crédito')
-        return
-      }
+        if (!data) {
+          throw new Error('No se pudo actualizar el crédito')
+        }
 
-      if (data) {
-        onCreditoActualizado(data)
-        cancelarEdicion()
-      }
-    } catch (err) {
-      setError('Error inesperado al actualizar el crédito')
+        return data
+      },
+      'Error al actualizar el crédito'
+    )
+
+    if (result) {
+      onCreditoActualizado(result)
+      cancelarEdicion()
     }
   }
 
   const eliminarCredito = async (creditoId: string) => {
-    setEliminandoId(creditoId)
-    setError(null)
+    const result = await deleteState.execute(
+      async () => {
+        const { error: deleteError } = await cajaService.eliminarCreditoCaja(creditoId)
 
-    try {
-      const { error: deleteError } = await cajaService.eliminarCreditoCaja(creditoId)
+        if (deleteError) {
+          throw deleteError
+        }
 
-      if (deleteError) {
-        setError(deleteError.message || 'Error al eliminar el crédito')
-        return
-      }
+        return void 0
+      },
+      'Error al eliminar el crédito'
+    )
 
+    if (result !== null) {
       onCreditoEliminado(creditoId)
       setDeleteConfirm(null)
-    } catch (err) {
-      setError('Error inesperado al eliminar el crédito')
-    } finally {
-      setEliminandoId(null)
     }
   }
 
@@ -128,9 +134,9 @@ export default function CreditoCajaList({
 
   return (
     <div className="space-y-4">
-      {error && (
+      {(updateState.error || deleteState.error) && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-          {error}
+          {updateState.error || deleteState.error}
         </div>
       )}
 
@@ -272,7 +278,7 @@ export default function CreditoCajaList({
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(credito.id!)}
-                          disabled={eliminandoId === credito.id}
+                          disabled={deleteState.loading}
                           className="text-red-600 hover:text-red-900 disabled:opacity-50"
                           title="Eliminar"
                         >
@@ -324,16 +330,16 @@ export default function CreditoCajaList({
               <Button
                 variant="outline"
                 onClick={() => setDeleteConfirm(null)}
-                disabled={eliminandoId === deleteConfirm}
+                disabled={deleteState.loading}
               >
                 Cancelar
               </Button>
               <Button
                 variant="danger"
                 onClick={() => eliminarCredito(deleteConfirm)}
-                disabled={eliminandoId === deleteConfirm}
+                disabled={deleteState.loading}
               >
-                Eliminar
+                {deleteState.loading ? 'Eliminando...' : 'Eliminar'}
               </Button>
             </div>
           </div>

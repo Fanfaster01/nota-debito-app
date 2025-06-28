@@ -11,7 +11,7 @@ export function createClient() {
   // Interceptar el método from para debugging
   const originalFrom = client.from.bind(client);
   
-  (client as any).from = function(table: string) {
+  (client as any).from = function(table: keyof Database['public']['Tables']) {
     const tableClient = originalFrom(table);
     
     if (table === 'creditos_caja') {

@@ -1,16 +1,14 @@
 // src/app/depositos-bancarios/page.tsx
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { ProtectedLayout } from '@/components/layout/ProtectedLayout'
 import { 
   BanknotesIcon,
   PlusIcon,
-  DocumentTextIcon,
   MagnifyingGlassIcon,
   BuildingLibraryIcon
 } from '@heroicons/react/24/outline'

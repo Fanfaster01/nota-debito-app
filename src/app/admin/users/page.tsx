@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { adminUserService, companyService } from '@/lib/services/adminServices'
 import { User, Company } from '@/types/database'
+import { useAsyncState, useAsyncList } from '@/hooks/useAsyncState'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -50,12 +51,19 @@ interface UserWithCompany extends User {
 
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
-  const [users, setUsers] = useState<UserWithCompany[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estados con useAsyncState
+  const { data: users, loading: usersLoading, error: usersError, execute: loadUsers } = useAsyncList<UserWithCompany>()
+  const { data: companies, loading: companiesLoading, error: companiesError, execute: loadCompanies } = useAsyncList<Company>()
+  const { loading: saving, error: saveError, execute: saveUser } = useAsyncState<any>()
+  const { loading: deleteLoading, error: deleteError, execute: deleteUser } = useAsyncState<any>()
+  
+  // Estados locales para UI
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  
+  // Loading y error consolidados
+  const loading = usersLoading || companiesLoading
+  const error = usersError || companiesError || saveError || deleteError
   const [editingUser, setEditingUser] = useState<UserWithCompany | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -96,31 +104,25 @@ export default function UsersPage() {
   }, [currentUser])
 
   const loadData = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Cargar usuarios
+    // Cargar usuarios
+    await loadUsers(async () => {
       const { data: usersData, error: usersError } = await adminUserService.getAllUsers()
       if (usersError) {
-        setError('Error al cargar usuarios: ' + usersError.message)
-        return
+        const errorMessage = usersError instanceof Error ? usersError.message : 'Error desconocido'
+        throw new Error('Error al cargar usuarios: ' + errorMessage)
       }
+      return usersData || []
+    })
 
-      // Cargar compañías
+    // Cargar compañías
+    await loadCompanies(async () => {
       const { data: companiesData, error: companiesError } = await companyService.getAllCompanies()
       if (companiesError) {
-        setError('Error al cargar compañías: ' + companiesError.message)
-        return
+        const errorMessage = companiesError instanceof Error ? companiesError.message : 'Error desconocido'
+        throw new Error('Error al cargar compañías: ' + errorMessage)
       }
-
-      setUsers(usersData || [])
-      setCompanies(companiesData || [])
-    } catch (err: any) {
-      setError('Error al cargar datos: ' + err.message)
-    } finally {
-      setLoading(false)
-    }
+      return companiesData || []
+    })
   }
 
   const handleEditUser = (user: UserWithCompany) => {
@@ -151,7 +153,8 @@ export default function UsersPage() {
       const { error: updateError } = await adminUserService.updateUser(editingUser.id, updates)
       
       if (updateError) {
-        setError('Error al actualizar usuario: ' + updateError.message)
+        const errorMessage = updateError instanceof Error ? updateError.message : 'Error desconocido'
+        setError('Error al actualizar usuario: ' + errorMessage)
         return
       }
 
@@ -162,8 +165,9 @@ export default function UsersPage() {
       
       // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al actualizar usuario: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al actualizar usuario: ' + errorMessage)
     } finally {
       setSaving(false)
     }
@@ -174,15 +178,17 @@ export default function UsersPage() {
       const { error } = await adminUserService.toggleUserStatus(user.id, !user.is_active)
       
       if (error) {
-        setError('Error al cambiar estado: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        setError('Error al cambiar estado: ' + errorMessage)
         return
       }
 
       await loadData()
       setSuccessMessage(`Usuario ${!user.is_active ? 'activado' : 'desactivado'} exitosamente`)
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al cambiar estado: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al cambiar estado: ' + errorMessage)
     }
   }
 
@@ -191,7 +197,8 @@ export default function UsersPage() {
       const { error } = await adminUserService.deleteUser(userId)
       
       if (error) {
-        setError('Error al eliminar usuario: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        setError('Error al eliminar usuario: ' + errorMessage)
         return
       }
 
@@ -199,8 +206,9 @@ export default function UsersPage() {
       await loadData()
       setSuccessMessage('Usuario eliminado exitosamente')
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al eliminar usuario: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al eliminar usuario: ' + errorMessage)
     }
   }
 
@@ -226,7 +234,8 @@ export default function UsersPage() {
       })
 
       if (createError) {
-        setError('Error al crear usuario: ' + createError.message)
+        const errorMessage = createError instanceof Error ? createError.message : 'Error desconocido'
+        setError('Error al crear usuario: ' + errorMessage)
         return
       }
 
@@ -237,8 +246,9 @@ export default function UsersPage() {
       
       // Limpiar mensaje de éxito después de 3 segundos
       setTimeout(() => setSuccessMessage(null), 3000)
-    } catch (err: any) {
-      setError('Error al crear usuario: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al crear usuario: ' + errorMessage)
     } finally {
       setSaving(false)
     }

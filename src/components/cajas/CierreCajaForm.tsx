@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { bancoService } from '@/lib/services/bancoService'
 import { BancoSelector } from '@/components/ui/BancoSelector'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 import { 
   CurrencyDollarIcon,
   CurrencyEuroIcon,
@@ -47,6 +48,9 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
 }) => {
   const [cierresPuntoVenta, setCierresPuntoVenta] = useState<CierrePuntoVentaUI[]>([])
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
+  
+  // Estado unificado con useAsyncForm para operaciones internas
+  const submitState = useAsyncForm<void>()
   const [cierrePvForm, setCierrePvForm] = useState<Omit<CierrePuntoVentaUI, 'id'>>({
     bancoId: '',
     montoBs: 0,
@@ -173,11 +177,17 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
   }
 
   const handleSubmit = async (data: CierreCajaFormValues) => {
-    const formData: CierreCajaFormData = {
-      ...data,
-      cierresPuntoVenta
-    }
-    await onSubmit(formData)
+    await submitState.executeWithValidation(
+      async () => {
+        const formData: CierreCajaFormData = {
+          ...data,
+          cierresPuntoVenta
+        }
+        await onSubmit(formData)
+        return void 0
+      },
+      'Error al procesar el cierre de caja'
+    )
   }
 
   // Usar useMemo para recalcular totales cuando cambien los valores watched o cierres PV
@@ -193,6 +203,13 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
 
   return (
     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      {/* Mensajes de error */}
+      {submitState.error && (
+        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+          {submitState.error}
+        </div>
+      )}
+      
       {/* Efectivo */}
       <Card title="Efectivo en Caja">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -206,7 +223,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
               step="0.01"
               {...form.register('efectivoDolares', { valueAsNumber: true })}
               error={form.formState.errors.efectivoDolares?.message}
-              disabled={loading}
+              disabled={loading || submitState.loading}
               placeholder="0.00"
             />
           </div>
@@ -221,7 +238,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
               step="0.01"
               {...form.register('efectivoEuros', { valueAsNumber: true })}
               error={form.formState.errors.efectivoEuros?.message}
-              disabled={loading}
+              disabled={loading || submitState.loading}
               placeholder="0.00"
             />
           </div>
@@ -236,7 +253,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
               step="0.01"
               {...form.register('efectivoBs', { valueAsNumber: true })}
               error={form.formState.errors.efectivoBs?.message}
-              disabled={loading}
+              disabled={loading || submitState.loading}
               placeholder="0.00"
             />
           </div>
@@ -255,7 +272,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                   value={cierrePvForm.bancoId}
                   onChange={(bancoId) => setCierrePvForm({ ...cierrePvForm, bancoId })}
                   placeholder="Seleccione banco"
-                  disabled={loading}
+                  disabled={loading || submitState.loading}
                   required
                 />
               </div>
@@ -271,7 +288,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                     montoBs: parseFloat(e.target.value) || 0,
                     montoUsd: (parseFloat(e.target.value) || 0) / caja.tasaDia
                   })}
-                  disabled={loading}
+                  disabled={loading || submitState.loading}
                   placeholder="0.00"
                 />
               </div>
@@ -282,7 +299,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                   type="text"
                   value={cierrePvForm.numeroLote}
                   onChange={(e) => setCierrePvForm({ ...cierrePvForm, numeroLote: e.target.value })}
-                  disabled={loading}
+                  disabled={loading || submitState.loading}
                   placeholder="0000"
                 />
               </div>
@@ -301,7 +318,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
                       type="button"
                       variant="outline"
                       onClick={handleCancelarEdicion}
-                      disabled={loading}
+                      disabled={loading || submitState.loading}
                     >
                       <XMarkIcon className="h-4 w-4" />
                     </Button>
@@ -375,7 +392,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
               step="0.01"
               {...form.register('reporteZ', { valueAsNumber: true })}
               error={form.formState.errors.reporteZ?.message}
-              disabled={loading}
+              disabled={loading || submitState.loading}
               placeholder="0.00"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -393,7 +410,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
               step="0.01"
               {...form.register('fondoCajaDolares', { valueAsNumber: true })}
               error={form.formState.errors.fondoCajaDolares?.message}
-              disabled={loading}
+              disabled={loading || submitState.loading}
               placeholder="0.00"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -411,7 +428,7 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
               step="0.01"
               {...form.register('fondoCajaBs', { valueAsNumber: true })}
               error={form.formState.errors.fondoCajaBs?.message}
-              disabled={loading}
+              disabled={loading || submitState.loading}
               placeholder="0.00"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -517,9 +534,9 @@ export const CierreCajaForm: React.FC<CierreCajaFormProps> = ({
         <Button
           type="submit"
           variant="danger"
-          disabled={loading}
+          disabled={loading || submitState.loading}
         >
-          {loading ? 'Cerrando...' : 'Confirmar Cierre'}
+          {(loading || submitState.loading) ? 'Cerrando...' : 'Confirmar Cierre'}
         </Button>
       </div>
     </form>

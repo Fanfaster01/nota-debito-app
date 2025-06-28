@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { clienteService, ClienteUI } from '@/lib/services/clienteService'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 import { 
   MagnifyingGlassIcon,
   UserPlusIcon,
@@ -40,8 +41,11 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
   const [suggestions, setSuggestions] = useState<ClienteUI[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showNewClienteForm, setShowNewClienteForm] = useState(false)
-  const [loading, setLoading] = useState(false)
   const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
+  
+  // Estados unificados con useAsyncForm
+  const searchState = useAsyncForm<ClienteUI[]>()
+  const createState = useAsyncForm<ClienteUI>()
   
   // Formulario nuevo cliente
   const [nuevoCliente, setNuevoCliente] = useState<Partial<ClienteUI>>({
@@ -82,13 +86,20 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
       return
     }
 
-    setLoading(true)
-    const { data, error } = await clienteService.buscarClientes(texto)
-    setLoading(false)
-
-    if (!error && data) {
-      setSuggestions(data)
-      setShowSuggestions(data.length > 0)
+    const result = await searchState.executeWithValidation(
+      async () => {
+        const { data, error } = await clienteService.buscarClientes(texto)
+        if (error) {
+          throw error
+        }
+        return data || []
+      },
+      'Error al buscar clientes'
+    )
+    
+    if (result) {
+      setSuggestions(result)
+      setShowSuggestions(result.length > 0)
     }
   }
 
@@ -121,27 +132,33 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
       return
     }
 
-    setLoading(true)
-    
-    // Obtener el usuario actual desde Supabase
-    const { createClient } = await import('@/utils/supabase/client')
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      setLoading(false)
-      return
-    }
+    const result = await createState.executeWithValidation(
+      async () => {
+        // Obtener el usuario actual desde Supabase
+        const { createClient } = await import('@/utils/supabase/client')
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) {
+          throw new Error('Usuario no autenticado')
+        }
 
-    const { data, error } = await clienteService.crearCliente({
-      ...nuevoCliente as ClienteUI,
-      createdBy: user.id
-    })
+        const { data, error } = await clienteService.crearCliente({
+          ...nuevoCliente as ClienteUI,
+          createdBy: user.id
+        })
 
-    setLoading(false)
+        if (error) {
+          throw error
+        }
+        
+        return data
+      },
+      'Error al crear el cliente'
+    )
 
-    if (!error && data) {
-      handleClienteSelect(data)
+    if (result) {
+      handleClienteSelect(result)
       setShowNewClienteForm(false)
       setNuevoCliente({
         tipoDocumento: 'V',
@@ -156,12 +173,19 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
   const handleBuscarPorDocumento = async () => {
     if (!numeroDocumento) return
 
-    setLoading(true)
-    const { data, error } = await clienteService.buscarPorDocumento(tipoDocumento, numeroDocumento)
-    setLoading(false)
+    const result = await searchState.executeWithValidation(
+      async () => {
+        const { data, error } = await clienteService.buscarPorDocumento(tipoDocumento, numeroDocumento)
+        if (error) {
+          throw error
+        }
+        return data
+      },
+      'Error al buscar cliente'
+    )
 
-    if (!error && data) {
-      handleClienteSelect(data)
+    if (result) {
+      handleClienteSelect(result)
     } else {
       // Si no existe, mostrar formulario para crear
       setShowNewClienteForm(true)
@@ -221,7 +245,7 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
           <Button
             type="button"
             onClick={handleBuscarPorDocumento}
-            disabled={disabled || loading || !numeroDocumento || !!selectedCliente}
+            disabled={disabled || searchState.loading || !numeroDocumento || !!selectedCliente}
             className="flex items-center"
           >
             <MagnifyingGlassIcon className="h-4 w-4" />
@@ -362,11 +386,11 @@ export const ClienteSearch: React.FC<ClienteSearchProps> = ({
             <Button
               type="button"
               onClick={handleCrearCliente}
-              disabled={disabled || loading || !nuevoCliente.numeroDocumento || !nuevoCliente.nombre}
+              disabled={disabled || createState.loading || !nuevoCliente.numeroDocumento || !nuevoCliente.nombre}
               className="flex items-center"
             >
               <UserPlusIcon className="h-4 w-4 mr-2" />
-              {loading ? 'Creando...' : 'Crear Cliente'}
+              {createState.loading ? 'Creando...' : 'Crear Cliente'}
             </Button>
           </div>
         </div>

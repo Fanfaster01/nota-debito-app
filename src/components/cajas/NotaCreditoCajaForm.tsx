@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -9,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import type { NotaCreditoCajaUI } from '@/types/caja'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 
 const notaCreditoCajaSchema = z.object({
   numeroNotaCredito: z.string()
@@ -37,8 +37,9 @@ interface NotaCreditoCajaFormProps {
 
 export default function NotaCreditoCajaForm({ cajaId, onSuccess, onCancel }: NotaCreditoCajaFormProps) {
   const { user } = useAuth()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estado unificado con useAsyncForm
+  const submitState = useAsyncForm<NotaCreditoCajaUI>()
 
   const {
     register,
@@ -57,46 +58,51 @@ export default function NotaCreditoCajaForm({ cajaId, onSuccess, onCancel }: Not
   })
 
   const onSubmit = async (data: NotaCreditoCajaFormData) => {
-    if (!user) return
+    if (!user || !user.id || !user.company_id) {
+      submitState.setData(null)
+      console.error('Usuario incompleto:', user)
+      return
+    }
 
-    setIsSubmitting(true)
-    setError(null)
+    const result = await submitState.executeWithValidation(
+      async () => {
+        const nuevaNotaCredito: Omit<NotaCreditoCajaUI, 'id' | 'fechaHora'> = {
+          cajaId,
+          numeroNotaCredito: data.numeroNotaCredito,
+          facturaAfectada: data.facturaAfectada,
+          montoBs: data.montoBs,
+          nombreCliente: data.nombreCliente,
+          explicacion: data.explicacion,
+          userId: user.id,
+          companyId: user.company_id!
+        }
 
-    try {
-      const nuevaNotaCredito: Omit<NotaCreditoCajaUI, 'id' | 'fechaHora'> = {
-        cajaId,
-        numeroNotaCredito: data.numeroNotaCredito,
-        facturaAfectada: data.facturaAfectada,
-        montoBs: data.montoBs,
-        nombreCliente: data.nombreCliente,
-        explicacion: data.explicacion,
-        userId: user.id,
-        companyId: user.company_id!
-      }
+        const { data: notaCreada, error: createError } = await cajaService.agregarNotaCreditoCaja(nuevaNotaCredito)
 
-      const { data: notaCreada, error: createError } = await cajaService.agregarNotaCreditoCaja(nuevaNotaCredito)
+        if (createError) {
+          throw createError
+        }
 
-      if (createError) {
-        setError(createError.message || 'Error al crear la nota de crédito')
-        return
-      }
+        if (!notaCreada) {
+          throw new Error('No se pudo crear la nota de crédito')
+        }
 
-      if (notaCreada) {
-        reset()
-        onSuccess(notaCreada)
-      }
-    } catch (err) {
-      setError('Error inesperado al crear la nota de crédito')
-    } finally {
-      setIsSubmitting(false)
+        return notaCreada
+      },
+      'Error al crear la nota de crédito'
+    )
+
+    if (result) {
+      reset()
+      onSuccess(result)
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      {error && (
+      {submitState.error && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-          {error}
+          {submitState.error}
         </div>
       )}
 
@@ -157,15 +163,15 @@ export default function NotaCreditoCajaForm({ cajaId, onSuccess, onCancel }: Not
           type="button"
           variant="secondary"
           onClick={onCancel}
-          disabled={isSubmitting}
+          disabled={submitState.loading}
         >
           Cancelar
         </Button>
         <Button
           type="submit"
-          disabled={isSubmitting}
+          disabled={submitState.loading}
         >
-          {isSubmitting ? 'Agregando...' : 'Agregar Nota de Crédito'}
+          {submitState.loading ? 'Agregando...' : 'Agregar Nota de Crédito'}
         </Button>
       </div>
     </form>

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
+import { useAsyncState } from '@/hooks/useAsyncState'
 import { 
   DocumentPlusIcon,
   ChartBarIcon,
@@ -26,30 +27,24 @@ type TabActivo = 'dashboard' | 'agregar-factura' | 'consultar-facturas' | 'consu
 export default function CuentasPorPagarPage() {
   const { user, company } = useAuth()
   const [tabActivo, setTabActivo] = useState<TabActivo>('dashboard')
-  const [metricas, setMetricas] = useState<MetricasCuentasPorPagar | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  // Estados con useAsyncState
+  const { data: metricas, loading, error, execute: loadMetricas } = useAsyncState<MetricasCuentasPorPagar | null>()
+  
+  // Estado local para UI
+  const [displayError, setDisplayError] = useState<string | null>(null)
 
   const cargarMetricas = useCallback(async () => {
     if (!company?.id) return
 
-    setLoading(true)
-    setError(null)
-
-    try {
-      const result = await cuentasPorPagarService.getMetricas(company.id)
+    await loadMetricas(async () => {
+      const result = await cuentasPorPagarService.getMetricas(company.id!)
       if (result.error) {
-        setError(result.error)
-      } else {
-        setMetricas(result.data)
+        setDisplayError(result.error)
+        throw new Error(result.error)
       }
-    } catch (err) {
-      setError('Error al cargar las métricas')
-      console.error('Error cargando métricas:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [company?.id])
+      return result.data
+    })
+  }, [company?.id, loadMetricas])
 
   // Cargar métricas al montar el componente
   useEffect(() => {
@@ -259,13 +254,13 @@ export default function CuentasPorPagarPage() {
         )}
 
         {/* Error message */}
-        {error && (
+        {(error || displayError) && (
           <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             <div className="flex items-center">
               <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
-              <span>{error}</span>
+              <span>{error?.message || displayError}</span>
               <button
-                onClick={() => setError(null)}
+                onClick={() => setDisplayError(null)}
                 className="ml-2 text-red-500 hover:text-red-700"
               >
                 ×

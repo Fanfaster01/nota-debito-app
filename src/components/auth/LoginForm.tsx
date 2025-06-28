@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 
 const loginSchema = z.object({
   email: z.string().email('Email inválido').min(1, 'El email es requerido'),
@@ -30,9 +31,12 @@ type SignUpFormData = z.infer<typeof signUpSchema>
 
 export function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const { signIn, signUp, loading } = useAuth()
+  
+  // Estados unificados con useAsyncForm
+  const loginState = useAsyncForm<void>()
+  const signUpState = useAsyncForm<void>()
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -53,25 +57,35 @@ export function LoginForm() {
   })
 
   const handleLogin = async (data: LoginFormData) => {
-    setError(null)
     setMessage(null)
-
-    const { error } = await signIn(data.email, data.password)
-
-    if (error) {
-      setError(error.message || 'Error al iniciar sesión')
-    }
+    
+    await loginState.executeWithValidation(
+      async () => {
+        const { error } = await signIn(data.email, data.password)
+        if (error) {
+          throw new Error(error.message || 'Error al iniciar sesión')
+        }
+        return void 0
+      },
+      'Error al iniciar sesión'
+    )
   }
 
   const handleSignUp = async (data: SignUpFormData) => {
-    setError(null)
     setMessage(null)
-
-    const { error } = await signUp(data.email, data.password, data.fullName)
-
-    if (error) {
-      setError(error.message || 'Error al registrarse')
-    } else {
+    
+    const result = await signUpState.executeWithValidation(
+      async () => {
+        const { error } = await signUp(data.email, data.password, data.fullName)
+        if (error) {
+          throw new Error(error.message || 'Error al registrarse')
+        }
+        return void 0
+      },
+      'Error al registrarse'
+    )
+    
+    if (result !== null) {
       setMessage('¡Registro exitoso! Verifica tu email para confirmar tu cuenta.')
       setIsSignUp(false)
     }
@@ -90,9 +104,9 @@ export function LoginForm() {
         </div>
 
         {/* Mensajes de error y éxito */}
-        {error && (
+        {(loginState.error || signUpState.error) && (
           <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-red-600 text-sm">{error}</p>
+            <p className="text-red-600 text-sm">{loginState.error || signUpState.error}</p>
           </div>
         )}
 
@@ -111,7 +125,7 @@ export function LoginForm() {
                 type="email"
                 {...loginForm.register('email')}
                 error={loginForm.formState.errors.email?.message}
-                disabled={loading}
+                disabled={loading || loginState.loading}
               />
 
               <Input
@@ -119,15 +133,15 @@ export function LoginForm() {
                 type="password"
                 {...loginForm.register('password')}
                 error={loginForm.formState.errors.password?.message}
-                disabled={loading}
+                disabled={loading || loginState.loading}
               />
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading}
+                disabled={loading || loginState.loading}
               >
-                {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+                {(loading || loginState.loading) ? 'Iniciando sesión...' : 'Iniciar sesión'}
               </Button>
 
               <div className="text-center">
@@ -135,11 +149,12 @@ export function LoginForm() {
                   type="button"
                   onClick={() => {
                     setIsSignUp(true)
-                    setError(null)
+                    loginState.clearError()
+                    signUpState.clearError()
                     setMessage(null)
                   }}
                   className="text-blue-600 hover:text-blue-500 text-sm"
-                  disabled={loading}
+                  disabled={loading || loginState.loading}
                 >
                   ¿No tienes cuenta? Regístrate aquí
                 </button>
@@ -153,7 +168,7 @@ export function LoginForm() {
                 type="text"
                 {...signUpForm.register('fullName')}
                 error={signUpForm.formState.errors.fullName?.message}
-                disabled={loading}
+                disabled={loading || signUpState.loading}
               />
 
               <Input
@@ -161,7 +176,7 @@ export function LoginForm() {
                 type="email"
                 {...signUpForm.register('email')}
                 error={signUpForm.formState.errors.email?.message}
-                disabled={loading}
+                disabled={loading || signUpState.loading}
               />
 
               <Input
@@ -169,7 +184,7 @@ export function LoginForm() {
                 type="password"
                 {...signUpForm.register('password')}
                 error={signUpForm.formState.errors.password?.message}
-                disabled={loading}
+                disabled={loading || signUpState.loading}
               />
 
               <Input
@@ -177,15 +192,15 @@ export function LoginForm() {
                 type="password"
                 {...signUpForm.register('confirmPassword')}
                 error={signUpForm.formState.errors.confirmPassword?.message}
-                disabled={loading}
+                disabled={loading || signUpState.loading}
               />
 
               <Button
                 type="submit"
                 className="w-full"
-                disabled={loading}
+                disabled={loading || signUpState.loading}
               >
-                {loading ? 'Registrando...' : 'Registrarse'}
+                {(loading || signUpState.loading) ? 'Registrando...' : 'Registrarse'}
               </Button>
 
               <div className="text-center">
@@ -193,11 +208,12 @@ export function LoginForm() {
                   type="button"
                   onClick={() => {
                     setIsSignUp(false)
-                    setError(null)
+                    loginState.clearError()
+                    signUpState.clearError()
                     setMessage(null)
                   }}
                   className="text-blue-600 hover:text-blue-500 text-sm"
-                  disabled={loading}
+                  disabled={loading || signUpState.loading}
                 >
                   ¿Ya tienes cuenta? Inicia sesión aquí
                 </button>

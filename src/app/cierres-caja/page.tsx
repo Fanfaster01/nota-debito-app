@@ -9,6 +9,7 @@ import {
   ResumenCierres,
   cierresCajaService 
 } from '@/lib/services/cierresCajaService'
+import { useAsyncState, useAsyncList } from '@/hooks/useAsyncState'
 import CierresCajaFilters from '@/components/cierres-caja/CierresCajaFilters'
 import CierresCajaList from '@/components/cierres-caja/CierresCajaList'
 import CierreDetailModal from '@/components/cierres-caja/CierreDetailModal'
@@ -34,9 +35,12 @@ import { generateCierresListPDF, generateResumenCierresPDF } from '@/utils/pdfCi
 
 export default function CierresCajaPage() {
   const { user } = useAuth()
-  const [cierres, setCierres] = useState<CierreDetalladoUI[]>([])
-  const [resumen, setResumen] = useState<ResumenCierres | null>(null)
-  const [loading, setLoading] = useState(true)
+  
+  // Estados con useAsyncState
+  const { data: cierres, loading: cierresLoading, error: cierresError, execute: loadCierresData } = useAsyncList<CierreDetalladoUI>()
+  const { data: resumen, loading: resumenLoading, error: resumenError, execute: loadResumenData } = useAsyncState<ResumenCierres | null>()
+  
+  // Estados locales para UI
   const [filters, setFilters] = useState<FiltrosCierres>({})
   const [activeTab, setActiveTab] = useState<'lista' | 'dashboard' | 'alertas'>('lista')
   
@@ -51,6 +55,10 @@ export default function CierresCajaPage() {
   // Comparación de cierres
   const [selectedForComparison, setSelectedForComparison] = useState<CierreDetalladoUI[]>([])
   const [showComparisonModal, setShowComparisonModal] = useState(false)
+  
+  // Loading y error consolidados
+  const loading = cierresLoading || resumenLoading
+  const error = cierresError || resumenError
 
   // Verificar permisos
   const canAccess = user?.role === 'master' || user?.role === 'admin'
@@ -71,29 +79,35 @@ export default function CierresCajaPage() {
   const loadCierres = async (filtrosAplicados?: FiltrosCierres) => {
     if (!user) return
 
-    setLoading(true)
     const filtrosFinales = filtrosAplicados || filters
 
-    const { data, error } = await cierresCajaService.getCierresDetallados(filtrosFinales)
-    
-    if (!error && data) {
-      setCierres(data)
-    } else {
-      console.error('Error cargando cierres:', error)
-      setCierres([])
-    }
-    setLoading(false)
+    await loadCierresData(async () => {
+      const { data, error } = await cierresCajaService.getCierresDetallados(filtrosFinales)
+      
+      if (error) {
+        console.error('Error cargando cierres:', error)
+        return []
+      }
+      
+      return data || []
+    })
   }
 
   const loadResumen = async () => {
     if (!user) return
 
     const companyId = isMaster ? undefined : user.company_id!
-    const { data, error } = await cierresCajaService.getResumenCierres(companyId)
     
-    if (!error && data) {
-      setResumen(data)
-    }
+    await loadResumenData(async () => {
+      const { data, error } = await cierresCajaService.getResumenCierres(companyId)
+      
+      if (error) {
+        console.error('Error cargando resumen:', error)
+        return null
+      }
+      
+      return data
+    })
   }
 
   const handleFilterChange = (newFilters: FiltrosCierres) => {
@@ -129,7 +143,7 @@ export default function CierresCajaPage() {
   }
 
   const handleExportExcel = async () => {
-    if (cierres.length === 0) {
+    if (!cierres || cierres.length === 0) {
       alert('No hay cierres para exportar')
       return
     }
@@ -157,7 +171,7 @@ export default function CierresCajaPage() {
   }
 
   const handleExportPDF = async () => {
-    if (cierres.length === 0) {
+    if (!cierres || cierres.length === 0) {
       alert('No hay cierres para exportar')
       return
     }
@@ -195,8 +209,8 @@ export default function CierresCajaPage() {
   // Calcular items para paginación
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = cierres.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.ceil(cierres.length / itemsPerPage)
+  const currentItems = cierres?.slice(indexOfFirstItem, indexOfLastItem) || []
+  const totalPages = Math.ceil((cierres?.length || 0) / itemsPerPage)
 
   if (!canAccess) {
     return (
@@ -231,7 +245,7 @@ export default function CierresCajaPage() {
                   e.target.value = ''
                 }}
                 className="appearance-none bg-white border border-gray-300 rounded-md px-4 py-2 pr-8 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                disabled={cierres.length === 0}
+                disabled={!cierres || cierres.length === 0}
               >
                 <option value="">Exportar Lista</option>
                 <option value="excel">📊 Excel</option>
@@ -391,7 +405,7 @@ export default function CierresCajaPage() {
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
-                  totalItems={cierres.length}
+                  totalItems={cierres?.length || 0}
                   itemsPerPage={itemsPerPage}
                   onPageChange={setCurrentPage}
                 />

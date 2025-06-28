@@ -7,7 +7,7 @@ export function setupSupabaseErrorInterceptor() {
   window.fetch = async function(...args) {
     let [resource] = args;
     const config = args[1];
-    let url = typeof resource === 'string' ? resource : resource?.url;
+    let url = typeof resource === 'string' ? resource : (resource instanceof URL ? resource.href : (resource as Request)?.url);
     
     // Si no hay URL válida, pasar al fetch original
     if (!url || typeof url !== 'string') {

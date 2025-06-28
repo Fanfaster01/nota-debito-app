@@ -1,5 +1,5 @@
 // src/components/cajas/PagoZelleForm.tsx
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PagoZelleUI } from '@/types/caja'
 import { CurrencyDollarIcon } from '@heroicons/react/24/outline'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 
 const pagoZelleSchema = z.object({
   montoUsd: z.number().positive('El monto debe ser mayor a 0'),
@@ -32,8 +33,8 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
   editingPago,
   onCancelEdit
 }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [montoBs, setMontoBs] = useState(0)
+  // Estado unificado con useAsyncForm
+  const submitState = useAsyncForm<void>()
 
   const {
     register,
@@ -52,12 +53,9 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
   })
 
   const montoUsd = watch('montoUsd')
-
+  
   // Calcular monto en bolívares cuando cambia el monto en USD
-  useEffect(() => {
-    const calculatedBs = (montoUsd || 0) * tasaDia
-    setMontoBs(calculatedBs)
-  }, [montoUsd, tasaDia])
+  const montoBs = (montoUsd || 0) * tasaDia
 
   useEffect(() => {
     if (editingPago) {
@@ -68,24 +66,28 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
   }, [editingPago, setValue])
 
   const onFormSubmit = async (data: PagoZelleFormData) => {
-    setIsSubmitting(true)
-    try {
-      await onSubmit({
-        ...data,
-        tasa: tasaDia
-      })
-      if (!editingPago) {
-        reset()
-        setMontoBs(0)
-      }
-    } finally {
-      setIsSubmitting(false)
+    const result = await submitState.executeWithValidation(
+      async () => {
+        await onSubmit({
+          ...data,
+          tasa: tasaDia
+        })
+        if (!editingPago) {
+          reset()
+        }
+        return void 0
+      },
+      'Error al procesar el pago Zelle'
+    )
+    
+    // Si la operación fue exitosa, el resultado será truthy
+    if (result !== null) {
+      // La operación fue exitosa, el formulario ya se reseteó si no era edición
     }
   }
 
   const handleCancel = () => {
     reset()
-    setMontoBs(0)
     onCancelEdit?.()
   }
 
@@ -99,6 +101,12 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
   return (
     <Card title={editingPago ? 'Editar Pago Zelle' : 'Registrar Pago Zelle'}>
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+        {submitState.error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+            {submitState.error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Monto (USD)"
@@ -106,7 +114,7 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
             step="0.01"
             {...register('montoUsd', { valueAsNumber: true })}
             error={errors.montoUsd?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             autoFocus
           />
           
@@ -130,7 +138,7 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
             label="Nombre del Cliente"
             {...register('nombreCliente')}
             error={errors.nombreCliente?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             placeholder="Nombre completo"
           />
           
@@ -138,7 +146,7 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
             label="Teléfono"
             {...register('telefono')}
             error={errors.telefono?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             placeholder="04XX-XXXXXXX"
           />
         </div>
@@ -149,18 +157,18 @@ export const PagoZelleForm: React.FC<PagoZelleFormProps> = ({
               type="button"
               variant="outline"
               onClick={handleCancel}
-              disabled={loading || isSubmitting}
+              disabled={loading || submitState.loading}
             >
               Cancelar
             </Button>
           )}
           <Button
             type="submit"
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             className="flex items-center"
           >
             <CurrencyDollarIcon className="h-4 w-4 mr-2" />
-            {isSubmitting ? 'Guardando...' : editingPago ? 'Actualizar' : 'Agregar'} Pago
+            {submitState.loading ? 'Guardando...' : editingPago ? 'Actualizar' : 'Agregar'} Pago
           </Button>
         </div>
       </form>

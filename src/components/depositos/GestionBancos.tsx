@@ -17,8 +17,6 @@ import {
   BuildingLibraryIcon,
   PlusIcon,
   PencilIcon,
-  TrashIcon,
-  CheckIcon,
   XMarkIcon,
   EyeIcon,
   EyeSlashIcon

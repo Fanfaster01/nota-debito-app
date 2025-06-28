@@ -42,7 +42,7 @@ export function ModalGenerarRecibo({
   onClose,
   onReciboGenerado
 }: ModalGenerarReciboProps) {
-  const { user } = useAuth()
+  const { user, company } = useAuth()
   const [step, setStep] = useState<'validacion' | 'configuracion' | 'procesando' | 'completado'>('validacion')
   const [validacion, setValidacion] = useState<ValidacionPagoFacturas | null>(null)
   const [loading, setLoading] = useState(true)
@@ -156,7 +156,7 @@ export function ModalGenerarRecibo({
           if (cuentaFavorita) {
             cuentas.push({
               proveedorRif: rif,
-              bancoNombre: cuentaFavorita.banco_nombre,
+              bancoNombre: cuentaFavorita.banco_nombre || 'Banco no especificado',
               numeroCuenta: cuentaFavorita.numero_cuenta
             })
           }
@@ -218,14 +218,14 @@ export function ModalGenerarRecibo({
   }
 
   const handleDescargarReciboPDF = async () => {
-    if (!reciboGenerado || !validacion || !user?.company || generandoPDF) return
+    if (!reciboGenerado || !validacion || !company || generandoPDF) return
     
     setGenerandoPDF(true)
     try {
       const { descargarReciboPDF, getEmpresaInfoFromCompany } = await import('@/utils/pdfRecibos')
       
       // Obtener información de la empresa
-      const empresaInfo = getEmpresaInfoFromCompany(user.company)
+      const empresaInfo = getEmpresaInfoFromCompany(company)
       
       // Generar y descargar PDF
       descargarReciboPDF(
@@ -244,14 +244,14 @@ export function ModalGenerarRecibo({
   }
 
   const handlePrevisualizarReciboPDF = async () => {
-    if (!reciboGenerado || !validacion || !user?.company || generandoPDF) return
+    if (!reciboGenerado || !validacion || !company || generandoPDF) return
     
     setGenerandoPDF(true)
     try {
       const { generarReciboPDF, getEmpresaInfoFromCompany, previsualizarPDF } = await import('@/utils/pdfRecibos')
       
       // Obtener información de la empresa
-      const empresaInfo = getEmpresaInfoFromCompany(user.company)
+      const empresaInfo = getEmpresaInfoFromCompany(company)
       
       // Generar PDF y previsualizarlo
       const pdfDataUri = generarReciboPDF(
@@ -272,13 +272,13 @@ export function ModalGenerarRecibo({
   }
 
   const handleDescargarNotasDebitoPDF = async () => {
-    if (!reciboGenerado?.notasDebito.length || !user?.company) return
+    if (!reciboGenerado?.notasDebito.length || !company) return
     
     try {
       const { descargarNotasDebitoPDF, getEmpresaInfoFromCompany } = await import('@/utils/pdfRecibos')
       
       // Obtener información de la empresa
-      const empresaInfo = getEmpresaInfoFromCompany(user.company)
+      const empresaInfo = getEmpresaInfoFromCompany(company)
       
       // Generar y descargar PDF de notas de débito
       descargarNotasDebitoPDF(

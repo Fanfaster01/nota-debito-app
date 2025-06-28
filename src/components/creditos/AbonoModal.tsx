@@ -1,5 +1,5 @@
 // src/components/creditos/AbonoModal.tsx
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { XMarkIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline'
 import { generateReciboPagoPDF } from '@/utils/pdfGenerator'
+import { useAsyncState, useAsyncForm } from '@/hooks/useAsyncState'
 
 const abonoSchema = z.object({
   montoBs: z.number()
@@ -39,9 +40,10 @@ export default function AbonoModal({
   onSuccess 
 }: AbonoModalProps) {
   const { user } = useAuth()
-  const [banks, setBanks] = useState<any[]>([])
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estados unificados con useAsyncState
+  const banksState = useAsyncState<any[]>([])
+  const submitState = useAsyncForm<any>()
 
   const {
     register,
@@ -76,64 +78,71 @@ export default function AbonoModal({
   }, [isOpen, credito.tasa, reset])
 
   const loadBanks = async () => {
-    const { data } = await bancoService.getBancos()
-    if (data) {
-      setBanks(data)
-    }
+    await banksState.execute(
+      async () => {
+        const { data, error } = await bancoService.getBancos()
+        if (error) {
+          throw error
+        }
+        return data || []
+      },
+      'Error al cargar los bancos'
+    )
   }
 
   const onSubmit = async (data: AbonoFormData) => {
     if (!user) return
 
     if (data.montoBs > credito.saldoPendiente) {
-      setError('El monto del abono no puede ser mayor al saldo pendiente')
+      // Usar el estado del formulario para mostrar el error
+      submitState.clearError()
+      submitState.setData(null)
       return
     }
 
-    setIsSubmitting(true)
-    setError(null)
-
-    try {
-      const nuevoAbono = {
-        creditoId: credito.id,
-        montoBs: data.montoBs,
-        montoUsd: parseFloat((data.montoBs / data.tasa).toFixed(2)),
-        tasa: data.tasa,
-        metodoPago: data.metodoPago,
-        referencia: data.referencia || null,
-        bancoId: (data.metodoPago === 'transferencia' || data.metodoPago === 'punto_venta' || data.metodoPago === 'deposito') 
-          ? data.bancoId || null 
-          : null,
-        observaciones: data.observaciones || null,
-        userId: user.id,
-        companyId: user.company_id!,
-        fechaPago: new Date()
-      }
-
-      const { data: abonoCreado, error: createError } = await creditoService.registrarAbono(nuevoAbono)
-
-      if (createError) {
-        setError(createError.message || 'Error al registrar el abono')
-        return
-      }
-
-      // Generar recibo automáticamente
-      if (abonoCreado) {
-        try {
-          generateReciboPagoPDF(credito, {
-            ...abonoCreado,
-            fechaPago: new Date()
-          })
-        } catch (error) {
-          console.error('Error al generar recibo:', error)
+    const result = await submitState.executeWithValidation(
+      async () => {
+        const nuevoAbono = {
+          creditoId: credito.id,
+          montoBs: data.montoBs,
+          montoUsd: parseFloat((data.montoBs / data.tasa).toFixed(2)),
+          tasa: data.tasa,
+          metodoPago: data.metodoPago,
+          referencia: data.referencia || null,
+          bancoId: (data.metodoPago === 'transferencia' || data.metodoPago === 'punto_venta' || data.metodoPago === 'deposito') 
+            ? data.bancoId || null 
+            : null,
+          observaciones: data.observaciones || null,
+          userId: user.id,
+          companyId: user.company_id!,
+          fechaPago: new Date()
         }
-      }
 
+        const { data: abonoCreado, error: createError } = await creditoService.registrarAbono(nuevoAbono)
+
+        if (createError) {
+          throw createError
+        }
+
+        // Generar recibo automáticamente
+        if (abonoCreado) {
+          try {
+            generateReciboPagoPDF(credito, {
+              ...abonoCreado,
+              fechaPago: new Date()
+            })
+          } catch (error) {
+            console.error('Error al generar recibo:', error)
+          }
+        }
+
+        return abonoCreado
+      },
+      'Error al registrar el abono'
+    )
+
+    if (result) {
       onSuccess()
-    } catch (err) {
-      setError('Error inesperado al registrar el abono')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -168,9 +177,15 @@ export default function AbonoModal({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
-          {error && (
+          {(submitState.error || banksState.error) && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-              {error}
+              {submitState.error || banksState.error}
+            </div>
+          )}
+          
+          {montoBs && montoBs > credito.saldoPendiente && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+              El monto del abono no puede ser mayor al saldo pendiente
             </div>
           )}
 
@@ -202,7 +217,7 @@ export default function AbonoModal({
               placeholder="0.00"
               {...register('montoBs', { valueAsNumber: true })}
               error={errors.montoBs?.message}
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             />
 
             <Input
@@ -212,7 +227,7 @@ export default function AbonoModal({
               placeholder="0.00"
               {...register('tasa', { valueAsNumber: true })}
               error={errors.tasa?.message}
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             />
           </div>
 
@@ -245,7 +260,7 @@ export default function AbonoModal({
             <select
               {...register('metodoPago')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             >
               <option value="efectivo">Efectivo</option>
               <option value="transferencia">Transferencia</option>
@@ -265,10 +280,10 @@ export default function AbonoModal({
               <select
                 {...register('bancoId')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                disabled={isSubmitting}
+                disabled={submitState.loading || banksState.loading}
               >
                 <option value="">Seleccionar banco</option>
-                {banks.map(bank => (
+                {(banksState.data || []).map(bank => (
                   <option key={bank.id} value={bank.id}>
                     {bank.nombre} - {bank.codigo}
                   </option>
@@ -283,7 +298,7 @@ export default function AbonoModal({
             type="text"
             placeholder="Número de referencia, confirmación, etc."
             {...register('referencia')}
-            disabled={isSubmitting}
+            disabled={submitState.loading}
           />
 
           {/* Observaciones */}
@@ -296,7 +311,7 @@ export default function AbonoModal({
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               placeholder="Observaciones adicionales sobre el abono..."
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             />
           </div>
 
@@ -316,15 +331,15 @@ export default function AbonoModal({
               type="button"
               variant="secondary"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !montoBs || montoBs > credito.saldoPendiente}
+              disabled={submitState.loading || !montoBs || montoBs > credito.saldoPendiente}
             >
-              {isSubmitting ? 'Registrando...' : 'Registrar Abono'}
+              {submitState.loading ? 'Registrando...' : 'Registrar Abono'}
             </Button>
           </div>
         </form>

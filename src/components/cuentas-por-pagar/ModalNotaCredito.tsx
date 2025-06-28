@@ -27,6 +27,7 @@ export function ModalNotaCredito({
   const facturaParaForm: Factura = {
     fecha: new Date(factura.fecha),
     numero: factura.numero,
+    numeroControl: factura.numeroControl || '',
     proveedor: {
       nombre: factura.proveedorNombre,
       rif: factura.proveedorRif,

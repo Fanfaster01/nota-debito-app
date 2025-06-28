@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 import { proveedorService, ProveedorWithCuentas, ProveedorFormData } from '@/lib/services/proveedorService'
 import { tasasCambioService } from '@/lib/services/tasasCambioService'
 import { cuentasPorPagarService } from '@/lib/services/cuentasPorPagarService'
@@ -56,10 +57,10 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
   const [proveedorFound, setProveedorFound] = useState(false)
   const [proveedorSuggestions, setProveedorSuggestions] = useState<ProveedorWithCuentas[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState(false)
   const [loadingTasa, setLoadingTasa] = useState(false)
+  
+  // Estados unificados con useAsyncForm
+  const submitState = useAsyncForm<any>()
   
   const {
     register,
@@ -192,43 +193,39 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
   // Manejar envío del formulario
   const onSubmit = async (data: FacturaFormData) => {
     if (!companyId || !userId) {
-      setError('Faltan datos de empresa o usuario')
-      return
+      throw new Error('Faltan datos de empresa o usuario')
     }
 
-    setLoading(true)
-    setError(null)
+    const result = await submitState.executeWithValidation(
+      async () => {
+        const facturaData: FormDataFactura = {
+          ...data,
+          clienteNombre: company?.name || '',
+          clienteRif: company?.rif || '',
+          clienteDireccion: company?.address || '',
+          subTotal: montos.subTotal,
+          iva: montos.iva,
+          total: montos.total,
+          retencionIVA: montos.retencionIVA,
+          montoUSD: montos.montoUSD
+        }
 
-    try {
-      const facturaData: FormDataFactura = {
-        ...data,
-        clienteNombre: company?.name || '',
-        clienteRif: company?.rif || '',
-        clienteDireccion: company?.address || '',
-        subTotal: montos.subTotal,
-        iva: montos.iva,
-        total: montos.total,
-        retencionIVA: montos.retencionIVA,
-        montoUSD: montos.montoUSD
-      }
+        const result = await cuentasPorPagarService.createFactura(companyId, userId, facturaData)
 
-      const result = await cuentasPorPagarService.createFactura(companyId, userId, facturaData)
+        if (result.error) {
+          throw new Error(result.error)
+        }
 
-      if (result.error) {
-        setError(result.error)
-      } else {
-        setSuccess(true)
-        setTimeout(() => {
-          onFacturaCreada()
-          reset()
-          setSuccess(false)
-        }, 2000)
-      }
-    } catch (err) {
-      setError('Error al crear la factura')
-      console.error('Error creando factura:', err)
-    } finally {
-      setLoading(false)
+        return result
+      },
+      'Error al crear la factura'
+    )
+    
+    if (result) {
+      setTimeout(() => {
+        onFacturaCreada()
+        reset()
+      }, 1500)
     }
   }
 
@@ -256,7 +253,7 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
     }
   }
 
-  if (success) {
+  if (submitState.success) {
     return (
       <div className="bg-white p-6 rounded-lg">
         <div className="text-center py-8">
@@ -532,11 +529,11 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
           </div>
         </Card>
 
-        {error && (
+        {submitState.error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
             <div className="flex">
               <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-2" />
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700">{submitState.error}</p>
             </div>
           </div>
         )}
@@ -546,8 +543,8 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
           <Button type="button" variant="outline" onClick={() => reset()}>
             Limpiar
           </Button>
-          <Button type="submit" disabled={loading}>
-            {loading ? 'Creando...' : 'Crear Factura'}
+          <Button type="submit" disabled={submitState.loading}>
+            {submitState.loading ? 'Creando...' : 'Crear Factura'}
           </Button>
         </div>
       </form>
@@ -558,7 +555,7 @@ export function FacturaFormCuentasPorPagar(props: FacturaFormCuentasPorPagarProp
           isOpen={true}
           onClose={() => setShowProveedorModal(false)}
           onSave={handleSaveProveedor}
-          editingProveedor={null}
+          editingProveedor={undefined}
         />
       )}
     </>

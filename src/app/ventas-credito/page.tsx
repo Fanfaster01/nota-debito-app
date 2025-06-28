@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { creditoService } from '@/lib/services/creditoService'
 import { CreditoDetalladoUI, FiltrosCredito, ResumenCreditos } from '@/types/creditos'
+import { useAsyncState, useAsyncList } from '@/hooks/useAsyncState'
 import CreditosFilters from '@/components/creditos/CreditosFilters'
 import CreditosList from '@/components/creditos/CreditosList'
 import CreditoDetailModal from '@/components/creditos/CreditoDetailModal'
@@ -25,14 +26,21 @@ import { generateCreditosPDF } from '@/utils/pdfGenerator'
 
 export default function VentasCreditoPage() {
   const { user } = useAuth()
-  const [creditos, setCreditos] = useState<CreditoDetalladoUI[]>([])
-  const [resumen, setResumen] = useState<ResumenCreditos | null>(null)
-  const [loading, setLoading] = useState(true)
+  
+  // Estados con useAsyncState
+  const { data: creditos, loading: creditosLoading, error: creditosError, execute: loadCreditosData } = useAsyncList<CreditoDetalladoUI>()
+  const { data: resumen, loading: resumenLoading, error: resumenError, execute: loadResumenData } = useAsyncState<ResumenCreditos | null>()
+  
+  // Estados locales para UI
   const [activeTab, setActiveTab] = useState<'lista' | 'dashboard'>('lista')
   const [filters, setFilters] = useState<FiltrosCredito>({
     estado: 'todos',
     estadoVencimiento: 'todos'
   })
+  
+  // Loading y error consolidados
+  const loading = creditosLoading || resumenLoading
+  const error = creditosError || resumenError
   
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -58,29 +66,38 @@ export default function VentasCreditoPage() {
   const loadCreditos = async () => {
     if (!user) return
 
-    setLoading(true)
     const filtrosAplicados = {
       ...filters,
       companyId: isMaster ? filters.companyId : user.company_id!
     }
 
-    const { data, error } = await creditoService.getCreditos(filtrosAplicados)
-    
-    if (!error && data) {
-      setCreditos(data)
-    }
-    setLoading(false)
+    await loadCreditosData(async () => {
+      const { data, error } = await creditoService.getCreditos(filtrosAplicados)
+      
+      if (error) {
+        console.error('Error cargando créditos:', error)
+        return []
+      }
+      
+      return data || []
+    })
   }
 
   const loadResumen = async () => {
     if (!user) return
 
     const companyId = isMaster ? undefined : user.company_id!
-    const { data, error } = await creditoService.getResumenCreditos(companyId)
     
-    if (!error && data) {
-      setResumen(data)
-    }
+    await loadResumenData(async () => {
+      const { data, error } = await creditoService.getResumenCreditos(companyId)
+      
+      if (error) {
+        console.error('Error cargando resumen:', error)
+        return null
+      }
+      
+      return data
+    })
   }
 
   const handleFilterChange = (newFilters: FiltrosCredito) => {
@@ -104,7 +121,7 @@ export default function VentasCreditoPage() {
   }
 
   const handleExportExcel = async () => {
-    if (creditos.length === 0) {
+    if (!creditos || creditos.length === 0) {
       alert('No hay créditos para exportar')
       return
     }
@@ -118,7 +135,7 @@ export default function VentasCreditoPage() {
   }
 
   const handlePrintReport = () => {
-    if (creditos.length === 0) {
+    if (!creditos || creditos.length === 0) {
       alert('No hay créditos para imprimir')
       return
     }
@@ -134,8 +151,8 @@ export default function VentasCreditoPage() {
   // Calcular items para paginación
   const indexOfLastItem = currentPage * itemsPerPage
   const indexOfFirstItem = indexOfLastItem - itemsPerPage
-  const currentItems = creditos.slice(indexOfFirstItem, indexOfLastItem)
-  const totalPages = Math.ceil(creditos.length / itemsPerPage)
+  const currentItems = creditos?.slice(indexOfFirstItem, indexOfLastItem) || []
+  const totalPages = Math.ceil((creditos?.length || 0) / itemsPerPage)
 
   if (!canAccess) {
     return (

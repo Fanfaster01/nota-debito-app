@@ -5,6 +5,7 @@ import { creditoService } from '@/lib/services/creditoService'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { XMarkIcon } from '@heroicons/react/24/outline'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 
 interface CreditoEditModalProps {
   credito: CreditoDetalladoUI
@@ -19,40 +20,41 @@ export default function CreditoEditModal({
   onClose, 
   onSuccess 
 }: CreditoEditModalProps) {
+  // Estado unificado con useAsyncForm
+  const updateState = useAsyncForm<void>()
+  
   const [fechaVencimiento, setFechaVencimiento] = useState<string>(
     credito.fechaVencimiento 
       ? credito.fechaVencimiento.toISOString().split('T')[0] 
       : ''
   )
   const [observaciones, setObservaciones] = useState(credito.observaciones || '')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   if (!isOpen) return null
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsSubmitting(true)
-    setError(null)
 
-    try {
-      const updates = {
-        fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
-        observaciones: observaciones.trim() || undefined
-      }
+    const result = await updateState.executeWithValidation(
+      async () => {
+        const updates = {
+          fechaVencimiento: fechaVencimiento ? new Date(fechaVencimiento) : null,
+          observaciones: observaciones.trim() || undefined
+        }
 
-      const { error: updateError } = await creditoService.actualizarCredito(credito.id, updates)
+        const { error: updateError } = await creditoService.actualizarCredito(credito.id, updates)
 
-      if (updateError) {
-        setError(updateError.message || 'Error al actualizar el crédito')
-        return
-      }
+        if (updateError) {
+          throw updateError
+        }
 
+        return void 0
+      },
+      'Error al actualizar el crédito'
+    )
+
+    if (result !== null) {
       onSuccess()
-    } catch (err) {
-      setError('Error inesperado al actualizar el crédito')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -73,9 +75,9 @@ export default function CreditoEditModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
+          {updateState.error && (
             <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
-              {error}
+              {updateState.error}
             </div>
           )}
 
@@ -121,7 +123,7 @@ export default function CreditoEditModal({
               type="date"
               value={fechaVencimiento}
               onChange={(e) => setFechaVencimiento(e.target.value)}
-              disabled={isSubmitting}
+              disabled={updateState.loading}
             />
 
             <div>
@@ -134,7 +136,7 @@ export default function CreditoEditModal({
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Observaciones adicionales sobre el crédito..."
-                disabled={isSubmitting}
+                disabled={updateState.loading}
               />
             </div>
           </div>
@@ -177,15 +179,15 @@ export default function CreditoEditModal({
               type="button"
               variant="secondary"
               onClick={onClose}
-              disabled={isSubmitting}
+              disabled={updateState.loading}
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={updateState.loading}
             >
-              {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+              {updateState.loading ? 'Guardando...' : 'Guardar Cambios'}
             </Button>
           </div>
         </form>

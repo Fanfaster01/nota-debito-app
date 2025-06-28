@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Card } from '@/components/ui/Card'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { dashboardService, MasterDashboardStats, CompanyRanking } from '@/lib/services/adminServices'
+import { useAsyncState, useAsyncList } from '@/hooks/useAsyncState'
 import { 
   MainKPIsWidget,
   CajaMetricsWidget,
@@ -78,15 +79,21 @@ const getActivityLabel = (type: string) => {
 
 export default function DashboardPage() {
   const { user, company } = useAuth()
-  const [stats, setStats] = useState<DashboardStats | null>(null)
-  const [masterStats, setMasterStats] = useState<MasterDashboardStats | null>(null)
-  const [companyRanking, setCompanyRanking] = useState<CompanyRanking[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
+  
+  // Estados con useAsyncState
+  const { data: stats, loading: statsLoading, error: statsError, execute: loadStats } = useAsyncState<DashboardStats | null>()
+  const { data: masterStats, loading: masterStatsLoading, error: masterStatsError, execute: loadMasterStats } = useAsyncState<MasterDashboardStats | null>()
+  const { data: companyRanking, loading: rankingLoading, error: rankingError, execute: loadRanking } = useAsyncList<CompanyRanking>()
+  const { data: companies, loading: companiesLoading, error: companiesError, execute: loadCompanies } = useAsyncList<Company>()
+  const { data: recentActivity, loading: activityLoading, error: activityError, execute: loadActivity } = useAsyncList<RecentActivity>()
+  
+  // Estados locales para UI
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('')
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>('')
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Loading y error consolidados
+  const loading = statsLoading || masterStatsLoading || rankingLoading || companiesLoading || activityLoading
+  const error = statsError || masterStatsError || rankingError || companiesError || activityError
 
   useEffect(() => {
     loadInitialData()
@@ -105,105 +112,80 @@ export default function DashboardPage() {
 
     // Si es master, cargar lista de compañías
     if (user.role === 'master') {
-      try {
+      await loadCompanies(async () => {
         const { data: companiesData, error: companiesError } = await dashboardService.getActiveCompanies()
-
-        if (!companiesError && companiesData) {
-          setCompanies(companiesData)
-        }
-      } catch (error) {
-        console.warn('Error cargando compañías:', error)
-      }
+        if (companiesError) throw companiesError
+        return companiesData || []
+      })
     }
   }
 
   const loadDashboardData = async () => {
     if (!user) return
 
-    setLoading(true)
-    setError(null)
+    const companyId = user.role === 'master' ? undefined : company?.id
 
-    try {
-      const companyId = user.role === 'master' ? undefined : company?.id
-
-      // Cargar estadísticas básicas
+    // Cargar estadísticas básicas
+    await loadStats(async () => {
       const { data: statsData, error: statsError } = await dashboardService.getDashboardStats(companyId)
-      if (statsError) {
-        setError('Error al cargar estadísticas: ' + statsError.message)
-        return
-      }
-      setStats(statsData)
+      if (statsError) throw new Error(`Error al cargar estadísticas: ${statsError instanceof Error ? statsError.message : 'Error desconocido'}`)
+      return statsData
+    })
 
-      // Cargar actividad reciente
+    // Cargar actividad reciente
+    await loadActivity(async () => {
       const { data: activityData, error: activityError } = await dashboardService.getRecentActivity(companyId, 10)
-      if (activityError) {
-        setError('Error al cargar actividad reciente: ' + activityError.message)
-        return
-      }
-      setRecentActivity(activityData || [])
-
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar datos del dashboard')
-    } finally {
-      setLoading(false)
-    }
+      if (activityError) throw new Error(`Error al cargar actividad reciente: ${activityError instanceof Error ? activityError.message : 'Error desconocido'}`)
+      return activityData || []
+    })
   }
 
   const loadMasterDashboardData = async () => {
     if (!user || user.role !== 'master') return
 
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Si no hay compañía seleccionada, cargar vista global
-      if (!selectedCompanyId) {
-        // Cargar ranking de compañías
+    // Si no hay compañía seleccionada, cargar vista global
+    if (!selectedCompanyId) {
+      // Cargar ranking de compañías
+      await loadRanking(async () => {
         const { data: rankingData, error: rankingError } = await dashboardService.getCompanyRanking()
         if (rankingError) {
           console.warn('Error cargando ranking:', rankingError)
-        } else {
-          setCompanyRanking(rankingData || [])
+          return []
         }
+        return rankingData || []
+      })
 
-        // Cargar estadísticas globales
+      // Cargar estadísticas globales
+      await loadMasterStats(async () => {
         const { data: globalStats, error: globalError } = await dashboardService.getMasterDashboardStats()
-        if (globalError) {
-          setError('Error al cargar estadísticas globales: ' + globalError.message)
-          return
-        }
-        setMasterStats(globalStats)
-      } else {
-        // Cargar estadísticas de la compañía seleccionada
+        if (globalError) throw new Error(`Error al cargar estadísticas globales: ${globalError instanceof Error ? globalError.message : 'Error desconocido'}`)
+        return globalStats
+      })
+    } else {
+      // Cargar estadísticas de la compañía seleccionada
+      await loadMasterStats(async () => {
         const { data: companyStats, error: companyError } = await dashboardService.getMasterDashboardStats(selectedCompanyId)
-        if (companyError) {
-          setError('Error al cargar estadísticas de la compañía: ' + companyError.message)
-          return
-        }
-        setMasterStats(companyStats)
-      }
+        if (companyError) throw new Error(`Error al cargar estadísticas de la compañía: ${companyError instanceof Error ? companyError.message : 'Error desconocido'}`)
+        return companyStats
+      })
+    }
 
-      // Cargar actividad reciente
+    // Cargar actividad reciente
+    await loadActivity(async () => {
       const { data: activityData, error: activityError } = await dashboardService.getRecentActivity(selectedCompanyId || undefined, 10)
       if (activityError) {
         console.warn('Error al cargar actividad reciente:', activityError)
-      } else {
-        setRecentActivity(activityData || [])
+        return []
       }
-
-    } catch (err: any) {
-      setError(err.message || 'Error al cargar datos del dashboard master')
-    } finally {
-      setLoading(false)
-    }
+      return activityData || []
+    })
   }
 
   const handleCompanyChange = (companyId: string) => {
     setSelectedCompanyId(companyId)
-    const selectedCompany = companies.find(c => c.id === companyId)
+    const selectedCompany = companies?.find(c => c.id === companyId)
     setSelectedCompanyName(selectedCompany?.name || '')
-    setMasterStats(null)
-    setCompanyRanking([])
+    // Los datos se limpiarán automáticamente cuando se ejecuten los nuevos hooks
   }
 
   if (loading) {
@@ -240,7 +222,7 @@ export default function DashboardPage() {
                 <option value="">
                   🌐 Vista Global (Todas las Compañías)
                 </option>
-                {companies.map((company) => (
+                {companies?.map((company) => (
                   <option key={company.id} value={company.id}>
                     🏢 {company.name} - {company.rif}
                   </option>
@@ -294,14 +276,14 @@ export default function DashboardPage() {
                 <CreditosStatusWidget stats={masterStats} />
                 
                 {/* Vista global: Ranking de compañías */}
-                {!selectedCompanyId && companyRanking.length > 0 && (
+                {!selectedCompanyId && companyRanking && companyRanking.length > 0 && (
                   <CompanyRankingWidget companies={companyRanking} />
                 )}
                 
                 {/* Vista por compañía: Actividad reciente */}
                 {selectedCompanyId && (
                   <Card title="Actividad Reciente">
-                    {recentActivity.length > 0 ? (
+                    {recentActivity && recentActivity.length > 0 ? (
                       <div className="space-y-3">
                         {recentActivity.map((activity) => (
                           <div key={activity.id} className="flex items-center p-2 border border-gray-100 rounded-md">
@@ -492,7 +474,7 @@ export default function DashboardPage() {
 
           {/* Recent Activity */}
           <Card title="Actividad Reciente">
-            {recentActivity.length > 0 ? (
+            {recentActivity && recentActivity.length > 0 ? (
               <div className="space-y-3">
                 {recentActivity.map((activity) => (
                   <div key={activity.id} className="flex items-center p-2 border border-gray-100 rounded-md">

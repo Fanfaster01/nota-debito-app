@@ -1,5 +1,5 @@
 // src/components/cajas/PagoMovilForm.tsx
-import React, { useState } from 'react'
+import React from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { PagoMovilUI } from '@/types/caja'
 import { CreditCardIcon } from '@heroicons/react/24/outline'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 
 const pagoMovilSchema = z.object({
   monto: z.number().positive('El monto debe ser mayor a 0'),
@@ -31,7 +32,8 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
   editingPago,
   onCancelEdit
 }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  // Estado unificado con useAsyncForm
+  const submitState = useAsyncForm<void>()
 
   const {
     register,
@@ -59,14 +61,20 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
   }, [editingPago, setValue])
 
   const onFormSubmit = async (data: PagoMovilFormData) => {
-    setIsSubmitting(true)
-    try {
-      await onSubmit(data)
-      if (!editingPago) {
-        reset()
-      }
-    } finally {
-      setIsSubmitting(false)
+    const result = await submitState.executeWithValidation(
+      async () => {
+        await onSubmit(data)
+        if (!editingPago) {
+          reset()
+        }
+        return void 0
+      },
+      'Error al procesar el pago móvil'
+    )
+    
+    // Si la operación fue exitosa, el resultado será truthy
+    if (result !== null) {
+      // La operación fue exitosa, el formulario ya se reseteó si no era edición
     }
   }
 
@@ -78,6 +86,12 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
   return (
     <Card title={editingPago ? 'Editar Pago Móvil' : 'Registrar Pago Móvil'}>
       <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+        {submitState.error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+            {submitState.error}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Input
             label="Monto (Bs)"
@@ -85,7 +99,7 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
             step="0.01"
             {...register('monto', { valueAsNumber: true })}
             error={errors.monto?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             autoFocus
           />
           
@@ -93,7 +107,7 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
             label="Número de Referencia"
             {...register('numeroReferencia')}
             error={errors.numeroReferencia?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             placeholder="Ej: 00001234567890"
           />
         </div>
@@ -103,7 +117,7 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
             label="Nombre del Cliente"
             {...register('nombreCliente')}
             error={errors.nombreCliente?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             placeholder="Nombre completo"
           />
           
@@ -111,7 +125,7 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
             label="Teléfono"
             {...register('telefono')}
             error={errors.telefono?.message}
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             placeholder="04XX-XXXXXXX"
           />
         </div>
@@ -122,18 +136,18 @@ export const PagoMovilForm: React.FC<PagoMovilFormProps> = ({
               type="button"
               variant="outline"
               onClick={handleCancel}
-              disabled={loading || isSubmitting}
+              disabled={loading || submitState.loading}
             >
               Cancelar
             </Button>
           )}
           <Button
             type="submit"
-            disabled={loading || isSubmitting}
+            disabled={loading || submitState.loading}
             className="flex items-center"
           >
             <CreditCardIcon className="h-4 w-4 mr-2" />
-            {isSubmitting ? 'Guardando...' : editingPago ? 'Actualizar' : 'Agregar'} Pago
+            {submitState.loading ? 'Guardando...' : editingPago ? 'Actualizar' : 'Agregar'} Pago
           </Button>
         </div>
       </form>

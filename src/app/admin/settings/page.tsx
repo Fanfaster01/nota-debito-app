@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { settingsService, SystemStats } from '@/lib/services/settingsService'
+import { useAsyncState } from '@/hooks/useAsyncState'
 import { 
   CogIcon,
   CircleStackIcon,
@@ -48,11 +49,18 @@ type NotificationConfigFormData = z.infer<typeof notificationConfigSchema>
 
 export default function SettingsPage() {
   const { user } = useAuth()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estados con useAsyncState
+  const { data: systemStats, loading: statsLoading, error: statsError, execute: loadSystemStatsData } = useAsyncState<SystemStats | null>()
+  const { loading: saveLoading, error: saveError, execute: saveSettings } = useAsyncState<any>()
+  
+  // Estados locales para UI
   const [success, setSuccess] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'general' | 'notifications' | 'security' | 'backup' | 'system'>('general')
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null)
+  
+  // Loading y error consolidados
+  const loading = statsLoading || saveLoading
+  const error = statsError || saveError
 
   // Formulario de configuración general
   const systemForm = useForm<SystemConfigFormData>({
@@ -92,37 +100,36 @@ export default function SettingsPage() {
       
       // Actualizar formulario de configuración general
       systemForm.reset({
-        app_name: config.general.app_name,
-        default_iva_rate: config.general.default_iva_rate,
-        default_retention_rate: config.general.default_retention_rate,
-        max_users_per_company: config.general.max_users_per_company,
-        auto_backup_enabled: config.backup.auto_backup_enabled,
-        backup_frequency: config.backup.backup_frequency,
+        app_name: String(config.general.app_name || 'NotaDebito App'),
+        default_iva_rate: Number(config.general.default_iva_rate || 16),
+        default_retention_rate: Number(config.general.default_retention_rate || 75),
+        max_users_per_company: Number(config.general.max_users_per_company || 10),
+        auto_backup_enabled: Boolean(config.backup.auto_backup_enabled),
+        backup_frequency: (config.backup.backup_frequency as 'daily' | 'weekly' | 'monthly') || 'weekly',
       })
 
       // Actualizar formulario de notificaciones
       notificationForm.reset({
-        email_notifications: config.notifications.email_notifications,
-        invoice_reminders: config.notifications.invoice_reminders,
-        system_alerts: config.notifications.system_alerts,
-        user_registration_alerts: config.notifications.user_registration_alerts,
+        email_notifications: Boolean(config.notifications.email_notifications),
+        invoice_reminders: Boolean(config.notifications.invoice_reminders),
+        system_alerts: Boolean(config.notifications.system_alerts),
+        user_registration_alerts: Boolean(config.notifications.user_registration_alerts),
       })
-    } catch (err: any) {
-      setError('Error al cargar configuraciones: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al cargar configuraciones: ' + errorMessage)
     }
   }
 
   const loadSystemStats = async () => {
-    try {
+    await loadSystemStatsData(async () => {
       const { data, error } = await settingsService.getSystemStats()
       if (error) {
         console.error('Error loading system stats:', error)
-      } else {
-        setSystemStats(data)
+        throw error
       }
-    } catch (err) {
-      console.error('Error loading system stats:', err)
-    }
+      return data
+    })
   }
 
   const handleSystemConfigSubmit = async (data: SystemConfigFormData) => {
@@ -143,12 +150,14 @@ export default function SettingsPage() {
       const { error } = await settingsService.updateMultipleSettings(settingsToUpdate)
       
       if (error) {
-        setError('Error al guardar la configuración: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        setError('Error al guardar la configuración: ' + errorMessage)
       } else {
         setSuccess('Configuración del sistema actualizada exitosamente')
       }
-    } catch (err: any) {
-      setError('Error al guardar la configuración: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al guardar la configuración: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -163,12 +172,14 @@ export default function SettingsPage() {
       const { error } = await settingsService.updateMultipleSettings(data)
       
       if (error) {
-        setError('Error al guardar las notificaciones: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        setError('Error al guardar las notificaciones: ' + errorMessage)
       } else {
         setSuccess('Configuración de notificaciones actualizada exitosamente')
       }
-    } catch (err: any) {
-      setError('Error al guardar las notificaciones: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al guardar las notificaciones: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -183,13 +194,15 @@ export default function SettingsPage() {
       const { error } = await settingsService.performManualBackup()
       
       if (error) {
-        setError('Error al realizar el backup: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        setError('Error al realizar el backup: ' + errorMessage)
       } else {
         setSuccess('Backup manual completado exitosamente')
         await loadSystemStats()
       }
-    } catch (err: any) {
-      setError('Error al realizar el backup: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al realizar el backup: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -204,12 +217,14 @@ export default function SettingsPage() {
       const { error } = await settingsService.clearSystemCache()
       
       if (error) {
-        setError('Error al limpiar el caché: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        setError('Error al limpiar el caché: ' + errorMessage)
       } else {
         setSuccess('Caché del sistema limpiado exitosamente')
       }
-    } catch (err: any) {
-      setError('Error al limpiar el caché: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError('Error al limpiar el caché: ' + errorMessage)
     } finally {
       setLoading(false)
     }

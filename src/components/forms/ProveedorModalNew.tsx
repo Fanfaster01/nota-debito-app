@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 import { XMarkIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline'
 import { TipoCambio, ProveedorCuentaBancaria } from '@/types/index'
 import { proveedorCuentasBancariasService } from '@/lib/services/proveedorCuentasBancariasService'
@@ -53,11 +54,14 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
   const [cuentasBancarias, setCuentasBancarias] = useState<ProveedorCuentaBancaria[]>([])
   const [loadingCuentas, setLoadingCuentas] = useState(false)
   const [bancos, setBancos] = useState<Array<{id: string, nombre: string, codigo: string}>>([])
+  
+  // Estado unificado con useAsyncForm
+  const submitState = useAsyncForm<any>()
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
     setValue,
     watch
@@ -186,35 +190,40 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
   }
 
   const onSubmit = async (data: ProveedorFormDataZod) => {
-    try {
-      // Convertir las cuentas bancarias del formulario a ProveedorCuentaBancaria
-      const cuentasConValidacion = cuentasBancarias.map(cuenta => ({
-        proveedor_id: '', // Se asignará en el servicio
-        banco_id: cuenta.banco_id || '',
-        banco_nombre: cuenta.banco_nombre || '',
-        numero_cuenta: cuenta.numero_cuenta,
-        titular_cuenta: cuenta.titular_cuenta,
-        es_favorita: cuenta.es_favorita,
-        activo: true
-      }))
+    const result = await submitState.executeWithValidation(
+      async () => {
+        // Convertir las cuentas bancarias del formulario a ProveedorCuentaBancaria
+        const cuentasConValidacion = cuentasBancarias.map(cuenta => ({
+          proveedor_id: '', // Se asignará en el servicio
+          banco_id: cuenta.banco_id || '',
+          banco_nombre: cuenta.banco_nombre || '',
+          numero_cuenta: cuenta.numero_cuenta,
+          titular_cuenta: cuenta.titular_cuenta,
+          es_favorita: cuenta.es_favorita,
+          activo: true
+        }))
 
-      // Convertir datos del formulario Zod al formato del servicio
-      const formDataForService: ProveedorFormData = {
-        nombre: data.nombre,
-        rif: data.rif,
-        direccion: data.direccion,
-        telefono: data.telefono,
-        email: data.email,
-        contacto: data.contacto,
-        porcentaje_retencion: data.porcentaje_retencion,
-        tipo_cambio: data.tipo_cambio,
-        cuentas_bancarias: cuentasConValidacion
-      }
-      
-      await onSave(formDataForService)
+        // Convertir datos del formulario Zod al formato del servicio
+        const formDataForService: ProveedorFormData = {
+          nombre: data.nombre,
+          rif: data.rif,
+          direccion: data.direccion,
+          telefono: data.telefono,
+          email: data.email,
+          contacto: data.contacto,
+          porcentaje_retencion: data.porcentaje_retencion,
+          tipo_cambio: data.tipo_cambio,
+          cuentas_bancarias: cuentasConValidacion
+        }
+        
+        await onSave(formDataForService)
+        return formDataForService
+      },
+      'Error al guardar el proveedor'
+    )
+    
+    if (result) {
       handleClose()
-    } catch (error) {
-      console.error('Error en onSubmit del modal:', error)
     }
   }
 
@@ -424,13 +433,13 @@ export const ProveedorModalNew: React.FC<ProveedorModalProps> = ({
               type="button"
               variant="outline"
               onClick={handleClose}
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             >
               Cancelar
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={submitState.loading}
             >
               {isSubmitting ? 'Guardando...' : (editingProveedor ? 'Actualizar' : 'Guardar')} Proveedor
             </Button>

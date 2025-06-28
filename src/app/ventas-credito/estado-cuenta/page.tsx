@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { creditoService } from '@/lib/services/creditoService'
 import { ClienteSearch } from '@/components/forms/ClienteSearch'
 import { ClienteUI } from '@/lib/services/clienteService'
 import { CreditoDetalladoUI } from '@/types/creditos'
+import { useAsyncState } from '@/hooks/useAsyncState'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { 
@@ -15,7 +16,6 @@ import {
   UserIcon,
   CreditCardIcon,
   CurrencyDollarIcon,
-  CalendarIcon,
   ClockIcon
 } from '@heroicons/react/24/outline'
 import { format } from 'date-fns'
@@ -25,9 +25,12 @@ import { generateEstadoCuentaClientePDF } from '@/utils/pdfGenerator'
 
 export default function EstadoCuentaPage() {
   const { user } = useAuth()
+  
+  // Estados con useAsyncState
+  const { data: estadoCuenta, loading, error, execute: loadEstadoCuentaData } = useAsyncState<any>()
+  
+  // Estados locales para UI
   const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
-  const [estadoCuenta, setEstadoCuenta] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
 
   // Verificar permisos
   const canAccess = user?.role === 'master' || user?.role === 'admin'
@@ -38,15 +41,16 @@ export default function EstadoCuentaPage() {
   }
 
   const loadEstadoCuenta = async (clienteId: string) => {
-    setLoading(true)
-    
-    const { data, error } = await creditoService.getEstadoCuentaCliente(clienteId)
-    
-    if (!error && data) {
-      setEstadoCuenta(data)
-    }
-    
-    setLoading(false)
+    await loadEstadoCuentaData(async () => {
+      const { data, error } = await creditoService.getEstadoCuentaCliente(clienteId)
+      
+      if (error) {
+        console.error('Error cargando estado de cuenta:', error)
+        throw error
+      }
+      
+      return data
+    })
   }
 
   const handleExportExcel = () => {

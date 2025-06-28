@@ -60,7 +60,8 @@ export function ConsultaDepositos({ onError }: Props) {
       // Cargar bancos
       const { data: bancosData, error: bancosError } = await bancosDepositosService.getBancos()
       if (bancosError) {
-        onError('Error al cargar bancos: ' + bancosError.message)
+        const errorMessage = bancosError instanceof Error ? bancosError.message : 'Error desconocido'
+        onError('Error al cargar bancos: ' + errorMessage)
         return
       }
       setBancos(bancosData || [])
@@ -69,13 +70,15 @@ export function ConsultaDepositos({ onError }: Props) {
       if (user?.role === 'master') {
         const { data: companiesData, error: companiesError } = await companyService.getAllCompanies()
         if (companiesError) {
-          onError('Error al cargar compañías: ' + companiesError.message)
+          const errorMessage = companiesError instanceof Error ? companiesError.message : 'Error desconocido'
+          onError('Error al cargar compañías: ' + errorMessage)
           return
         }
         setCompanies(companiesData?.filter(c => c.is_active) || [])
       }
-    } catch (err: any) {
-      onError('Error al cargar datos: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al cargar datos: ' + errorMessage)
     }
   }
 
@@ -97,14 +100,16 @@ export function ConsultaDepositos({ onError }: Props) {
       )
 
       if (error) {
-        onError('Error al cargar depósitos: ' + error.message)
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+        onError('Error al cargar depósitos: ' + errorMessage)
         return
       }
 
       setDepositos(data || [])
       setTotalItems(count || 0)
-    } catch (err: any) {
-      onError('Error al cargar depósitos: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al cargar depósitos: ' + errorMessage)
     } finally {
       setLoading(false)
     }
@@ -139,8 +144,9 @@ export function ConsultaDepositos({ onError }: Props) {
   const generatePDF = async (depositoId: string) => {
     try {
       await downloadDepositoPDF(depositoId, depositosService.getReciboData.bind(depositosService))
-    } catch (err: any) {
-      onError('Error al generar PDF: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al generar PDF: ' + errorMessage)
     }
   }
 
@@ -386,6 +392,7 @@ export function ConsultaDepositos({ onError }: Props) {
             currentPage={currentPage}
             totalItems={totalItems}
             itemsPerPage={itemsPerPage}
+            totalPages={Math.ceil(totalItems / itemsPerPage)}
             onPageChange={setCurrentPage}
           />
         </div>

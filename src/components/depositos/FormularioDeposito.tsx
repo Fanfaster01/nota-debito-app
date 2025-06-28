@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/Input'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import { useAsyncForm } from '@/hooks/useAsyncState'
 import { 
   bancosDepositosService, 
   depositosService 
@@ -41,8 +42,10 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
   const { user, company } = useAuth()
   const [bancos, setBancos] = useState<BancoDepositoUI[]>([])
   const [companies, setCompanies] = useState<Company[]>([])
-  const [loading, setLoading] = useState(false)
   const [loadingData, setLoadingData] = useState(true)
+  
+  // Estado unificado con useAsyncForm
+  const submitState = useAsyncForm<any>()
 
   const {
     register,
@@ -75,7 +78,8 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
       // Cargar bancos
       const { data: bancosData, error: bancosError } = await bancosDepositosService.getBancos()
       if (bancosError) {
-        onError('Error al cargar bancos: ' + bancosError.message)
+        const errorMessage = bancosError instanceof Error ? bancosError.message : 'Error desconocido'
+        onError('Error al cargar bancos: ' + errorMessage)
         return
       }
       setBancos(bancosData || [])
@@ -84,13 +88,15 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
       if (user?.role === 'master') {
         const { data: companiesData, error: companiesError } = await companyService.getAllCompanies()
         if (companiesError) {
-          onError('Error al cargar compañías: ' + companiesError.message)
+          const errorMessage = companiesError instanceof Error ? companiesError.message : 'Error desconocido'
+          onError('Error al cargar compañías: ' + errorMessage)
           return
         }
         setCompanies(companiesData?.filter(c => c.is_active) || [])
       }
-    } catch (err: any) {
-      onError('Error al cargar datos: ' + err.message)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      onError('Error al cargar datos: ' + errorMessage)
     } finally {
       setLoadingData(false)
     }
@@ -98,58 +104,60 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
 
   const onSubmit = async (data: DepositoFormInputs) => {
     if (!user) return
-
-    setLoading(true)
+    
     onError('')
-
-    try {
-      const formData: DepositoFormData = {
-        bancoId: data.bancoId,
-        companyId: user.role === 'master' ? data.companyId : undefined,
-        montoBs: data.montoBs,
-        observaciones: data.observaciones
-      }
-
-      const companyIdToUse = user.role === 'master' 
-        ? (data.companyId || '') 
-        : (company?.id || '')
-
-      if (!companyIdToUse) {
-        onError('No se pudo determinar la compañía para el depósito')
-        return
-      }
-
-      const { data: deposito, error: createError } = await depositosService.createDeposito(
-        formData, 
-        user.id, 
-        companyIdToUse
-      )
-
-      if (createError) {
-        onError('Error al crear depósito: ' + createError.message)
-        return
-      }
-
-      // Generar PDF automáticamente
-      if (deposito) {
-        try {
-          await downloadDepositoPDF(deposito.id, depositosService.getReciboData.bind(depositosService))
-        } catch (pdfError: any) {
-          console.error('Error al generar PDF:', pdfError)
-          // No mostrar error de PDF, el depósito se creó exitosamente
+    
+    const result = await submitState.executeWithValidation(
+      async () => {
+        const formData: DepositoFormData = {
+          bancoId: data.bancoId,
+          companyId: user.role === 'master' ? data.companyId : undefined,
+          montoBs: data.montoBs,
+          observaciones: data.observaciones
         }
-      }
 
+        const companyIdToUse = user.role === 'master' 
+          ? (data.companyId || '') 
+          : (company?.id || '')
+
+        if (!companyIdToUse) {
+          throw new Error('No se pudo determinar la compañía para el depósito')
+        }
+
+        const { data: deposito, error: createError } = await depositosService.createDeposito(
+          formData, 
+          user.id, 
+          companyIdToUse
+        )
+
+        if (createError) {
+          const errorMessage = createError instanceof Error ? createError.message : 'Error desconocido'
+          throw new Error('Error al crear depósito: ' + errorMessage)
+        }
+
+        // Generar PDF automáticamente
+        if (deposito) {
+          try {
+            await downloadDepositoPDF(deposito.id, depositosService.getReciboData.bind(depositosService))
+          } catch (pdfError: any) {
+            console.error('Error al generar PDF:', pdfError)
+            // No mostrar error de PDF, el depósito se creó exitosamente
+          }
+        }
+
+        return deposito
+      },
+      'Error al crear depósito'
+    )
+    
+    if (result) {
       reset()
       onSuccess()
       
       // Mostrar mensaje de éxito
-      alert('Depósito creado exitosamente. Recibo #' + deposito?.numeroRecibo.toString().padStart(4, '0'))
-      
-    } catch (err: any) {
-      onError('Error al crear depósito: ' + err.message)
-    } finally {
-      setLoading(false)
+      alert('Depósito creado exitosamente. Recibo #' + result.numeroRecibo.toString().padStart(4, '0'))
+    } else if (submitState.error) {
+      onError(submitState.error)
     }
   }
 
@@ -182,7 +190,7 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
             <select
               {...register('bancoId')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              disabled={loading}
+              disabled={submitState.loading}
             >
               <option value="">Seleccionar banco...</option>
               {bancos.map((banco) => (
@@ -206,7 +214,7 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
               <select
                 {...register('companyId')}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                disabled={loading}
+                disabled={submitState.loading}
               >
                 <option value="">Seleccionar empresa...</option>
                 {companies.map((comp) => (
@@ -230,8 +238,7 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
               placeholder="0.00"
               {...register('montoBs', { valueAsNumber: true })}
               error={errors.montoBs?.message}
-              disabled={loading}
-              icon={BanknotesIcon}
+              disabled={submitState.loading}
             />
           </div>
 
@@ -245,7 +252,7 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
               rows={3}
               className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
               placeholder="Observaciones adicionales (opcional)"
-              disabled={loading}
+              disabled={submitState.loading}
             />
           </div>
         </div>
@@ -289,9 +296,9 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
           </Button>
           <Button 
             type="submit"
-            disabled={loading || !selectedBancoId || (user?.role === 'master' && !selectedCompanyId)}
+            disabled={submitState.loading || !selectedBancoId || (user?.role === 'master' && !selectedCompanyId)}
           >
-            {loading ? 'Generando...' : 'Generar Recibo'}
+            {submitState.loading ? 'Generando...' : 'Generar Recibo'}
           </Button>
         </div>
       </form>
