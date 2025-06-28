@@ -1,6 +1,7 @@
 // Servicio para el módulo de Cuentas por Pagar
 import { createClient } from '@/utils/supabase/client-wrapper'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { validate, assertValid } from '@/utils/validators'
 
 const supabase = createClient()
 import type {
@@ -32,9 +33,7 @@ class CuentasPorPagarService {
    * Validar companyId de manera consistente
    */
   private validateCompanyId(companyId: string): void {
-    if (!companyId?.trim()) {
-      throw new Error('companyId es requerido y debe ser una string válida')
-    }
+    assertValid(validate.companyId(companyId))
   }
 
   /**
@@ -197,6 +196,9 @@ class CuentasPorPagarService {
       if (!ids?.length) {
         throw new Error('Se requiere al menos un ID de factura')
       }
+      
+      // Validar cada ID
+      ids.forEach(id => assertValid(validate.companyId(id), 'ID de factura'))
 
       const { data, error } = await supabase
         .from('facturas')
@@ -214,9 +216,7 @@ class CuentasPorPagarService {
    */
   async getFacturaById(id: string): Promise<{ data: FacturaCuentaPorPagar | null; error: string | null }> {
     return this.safeExecute(async () => {
-      if (!id?.trim()) {
-        throw new Error('ID de factura es requerido')
-      }
+      assertValid(validate.companyId(id), 'ID de factura')
 
       const { data, error } = await supabase
         .from('facturas')
@@ -760,10 +760,7 @@ class CuentasPorPagarService {
       console.log('💾 Insertando recibo en la base de datos:', reciboData)
       
       // Validate user ID format
-      if (!userId || userId === 'user-id' || !userId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-        console.error('❌ Usuario ID inválido:', userId)
-        throw new Error(`ID de usuario inválido: ${userId}`)
-      }
+      assertValid(validate.userId(userId), 'Usuario ID')
       
       // Test table access
       try {
@@ -1080,10 +1077,12 @@ class CuentasPorPagarService {
     error?: string
   }> {
     // Validar que companyId sea una string válida
-    if (!companyId || !companyId.trim()) {
+    try {
+      assertValid(validate.companyId(companyId))
+    } catch (error) {
       return {
         success: false,
-        error: 'companyId es requerido y debe ser una string válida'
+        error: error instanceof Error ? error.message : 'companyId inválido'
       }
     }
     

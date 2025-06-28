@@ -13,6 +13,7 @@ import {
 } from '@/types/depositos'
 import { TablesInsert, TablesUpdate } from '@/types/database'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { validate, assertValid } from '@/utils/validators'
 
 export class BancosDepositosService {
   private supabase = createClient()
@@ -264,9 +265,9 @@ export class DepositosService {
   ): Promise<{ data: DepositoBancarioUI | null, error: unknown }> {
     try {
       // Validaciones básicas
-      this.validateRequired(depositoData.bancoId, 'bancoId')
-      this.validateRequired(userId, 'userId')
-      this.validateRequired(companyId, 'companyId')
+      assertValid(validate.companyId(depositoData.bancoId), 'bancoId')
+      assertValid(validate.userId(userId))
+      assertValid(validate.companyId(companyId))
       
       if (depositoData.montoBs <= 0) {
         throw new Error('El monto debe ser mayor que cero')

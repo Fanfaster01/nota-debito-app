@@ -4,6 +4,7 @@ import { Caja, PagoMovil, PagoZelle, NotaCreditoCaja, CreditoCaja, CierreCaja, C
 import { CajaUI, PagoMovilUI, PagoZelleUI, NotaCreditoCajaUI, CreditoCajaUI, FiltrosCaja, ReporteCaja, CierreCajaFormData } from '@/types/caja'
 import { format } from 'date-fns'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { validate, assertValid } from '@/utils/validators'
 
 export interface CajaWithRelations extends Caja {
   companies?: {
@@ -199,7 +200,7 @@ export class CajaService {
   // Verificar si hay una caja abierta para el usuario (sin importar la fecha)
   async verificarCajaAbierta(userId: string): Promise<{ data: CajaUI | null, error: any }> {
     return this.safeExecuteWithRollback(async () => {
-      this.validateRequired(userId, 'userId')
+      assertValid(validate.userId(userId))
 
       // Buscar cualquier caja abierta del usuario, sin importar la fecha
       const { data, error } = await this.supabase
@@ -505,8 +506,10 @@ export class CajaService {
   async getCajas(companyId: string, filtros?: FiltrosCaja): Promise<{ data: CajaUI[] | null, error: any }> {
     try {
       // Validar que companyId sea una string válida
-      if (!companyId || !companyId.trim()) {
-        return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+      try {
+        assertValid(validate.companyId(companyId))
+      } catch (error) {
+        return { data: null, error: error instanceof Error ? error.message : 'companyId inválido' }
       }
 
       let query = this.supabase
@@ -600,7 +603,7 @@ export class CajaService {
   async agregarPagoMovil(pagoMovil: Omit<PagoMovilUI, 'id' | 'fechaHora'>): Promise<{ data: PagoMovilUI | null, error: any }> {
     return this.safeExecuteWithRollback(async () => {
       // Validaciones básicas
-      this.validateRequired(pagoMovil.cajaId, 'cajaId')
+      assertValid(validate.companyId(pagoMovil.cajaId), 'cajaId')
       this.validateRequired(pagoMovil.numeroReferencia, 'numeroReferencia')
       this.validateNumericString(pagoMovil.numeroReferencia, 'El número de referencia')
 
@@ -989,14 +992,10 @@ export class CajaService {
       }
 
       // Validar que el número de nota de crédito sea numérico
-      if (!/^\d+$/.test(notaCredito.numeroNotaCredito)) {
-        return { data: null, error: new Error('El número de nota de crédito debe contener solo números') }
-      }
+      this.validateNumericString(notaCredito.numeroNotaCredito, 'El número de nota de crédito')
 
       // Validar que la factura afectada sea numérica
-      if (!/^\d+$/.test(notaCredito.facturaAfectada)) {
-        return { data: null, error: new Error('El número de factura afectada debe contener solo números') }
-      }
+      this.validateNumericString(notaCredito.facturaAfectada, 'El número de factura afectada')
 
       // Insertar la nota de crédito
       const nuevaNotaCredito: TablesInsert<'notas_credito_caja'> = {
@@ -1174,9 +1173,7 @@ export class CajaService {
       }
 
       // Validar que el número de factura sea numérico
-      if (!/^\d+$/.test(credito.numeroFactura)) {
-        return { data: null, error: new Error('El número de factura debe contener solo números') }
-      }
+      this.validateNumericString(credito.numeroFactura, 'El número de factura')
 
       // Verificar que no exista otra factura con el mismo número
       const { data: facturaExistente, error: verificarError } = await this.supabase
@@ -1426,8 +1423,10 @@ export class CajaService {
   async getResumenCajas(companyId: string, dias: number = 7): Promise<{ data: any, error: any }> {
     try {
       // Validar que companyId sea una string válida
-      if (!companyId || !companyId.trim()) {
-        return { data: null, error: 'companyId es requerido y debe ser una string válida' }
+      try {
+        assertValid(validate.companyId(companyId))
+      } catch (error) {
+        return { data: null, error: error instanceof Error ? error.message : 'companyId inválido' }
       }
 
       const fechaInicio = new Date()

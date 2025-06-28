@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { CajaUI } from '@/types/caja'
 import { CierreCaja, CierrePuntoVenta } from '@/types/database'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { validate, assertValid } from '@/utils/validators'
 
 export interface CierreDetalladoUI {
   id: string // ID del cierre (puede ser del cierre_caja o de la caja si no hay cierre_caja)
@@ -95,7 +96,8 @@ export class CierresCajaService {
         query = query.eq('user_id', filtros.userId)
       }
       
-      if (filtros?.companyId && filtros.companyId.trim()) {
+      if (filtros?.companyId) {
+        assertValid(validate.companyId(filtros.companyId))
         query = query.eq('company_id', filtros.companyId)
       }
 
@@ -212,7 +214,8 @@ export class CierresCajaService {
         fechaHasta: new Date()
       }
 
-      if (companyId && companyId.trim()) {
+      if (companyId) {
+        assertValid(validate.companyId(companyId))
         filtros.companyId = companyId
       }
 
@@ -346,7 +349,10 @@ export class CierresCajaService {
   }> {
     try {
       const filtros: FiltrosCierres = {}
-      if (companyId && companyId.trim()) filtros.companyId = companyId
+      if (companyId) {
+        assertValid(validate.companyId(companyId))
+        filtros.companyId = companyId
+      }
 
       const { data: cierres, error } = await this.getCierresDetallados(filtros)
 
