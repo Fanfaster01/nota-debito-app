@@ -275,7 +275,7 @@ export function ListaFacturasCuentasPorPagar({
                 </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-end mt-4">
               <Button
                 variant="outline"
                 onClick={limpiarFiltros}
@@ -429,7 +429,7 @@ export function ListaFacturasCuentasPorPagar({
 
         {/* Paginación */}
         {paginacion && paginacion.totalPages > 1 && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 overflow-x-auto">
             <div className="flex-1 flex justify-between sm:hidden">
               <Button
                 variant="outline"
@@ -470,23 +470,58 @@ export function ListaFacturasCuentasPorPagar({
                     <ChevronLeftIcon className="h-5 w-5" />
                   </button>
                   
-                  {/* Números de página */}
-                  {[...Array(Math.min(5, paginacion.totalPages))].map((_, i) => {
-                    const pageNum = i + 1
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setPage(pageNum)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                          page === pageNum
-                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
+                  {/* Números de página con lógica mejorada para evitar scroll */}
+                  {(() => {
+                    const totalPages = paginacion.totalPages
+                    const current = page
+                    const pages: (number | string)[] = []
+                    
+                    if (totalPages <= 7) {
+                      // Si hay 7 páginas o menos, mostrar todas
+                      for (let i = 1; i <= totalPages; i++) {
+                        pages.push(i)
+                      }
+                    } else {
+                      // Si hay más de 7 páginas, usar puntos suspensivos
+                      if (current <= 3) {
+                        // Estamos cerca del inicio
+                        pages.push(1, 2, 3, 4, '...', totalPages)
+                      } else if (current >= totalPages - 2) {
+                        // Estamos cerca del final
+                        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+                      } else {
+                        // Estamos en el medio
+                        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages)
+                      }
+                    }
+                    
+                    return pages.map((pageNum, index) => {
+                      if (pageNum === '...') {
+                        return (
+                          <span
+                            key={`ellipsis-${index}`}
+                            className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
+                          >
+                            ...
+                          </span>
+                        )
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setPage(pageNum as number)}
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                            current === pageNum
+                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })
+                  })()}
 
                   <button
                     onClick={() => setPage(Math.min(paginacion.totalPages, page + 1))}
