@@ -5,9 +5,9 @@ export function setupSupabaseErrorInterceptor() {
   const originalFetch = window.fetch;
   
   window.fetch = async function(...args) {
-    let [resource] = args;
+    const [resource] = args;
     const config = args[1];
-    let url = typeof resource === 'string' ? resource : (resource instanceof URL ? resource.href : (resource as Request)?.url);
+    const url = typeof resource === 'string' ? resource : (resource instanceof URL ? resource.href : (resource as Request)?.url);
     
     // Si no hay URL válida, pasar al fetch original
     if (!url || typeof url !== 'string') {
@@ -26,7 +26,7 @@ export function setupSupabaseErrorInterceptor() {
             status: response.status,
             error: errorData.message || 'Unknown error'
           });
-        } catch (e) {
+        } catch {
           // No se pudo parsear el error
         }
       }

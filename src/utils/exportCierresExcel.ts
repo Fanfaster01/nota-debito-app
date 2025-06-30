@@ -3,7 +3,6 @@ import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 import { CierreDetalladoUI, FiltrosCierres, ResumenCierres } from '@/lib/services/cierresCajaService'
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 
 const formatMoney = (amount: number) => {
   return new Intl.NumberFormat('es-VE', {

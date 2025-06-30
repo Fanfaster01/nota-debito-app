@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { MasterDashboardStats, CompanyRanking } from '@/lib/services/adminServices'
+import type { CierreDetalladoUI } from '@/lib/services/cierresCajaService'
 import { useAuth } from '@/contexts/AuthContext'
 import { useAsyncState } from '@/hooks/useAsyncState'
 import { 
@@ -33,7 +34,7 @@ interface CompanyRankingProps {
 
 // Tipo para las alertas de cierres
 interface AlertaCierre {
-  cierre: any // CierreDetalladoUI del servicio
+  cierre: CierreDetalladoUI
   tipoAlerta: 'discrepancia_alta' | 'discrepancia_reporte_z' | 'sin_detalles'
   severidad: 'leve' | 'media' | 'alta' | 'critica'
   mensaje: string

@@ -2,7 +2,7 @@
 import { createClient } from '@/utils/supabase/client'
 import { CreditoDetalladoUI } from '@/types/creditos'
 import { creditoService } from './creditoService'
-import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { handleServiceError } from '@/utils/errorHandler'
 
 export interface NotificacionCredito {
   id: string

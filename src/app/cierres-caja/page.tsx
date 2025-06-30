@@ -56,9 +56,9 @@ export default function CierresCajaPage() {
   const [selectedForComparison, setSelectedForComparison] = useState<CierreDetalladoUI[]>([])
   const [showComparisonModal, setShowComparisonModal] = useState(false)
   
-  // Loading y error consolidados
+  // Loading consolidado
   const loading = cierresLoading || resumenLoading
-  const error = cierresError || resumenError
+  const _error = cierresError || resumenError
 
   // Verificar permisos
   const canAccess = user?.role === 'master' || user?.role === 'admin'

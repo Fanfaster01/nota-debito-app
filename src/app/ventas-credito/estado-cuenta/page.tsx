@@ -39,7 +39,7 @@ export default function EstadoCuentaPage() {
   const { user } = useAuth()
   
   // Estados con useAsyncState
-  const { data: estadoCuenta, loading, error, execute: loadEstadoCuentaData } = useAsyncState<EstadoCuentaCliente | null>()
+  const { data: estadoCuenta, loading, execute: loadEstadoCuentaData } = useAsyncState<EstadoCuentaCliente | null>()
   
   // Estados locales para UI
   const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)

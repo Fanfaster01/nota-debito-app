@@ -370,7 +370,7 @@ export function ProveedorSearch({
                       Crear nuevo proveedor
                     </p>
                     <p className="text-xs text-blue-700">
-                      No se encontraron coincidencias para "{searchTerm}"
+                      No se encontraron coincidencias para &quot;{searchTerm}&quot;
                     </p>
                   </div>
                 </div>

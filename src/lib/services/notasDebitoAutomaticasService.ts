@@ -1,16 +1,13 @@
 // Servicio para generación automática de notas de débito por diferencial cambiario
 import { createClient } from '@/utils/supabase/client'
-import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
+import { handleServiceError } from '@/utils/errorHandler'
 
 const supabase = createClient()
 import { tasasCambioService } from './tasasCambioService'
-import { notaDebitoService } from '../services' // Servicio existente de notas de débito
 import { proveedorService } from './proveedorService'
 import type { 
   FacturaCuentaPorPagar, 
   NotaDebitoGenerada, 
-  TasaCambio, 
-  TasaCambioManual,
   TipoCambio
 } from '@/types/cuentasPorPagar'
 

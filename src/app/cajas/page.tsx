@@ -35,7 +35,7 @@ export default function CajasPage() {
   const { user, company } = useAuth()
   
   // Estados con useAsyncState
-  const { data: caja, loading: cajaLoading, error: cajaError, execute: loadCaja, reset: resetCaja } = useAsyncState<CajaUI | null>()
+  const { data: caja, loading: cajaLoading, error: cajaError, execute: loadCaja } = useAsyncState<CajaUI | null>()
   const { data: pagosMovil, loading: movileLoading, error: movilesError, execute: loadPagosMovil, reset: resetPagosMovil } = useAsyncList<PagoMovilUI>()
   const { data: pagosZelle, loading: zelleLoading, error: zelleError, execute: loadPagosZelle, reset: resetPagosZelle } = useAsyncList<PagoZelleUI>()
   const { data: notasCredito, loading: notasLoading, error: notasError, execute: loadNotasCredito, reset: resetNotasCredito } = useAsyncList<NotaCreditoCajaUI>()

@@ -16,7 +16,6 @@ import {
   BellIcon,
   ShieldCheckIcon,
   DocumentTextIcon,
-  CurrencyDollarIcon,
   ClockIcon,
   UserGroupIcon,
   ServerIcon,

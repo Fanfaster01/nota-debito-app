@@ -19,8 +19,6 @@ import {
   ArrowPathIcon,
   ChartBarIcon
 } from '@heroicons/react/24/outline'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 import { exportCreditosToExcel } from '@/utils/exportCreditosExcel'
 import { generateCreditosPDF } from '@/utils/pdfGenerator'
 
@@ -40,7 +38,7 @@ export default function VentasCreditoPage() {
   
   // Loading y error consolidados
   const loading = creditosLoading || resumenLoading
-  const error = creditosError || resumenError
+  const _error = creditosError || resumenError
   
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)

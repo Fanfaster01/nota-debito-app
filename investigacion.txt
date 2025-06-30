@@ -1,0 +1,165 @@
+# Free AI APIs for Price List Analysis and Data Extraction
+
+Your price comparison tool processing ~6000 products monthly can leverage several powerful free AI APIs and services. Here's a comprehensive analysis of the best alternatives to OpenAI and Claude, focusing on solutions that match your specific requirements.
+
+## Google Gemini leads the pack for general AI processing
+
+**Google Gemini API** emerges as the strongest free alternative to OpenAI/Claude, offering a completely free tier through Google AI Studio with generous limits that easily accommodate 6000 products monthly. The API provides:
+
+- **1 million tokens/month** with Gemini 1.5 Flash (15 requests per minute)
+- **50,000 tokens/month** with Gemini 1.5 Pro (2 requests per minute)
+- **Native CSV/Excel file upload** support through Google AI Studio
+- **JSON mode** for structured data extraction, perfect for identifying columns
+- **Excellent multilingual support** including Spanish
+
+The Python SDK (`google-generativeai`) makes integration straightforward, and the 1M context window allows processing large product catalogs in single requests.
+
+## Specialized tools excel at structured data extraction
+
+For extracting data from Excel/CSV files specifically, **Docparser** and **Parseur** outperform general AI APIs:
+
+**Parseur** offers the best value with:
+- **20 credits monthly forever free** (1 CSV file of 100 lines = 1 credit)
+- **AI-powered column detection** that learns from your templates
+- **Direct Excel/CSV processing** without conversion
+- **100+ integrations** via Zapier for workflow automation
+
+**Docparser** provides:
+- **21-day free trial**, then $32.50/month for 1,200 credits yearly
+- **Native support** for Word, PDF, CSV, XLS formats
+- **Template-based parsing** with high accuracy
+- **6,000+ integrations** for seamless data flow
+
+For completely free open-source alternatives, **Camelot** and **Tabula** excel at table extraction from PDFs and can export directly to CSV format.
+
+## Meilisearch dominates free fuzzy matching
+
+For intelligent product matching between suppliers, **Meilisearch** provides the optimal solution:
+
+- **Completely free** when self-hosted
+- **Built-in typo tolerance** (up to 2 typos)
+- **Sub-50ms response times** for instant matching
+- **Excellent Spanish language support** with diacritics handling
+- **Simple API** that's easy to integrate
+
+The cloud version offers 100K searches and 10M documents free, more than sufficient for 6000 products. For pure string matching algorithms, **RapidFuzz** (open-source Python library) provides 4-10x faster performance than FuzzyWuzzy.
+
+## Spanish-optimized services offer regional advantages
+
+**MeaningCloud** stands out for Spanish language processing:
+- **20,000 credits monthly free** (most generous in market)
+- **Native Spanish NLP** capabilities
+- **Text normalization** and entity extraction
+- **Excel add-in** for direct integration
+- **Comprehensive Spanish documentation**
+
+For open-source Spanish NLP, **spaCy's Spanish models** and **BETO** (Spanish BERT) provide completely free, high-quality language processing.
+
+## Recommended free stack for your price comparator
+
+Based on your requirements for processing 6000 products, here's the optimal free combination:
+
+### Primary Stack:
+1. **Google Gemini API** - Main AI processing engine
+   - Handle column identification and data normalization
+   - Process up to 1M tokens monthly free
+   - Direct CSV/Excel file support
+
+2. **Meilisearch** (self-hosted) - Product matching
+   - Fuzzy matching with typo tolerance
+   - Instant search capabilities
+   - Handle Spanish product names perfectly
+
+3. **Parseur** - Backup data extraction
+   - 20 free credits monthly for complex extractions
+   - AI-powered learning from your templates
+
+### Alternative Stack (More Spanish-focused):
+1. **MeaningCloud** - Text processing (20K credits/month)
+2. **RapidFuzz** - Custom matching algorithms
+3. **Camelot** - Table extraction from PDFs
+
+## Integration recommendations
+
+For your ~6000 products monthly:
+
+1. **Batch processing**: Use Google Gemini's large context window to process multiple products per request
+2. **Caching strategy**: Store normalized product names to avoid reprocessing
+3. **Hybrid approach**: Use Gemini for complex extractions, Meilisearch for matching
+4. **Rate limit management**: Gemini's 15 RPM allows processing 900 products/hour
+
+## Cost projections after free limits
+
+Should you exceed free tiers:
+- **Google Gemini**: $0.075 per 1M tokens (Flash) - extremely affordable
+- **Meilisearch Cloud**: $30/month for Pro tier
+- **MeaningCloud**: $99/month for Start-up tier
+- **Docparser**: $32.50/month for 1,200 credits
+
+## Implementation timeline
+
+1. **Week 1**: Set up Google Gemini API, test column identification
+2. **Week 2**: Deploy Meilisearch, implement fuzzy matching
+3. **Week 3**: Integrate Parseur for complex Excel files
+4. **Week 4**: Optimize workflow, implement caching
+
+This stack provides enterprise-grade capabilities while staying within free tier limits, perfectly suited for a small company processing 6000 products monthly. The combination of Google's AI power, Meilisearch's matching capabilities, and specialized extraction tools creates a robust, cost-effective solution that rivals paid alternatives.
+
+¡Perfecto! Te hago un resumen ejecutivo en español de las mejores opciones que encontré:
+🏆 Mejores Alternativas Gratuitas para tu Comparador de Precios
+1. Google Gemini API - La Mejor Opción General
+
+1 millón de tokens GRATIS al mes (suficiente para tus 6000 productos)
+Sube archivos Excel/CSV directamente
+Excelente para identificar columnas y normalizar nombres
+Soporte nativo para español
+15 solicitudes por minuto
+
+2. Parseur - Especialista en Extraer Datos
+
+20 créditos gratis PARA SIEMPRE (1 archivo CSV = 1 crédito)
+IA que aprende de tus plantillas
+Procesa Excel/CSV sin conversión
+Perfecto para automatizar la extracción
+
+3. Meilisearch - El Rey del Matching
+
+Completamente GRATIS si lo instalas en tu servidor
+Búsqueda con tolerancia a errores (hasta 2 errores tipográficos)
+Respuestas en menos de 50ms
+Excelente para español con acentos y tildes
+
+4. MeaningCloud - Optimizado para Español
+
+20,000 créditos gratis al mes (el más generoso)
+Procesamiento de texto en español nativo
+Normalización y extracción de entidades
+Documentación completa en español
+
+🎯 Stack Recomendado para tu Empresa
+Combinación Perfecta GRATIS:
+
+Google Gemini → Procesamiento principal de IA
+Meilisearch → Matching inteligente entre productos
+Parseur → Respaldo para archivos complejos
+
+Beneficios:
+
+✅ Procesa tus 6000 productos sin costo
+✅ Mejor que OpenAI/Claude en muchos aspectos
+✅ Optimizado para español
+✅ Escalable cuando crezcas
+
+💰 Proyección de Costos
+Si llegas a superar los límites gratuitos:
+
+Google Gemini: $0.075 por 1M tokens (súper barato)
+Meilisearch Cloud: $30/mes
+Parseur: Desde $19/mes
+
+⚡ Implementación Rápida
+
+Semana 1: Configurar Google Gemini
+Semana 2: Instalar Meilisearch
+Semana 3: Integrar Parseur
+Semana 4: Optimizar y automatizar

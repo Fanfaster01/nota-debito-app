@@ -3,7 +3,6 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { CierreDetalladoUI, ResumenCierres } from '@/lib/services/cierresCajaService'
 import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
 
 // Extender el tipo jsPDF para incluir lastAutoTable
 declare module 'jspdf' {

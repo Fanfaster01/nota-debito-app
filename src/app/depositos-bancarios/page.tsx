@@ -20,9 +20,8 @@ import { ResumenDepositos } from '@/components/depositos/ResumenDepositos'
 type TabType = 'nuevo' | 'consulta' | 'bancos'
 
 export default function DepositosBancariosPage() {
-  const { user, company } = useAuth()
+  const { user } = useAuth()
   const [activeTab, setActiveTab] = useState<TabType>('nuevo')
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Verificar permisos de acceso - Solo Master y Admin

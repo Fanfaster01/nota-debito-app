@@ -55,6 +55,12 @@ export function GestionBancos({ onError }: Props) {
     resolver: zodResolver(bancoSchema)
   })
 
+  useEffect(() => {
+    if (user?.role === 'master') {
+      loadBancos()
+    }
+  }, [user?.role])
+
   // Verificar permisos
   if (user?.role !== 'master') {
     return (
@@ -67,10 +73,6 @@ export function GestionBancos({ onError }: Props) {
       </div>
     )
   }
-
-  useEffect(() => {
-    loadBancos()
-  }, [])
 
   const loadBancos = async () => {
     setLoadingData(true)

@@ -89,12 +89,6 @@ export const CajaControl: React.FC<CajaControlProps> = ({
     }).format(monto)
   }
 
-  const formatMoneda = (monto: number, moneda: 'USD' | 'EUR') => {
-    return new Intl.NumberFormat('es-VE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(monto) + (moneda === 'USD' ? ' USD' : ' EUR')
-  }
 
   const getMonedaSymbol = (moneda: 'USD' | 'EUR') => {
     return moneda === 'USD' ? '$' : '€'
