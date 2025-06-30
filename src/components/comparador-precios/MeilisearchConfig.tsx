@@ -44,7 +44,7 @@ export function MeilisearchConfig() {
       } else {
         setStatus(data)
       }
-    } catch (err) {
+    } catch {
       setError('No se pudo conectar con Meilisearch')
       setStatus(null)
     } finally {
@@ -66,7 +66,7 @@ export function MeilisearchConfig() {
       } else {
         await verificarEstado()
       }
-    } catch (err) {
+    } catch {
       setError('Error al configurar Meilisearch')
     } finally {
       setLoading(false)
@@ -83,7 +83,7 @@ export function MeilisearchConfig() {
       // Aquí iría la lógica para obtener productos maestro y indexarlos
       // Por ahora, solo mostramos el mensaje
       setError('Función de indexación pendiente de implementar')
-    } catch (err) {
+    } catch {
       setError('Error al indexar productos')
     } finally {
       setLoading(false)

@@ -77,7 +77,7 @@ export default function NotaCreditoCajaList({
         onNotaActualizada(data)
         cancelarEdicion()
       }
-    } catch (_err) {
+    } catch {
       setError('Error inesperado al actualizar la nota de crédito')
     }
   }
@@ -96,7 +96,7 @@ export default function NotaCreditoCajaList({
 
       onNotaEliminada(notaId)
       setDeleteConfirm(null)
-    } catch (_err) {
+    } catch {
       setError('Error inesperado al eliminar la nota de crédito')
     } finally {
       setEliminandoId(null)

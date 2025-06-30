@@ -11,7 +11,6 @@ import {
   DocumentTextIcon,
   ChartBarIcon,
   PlusIcon,
-  MagnifyingGlassIcon,
   ArrowPathIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,

@@ -42,7 +42,7 @@ export default function EstadoCuentaPage() {
   const { data: estadoCuenta, loading, execute: loadEstadoCuentaData } = useAsyncState<EstadoCuentaCliente | null>()
   
   // Estados locales para UI
-  const [selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
+  const [_selectedCliente, setSelectedCliente] = useState<ClienteUI | null>(null)
 
   // Verificar permisos
   const canAccess = user?.role === 'master' || user?.role === 'admin'

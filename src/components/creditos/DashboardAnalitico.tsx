@@ -78,7 +78,7 @@ interface ClienteTopItem {
 export default function DashboardAnalitico() {
   const { user } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [creditosData, setCreditosData] = useState<CreditoDataItem[]>([])
+  const [_creditosData, setCreditosData] = useState<CreditoDataItem[]>([])
   const [pieData, setPieData] = useState<{ name: string; value: number; color: string }[]>([])
   const [estadisticas, setEstadisticas] = useState<EstadisticasCreditos | null>(null)
   const [tendencias, setTendencias] = useState<TendenciaItem[]>([])

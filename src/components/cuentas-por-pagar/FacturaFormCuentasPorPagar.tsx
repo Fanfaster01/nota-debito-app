@@ -15,7 +15,6 @@ import { cuentasPorPagarService } from '@/lib/services/cuentasPorPagarService'
 import { ProveedorModalNew } from '@/components/forms/ProveedorModalNew'
 import { 
   PlusIcon, 
-  MagnifyingGlassIcon,
   CalculatorIcon,
   CheckCircleIcon,
   XMarkIcon,

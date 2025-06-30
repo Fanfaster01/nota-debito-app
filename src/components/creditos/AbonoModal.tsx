@@ -52,7 +52,6 @@ export default function AbonoModal({
     register,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors },
     reset
   } = useForm<AbonoFormData>({

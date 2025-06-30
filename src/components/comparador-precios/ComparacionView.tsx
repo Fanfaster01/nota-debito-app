@@ -8,16 +8,12 @@ import { Button } from '@/components/ui/Button'
 import { 
   ChartBarIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon,
-  ArrowPathIcon,
-  DocumentArrowDownIcon,
   ScaleIcon
 } from '@heroicons/react/24/outline'
 import { comparadorPreciosService } from '@/lib/services/comparadorPreciosService'
 import type { 
   ListaPrecio, 
-  ComparacionResponse,
-  ResultadoComparacion 
+  ComparacionResponse
 } from '@/types/comparadorPrecios'
 
 interface ComparacionViewProps {

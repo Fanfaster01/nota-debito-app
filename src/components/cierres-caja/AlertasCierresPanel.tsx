@@ -240,7 +240,7 @@ export default function AlertasCierresPanel({ onVerDetalle }: AlertasCierresPane
     })
 
     // Analizar patrones por cajero
-    cierresPorCajero.forEach((cierresCajero, cajeroId) => {
+    cierresPorCajero.forEach((cierresCajero, _cajeroId) => {
       if (cierresCajero.length < 3) return // Necesitamos al menos 3 cierres para detectar patrones
 
       // Patrón 1: Discrepancias consistentemente altas (usar discrepancia reporte Z en USD)
