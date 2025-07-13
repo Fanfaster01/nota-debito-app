@@ -36,32 +36,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Obtener sesión inicial
     const getInitialSession = async () => {
+      console.log('[Auth] Iniciando verificación de sesión...')
+      
+      // Timeout de seguridad - si toma más de 10 segundos, continuar sin sesión
+      const timeoutId = setTimeout(() => {
+        console.error('[Auth] Timeout al verificar sesión - continuando sin autenticación')
+        setAuthUser(null)
+        setUser(null)
+        setCompany(null)
+        setLoading(false)
+      }, 10000)
+      
       try {
         const { data: { session }, error } = await supabase.auth.getSession()
         
         if (error) {
-          console.error('Session error:', error)
+          console.error('[Auth] Error de sesión:', error)
           // Si hay error de token, limpiar la sesión
           if (error.message?.includes('refresh_token_not_found') || error.message?.includes('Invalid Refresh Token')) {
+            console.log('[Auth] Token inválido, limpiando sesión...')
             await supabase.auth.signOut()
             setAuthUser(null)
             setUser(null)
             setCompany(null)
             setLoading(false)
+            clearTimeout(timeoutId)
             return
           }
+          // Para cualquier otro error, también establecer loading en false
+          setLoading(false)
+          clearTimeout(timeoutId)
+          return
         }
         
+        console.log('[Auth] Sesión obtenida:', session?.user?.email)
         setAuthUser(session?.user ?? null)
         
         if (session?.user) {
+          console.log('[Auth] Cargando datos del usuario...')
           await loadUserData(session.user.id)
         }
         
+        console.log('[Auth] Verificación de sesión completada')
         setLoading(false)
+        clearTimeout(timeoutId)
       } catch (error) {
-        console.error('Error getting initial session:', error)
+        console.error('[Auth] Error crítico al obtener sesión:', error)
+        setAuthUser(null)
+        setUser(null)
+        setCompany(null)
         setLoading(false)
+        clearTimeout(timeoutId)
       }
     }
 
@@ -124,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadUserData = async (userId: string) => {
     try {
+      console.log('[Auth] Cargando datos para usuario:', userId)
       // Cargar datos del usuario
       const { data: userData, error: userError } = await supabase
         .from('users')
@@ -132,19 +158,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
 
       if (userError) {
+        console.error('[Auth] Error al cargar usuario:', userError)
         // Si el usuario no existe en la tabla users, crearlo
         if (userError.code === 'PGRST116') { // No rows returned
+          console.log('[Auth] Usuario no existe, creando perfil...')
           await createUserProfile(userId)
           return
         }
-        console.error('Error loading user data:', userError)
         return
       }
 
+      console.log('[Auth] Usuario cargado:', userData.email)
       setUser(userData)
 
       // Cargar datos de la compañía si el usuario tiene una
       if (userData.company_id) {
+        console.log('[Auth] Cargando compañía:', userData.company_id)
         const { data: companyData, error: companyError } = await supabase
           .from('companies')
           .select('*')
@@ -153,11 +182,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 
         if (!companyError && companyData) {
+          console.log('[Auth] Compañía cargada:', companyData.name)
           setCompany(companyData)
+        } else if (companyError) {
+          console.error('[Auth] Error al cargar compañía:', companyError)
         }
       }
     } catch (error) {
-      console.error('Error in loadUserData:', error)
+      console.error('[Auth] Error crítico en loadUserData:', error)
+      throw error // Re-lanzar para que getInitialSession pueda manejarlo
     }
   }
 
