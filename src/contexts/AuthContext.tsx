@@ -95,7 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('[Auth] Auth state change:', event, session?.user?.email)
+        
         if (event === 'SIGNED_OUT' || !session) {
+          console.log('[Auth] Usuario desconectado')
           setAuthUser(null)
           setUser(null)
           setCompany(null)
@@ -103,12 +106,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return
         }
         
+        console.log('[Auth] Usuario conectado, cargando datos...')
         setAuthUser(session?.user ?? null)
         
         if (session?.user) {
           await loadUserData(session.user.id)
         }
         
+        console.log('[Auth] Auth state change completado')
         setLoading(false)
       }
     )
@@ -148,54 +153,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const loadUserData = async (userId: string) => {
+    // Timeout para loadUserData también
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Timeout loading user data')), 8000)
+    })
+
     try {
       console.log('[Auth] Cargando datos para usuario:', userId)
-      // Cargar datos del usuario
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single()
+      
+      // Race entre la carga de datos y el timeout
+      await Promise.race([
+        (async () => {
+          // Cargar datos del usuario
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('*')
+            .eq('id', userId)
+            .single()
 
-      if (userError) {
-        console.error('[Auth] Error al cargar usuario:', userError)
-        // Si el usuario no existe en la tabla users, crearlo
-        if (userError.code === 'PGRST116') { // No rows returned
-          console.log('[Auth] Usuario no existe, creando perfil...')
-          await createUserProfile(userId)
-          return
-        }
-        return
-      }
+          if (userError) {
+            console.error('[Auth] Error al cargar usuario:', userError)
+            // Si el usuario no existe en la tabla users, crearlo
+            if (userError.code === 'PGRST116') { // No rows returned
+              console.log('[Auth] Usuario no existe, creando perfil...')
+              await createUserProfile(userId)
+              return
+            }
+            return
+          }
 
-      console.log('[Auth] Usuario cargado:', userData.email)
-      setUser(userData)
+          console.log('[Auth] Usuario cargado:', userData.email)
+          setUser(userData)
 
-      // Cargar datos de la compañía si el usuario tiene una
-      if (userData.company_id) {
-        console.log('[Auth] Cargando compañía:', userData.company_id)
-        const { data: companyData, error: companyError } = await supabase
-          .from('companies')
-          .select('*')
-          .eq('id', userData.company_id)
-          .single()
+          // Cargar datos de la compañía si el usuario tiene una
+          if (userData.company_id) {
+            console.log('[Auth] Cargando compañía:', userData.company_id)
+            const { data: companyData, error: companyError } = await supabase
+              .from('companies')
+              .select('*')
+              .eq('id', userData.company_id)
+              .single()
 
-
-        if (!companyError && companyData) {
-          console.log('[Auth] Compañía cargada:', companyData.name)
-          setCompany(companyData)
-        } else if (companyError) {
-          console.error('[Auth] Error al cargar compañía:', companyError)
-        }
-      }
+            if (!companyError && companyData) {
+              console.log('[Auth] Compañía cargada:', companyData.name)
+              setCompany(companyData)
+            } else if (companyError) {
+              console.error('[Auth] Error al cargar compañía:', companyError)
+            }
+          }
+          
+          console.log('[Auth] loadUserData completado exitosamente')
+        })(),
+        timeoutPromise
+      ])
     } catch (error) {
       console.error('[Auth] Error crítico en loadUserData:', error)
-      throw error // Re-lanzar para que getInitialSession pueda manejarlo
+      // No re-lanzar el error, solo loggearlo y continuar
+      // Esto permite que la app continue funcionando aunque falle la carga de datos
     }
   }
 
   const signIn = async (email: string, password: string) => {
     setLoading(true)
+    console.log('[Auth] Iniciando signIn para:', email)
+    
+    // Timeout para signIn también
+    const signInTimeout = setTimeout(() => {
+      console.error('[Auth] Timeout en signIn - forzando loading false')
+      setLoading(false)
+    }, 15000)
     
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -203,11 +229,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password
       })
       
+      clearTimeout(signInTimeout)
+      
+      if (error) {
+        console.error('[Auth] Error en signIn:', error)
+        setLoading(false)
+      }
+      // Si no hay error, onAuthStateChange manejará el loading
+      
       return { error }
     } catch (error) {
-      return { error }
-    } finally {
+      console.error('[Auth] Error crítico en signIn:', error)
+      clearTimeout(signInTimeout)
       setLoading(false)
+      return { error }
     }
   }
 
