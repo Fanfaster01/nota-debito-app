@@ -37,30 +37,43 @@ interface MeilisearchStats {
 }
 
 export class MeilisearchService {
-  private client: MeiliSearch
+  private client: MeiliSearch | null = null
   private readonly indexName = 'productos_maestro'
+  private readonly isConfigured: boolean
 
   constructor() {
     const host = process.env.NEXT_PUBLIC_MEILISEARCH_URL
     const apiKey = process.env.NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY
     const adminKey = process.env.NEXT_PUBLIC_MEILISEARCH_ADMIN_API_KEY
 
-    if (!host) {
-      throw new Error('MEILISEARCH_URL no está configurada')
-    }
+    this.isConfigured = !!(host && (apiKey || adminKey))
 
-    // Usar admin key para operaciones de indexación, search key para búsquedas
-    this.client = new MeiliSearch({
-      host,
-      apiKey: adminKey || apiKey
-    })
+    if (this.isConfigured) {
+      // Usar admin key para operaciones de indexación, search key para búsquedas
+      this.client = new MeiliSearch({
+        host: host!,
+        apiKey: adminKey || apiKey!
+      })
+    }
+  }
+
+  private ensureConfigured(): MeiliSearch {
+    if (!this.isConfigured || !this.client) {
+      throw new Error('Meilisearch no está configurado. Configure las variables de entorno MEILISEARCH_URL y API keys.')
+    }
+    return this.client
+  }
+
+  public isAvailable(): boolean {
+    return this.isConfigured
   }
 
   // ====== CONFIGURACIÓN DE ÍNDICE ======
 
   async configurarIndice(): Promise<{ data: null, error: unknown }> {
     try {
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const index = client.index(this.indexName)
       
       // Configurar atributos de búsqueda
       await index.updateSearchableAttributes([
@@ -120,7 +133,8 @@ export class MeilisearchService {
     try {
       assertValid(validate.companyId(companyId), 'Company ID')
 
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const index = client.index(this.indexName)
       
       // Convertir productos al formato de índice
       const productosIndexados: ProductoIndexado[] = productos.map(producto => ({
@@ -150,7 +164,8 @@ export class MeilisearchService {
 
   async actualizarProducto(producto: ProductoMaestro): Promise<{ data: { taskUid: number } | null, error: unknown }> {
     try {
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const index = client.index(this.indexName)
       
       const productoIndexado: ProductoIndexado = {
         id: producto.id,
@@ -175,7 +190,8 @@ export class MeilisearchService {
 
   async eliminarProducto(productoId: string): Promise<{ data: { taskUid: number } | null, error: unknown }> {
     try {
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const index = client.index(this.indexName)
       const task = await index.deleteDocument(productoId)
       return createSuccessResponse({ taskUid: task.taskUid })
     } catch (error) {
@@ -194,7 +210,8 @@ export class MeilisearchService {
     try {
       assertValid(validate.companyId(companyId), 'Company ID')
 
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const index = client.index(this.indexName)
       
       // Normalizar consulta
       const consultaNormalizada = this.normalizarTexto(consulta)
@@ -352,8 +369,9 @@ export class MeilisearchService {
 
   async verificarEstado(): Promise<{ data: { healthy: boolean, stats?: MeilisearchStats } | null, error: unknown }> {
     try {
-      const health = await this.client.health()
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const health = await client.health()
+      const index = client.index(this.indexName)
       const stats = await index.getStats()
       
       return createSuccessResponse({
@@ -369,7 +387,8 @@ export class MeilisearchService {
     try {
       assertValid(validate.companyId(companyId), 'Company ID')
 
-      const index = this.client.index(this.indexName)
+      const client = this.ensureConfigured()
+      const index = client.index(this.indexName)
       
       // Eliminar todos los documentos de una compañía específica
       const task = await index.deleteDocuments({

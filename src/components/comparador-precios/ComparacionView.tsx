@@ -279,7 +279,7 @@ export function ComparacionView({ companyId, listas }: ComparacionViewProps) {
                 <ChartBarIcon className="h-8 w-8 mx-auto mb-2" />
                 <p>No se encontraron productos coincidentes entre las listas seleccionadas.</p>
                 <p className="text-sm mt-1">
-                  Esto puede deberse a que los productos no han sido matcheados correctamente.
+                  El sistema usa IA para detectar productos similares aunque tengan nombres diferentes.
                 </p>
               </div>
             )}

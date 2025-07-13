@@ -1,7 +1,9 @@
 // src/components/comparador-precios/MeilisearchConfig.tsx
 
-import React, { useState, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
+import { useAsyncState } from '@/hooks/useAsyncState'
+import { handleServiceError } from '@/utils/errorHandler'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { meilisearchService } from '@/lib/services/meilisearchService'
@@ -23,71 +25,66 @@ interface MeilisearchStats {
 
 export function MeilisearchConfig() {
   const { company } = useAuth()
-  const [status, setStatus] = useState<MeilisearchStats | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  
+  // Estado para verificación usando hook correcto
+  const {
+    data: status,
+    loading: verificandoEstado,
+    error: errorVerificacion,
+    execute: verificarEstado
+  } = useAsyncState<MeilisearchStats | null>(null)
+
+  // Estado para configuración
+  const {
+    loading: configurando,
+    error: errorConfiguracion,
+    execute: ejecutarConfiguracion
+  } = useAsyncState()
 
   useEffect(() => {
-    verificarEstado()
-  }, [])
-
-  const verificarEstado = async () => {
-    setLoading(true)
-    setError(null)
-    
-    try {
+    verificarEstado(async () => {
       const { data, error: statusError } = await meilisearchService.verificarEstado()
       
       if (statusError) {
-        setError('Meilisearch no está configurado o no está disponible')
-        setStatus(null)
-      } else {
-        setStatus(data)
+        throw new Error(handleServiceError(statusError, 'Meilisearch no está configurado o no está disponible'))
       }
-    } catch {
-      setError('No se pudo conectar con Meilisearch')
-      setStatus(null)
-    } finally {
-      setLoading(false)
-    }
-  }
+      
+      return data
+    }, 'Error al verificar estado de Meilisearch')
+  }, [verificarEstado])
 
   const configurarIndice = async () => {
     if (!company?.id) return
     
-    setLoading(true)
-    setError(null)
-    
-    try {
+    await ejecutarConfiguracion(async () => {
       const { error: configError } = await meilisearchService.configurarIndice()
       
       if (configError) {
-        setError('Error al configurar el índice de búsqueda')
-      } else {
-        await verificarEstado()
+        throw new Error(handleServiceError(configError, 'Error al configurar el índice de búsqueda'))
       }
-    } catch {
-      setError('Error al configurar Meilisearch')
-    } finally {
-      setLoading(false)
-    }
+      
+      // Reverificar estado después de configurar
+      await verificarEstado(async () => {
+        const { data, error: statusError } = await meilisearchService.verificarEstado()
+        
+        if (statusError) {
+          throw new Error(handleServiceError(statusError, 'Error al verificar estado'))
+        }
+        
+        return data
+      }, 'Error al reverificar estado')
+      
+      return null
+    }, 'Error al configurar Meilisearch')
   }
 
   const indexarProductos = async () => {
     if (!company?.id) return
     
-    setLoading(true)
-    setError(null)
-    
-    try {
-      // Aquí iría la lógica para obtener productos maestro y indexarlos
-      // Por ahora, solo mostramos el mensaje
-      setError('Función de indexación pendiente de implementar')
-    } catch {
-      setError('Error al indexar productos')
-    } finally {
-      setLoading(false)
-    }
+    await ejecutarConfiguracion(async () => {
+      // TODO: Implementar lógica para obtener productos maestro y indexarlos
+      throw new Error('Función de indexación pendiente de implementar')
+    }, 'Error al indexar productos')
   }
 
   return (
@@ -95,7 +92,7 @@ export function MeilisearchConfig() {
       <div className="space-y-4">
         {/* Estado de conexión */}
         <div className="flex items-center space-x-3">
-          {loading ? (
+          {verificandoEstado || configurando ? (
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
           ) : status?.healthy ? (
             <CheckCircleIcon className="h-5 w-5 text-green-500" />
@@ -105,7 +102,8 @@ export function MeilisearchConfig() {
           
           <div>
             <p className="text-sm font-medium text-gray-900">
-              {loading ? 'Verificando conexión...' : 
+              {verificandoEstado ? 'Verificando conexión...' : 
+               configurando ? 'Configurando...' :
                status?.healthy ? 'Meilisearch conectado' : 
                'Meilisearch no disponible'}
             </p>
@@ -136,10 +134,10 @@ export function MeilisearchConfig() {
           </div>
         )}
 
-        {/* Error */}
-        {error && (
+        {/* Errores */}
+        {(errorVerificacion || errorConfiguracion) && (
           <div className="bg-red-50 border border-red-200 rounded-md p-3">
-            <p className="text-sm text-red-800">{error}</p>
+            <p className="text-sm text-red-800">{errorVerificacion || errorConfiguracion}</p>
           </div>
         )}
 
@@ -165,8 +163,16 @@ export function MeilisearchConfig() {
         {/* Acciones */}
         <div className="flex space-x-3">
           <Button
-            onClick={verificarEstado}
-            disabled={loading}
+            onClick={() => verificarEstado(async () => {
+              const { data, error: statusError } = await meilisearchService.verificarEstado()
+              
+              if (statusError) {
+                throw new Error(handleServiceError(statusError, 'Error al verificar estado'))
+              }
+              
+              return data
+            }, 'Error al verificar estado de Meilisearch')}
+            disabled={verificandoEstado || configurando}
             variant="outline"
             size="sm"
           >
@@ -178,7 +184,7 @@ export function MeilisearchConfig() {
             <>
               <Button
                 onClick={configurarIndice}
-                disabled={loading}
+                disabled={verificandoEstado || configurando}
                 variant="outline"
                 size="sm"
               >
@@ -188,7 +194,7 @@ export function MeilisearchConfig() {
 
               <Button
                 onClick={indexarProductos}
-                disabled={loading}
+                disabled={verificandoEstado || configurando}
                 variant="outline"
                 size="sm"
               >

@@ -1,6 +1,6 @@
 // src/lib/services/comparadorPreciosService.ts
 
-import { createClient } from '@/utils/supabase/safe-client'
+import { createClient as createSafeSupabaseClient } from '@/utils/supabase/client-wrapper'
 import type { DatabaseExtended } from '@/types/database-extended'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { handleServiceError, createErrorResponse, createSuccessResponse } from '@/utils/errorHandler'
@@ -37,7 +37,7 @@ interface GeminiProductoResponse {
 }
 
 export class ComparadorPreciosService {
-  private supabase = createClient()
+  private supabase = createSafeSupabaseClient()
   
   // Cliente tipado para las nuevas tablas
   private get supabaseExtended(): SupabaseClient<DatabaseExtended> {
@@ -46,13 +46,32 @@ export class ComparadorPreciosService {
   
   // Configuración de IA
   private readonly GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
-  private genAI: GoogleGenerativeAI
+  private genAI: GoogleGenerativeAI | null = null
+  private readonly isGeminiConfigured: boolean
   
   constructor() {
-    if (!this.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY no está configurada en las variables de entorno')
+    this.isGeminiConfigured = !!this.GEMINI_API_KEY
+    
+    if (this.isGeminiConfigured) {
+      try {
+        this.genAI = new GoogleGenerativeAI(this.GEMINI_API_KEY!)
+      } catch (error) {
+        console.error('Error al inicializar Google Gemini:', error)
+        this.isGeminiConfigured = false
+      }
     }
-    this.genAI = new GoogleGenerativeAI(this.GEMINI_API_KEY)
+  }
+
+  private ensureGeminiConfigured(): GoogleGenerativeAI {
+    if (!this.GEMINI_API_KEY) {
+      throw new Error('Google Gemini API Key no está configurada. Configure NEXT_PUBLIC_GEMINI_API_KEY en las variables de entorno.')
+    }
+    
+    if (!this.genAI) {
+      throw new Error('Google Gemini no se pudo inicializar. Verifica que la API Key sea válida.')
+    }
+    
+    return this.genAI
   }
 
   // ====== GESTIÓN DE LISTAS DE PRECIO ======
@@ -66,7 +85,9 @@ export class ComparadorPreciosService {
     tasaCambio?: number
   ): Promise<{ data: UploadListaResponse | null, error: unknown }> {
     try {
+      console.log('ComparadorPreciosService.uploadLista iniciado')
       assertValid(validate.companyId(companyId), 'ID de compañía')
+      console.log('Validación de companyId exitosa')
       
       if (!archivo) {
         throw new Error('Archivo requerido')
@@ -86,9 +107,13 @@ export class ComparadorPreciosService {
 
       // Subir archivo a Supabase Storage
       const fileName = `${companyId}/${Date.now()}_${archivo.name}`
+      console.log('Subiendo archivo a Storage:', fileName)
+      
       const { data: uploadData, error: uploadError } = await this.supabase.storage
         .from('listas-precios')
         .upload(fileName, archivo)
+        
+      console.log('Resultado de upload a Storage:', { uploadData, uploadError })
 
       if (uploadError) {
         return createErrorResponse(handleServiceError(uploadError, 'Error al subir archivo'))
@@ -120,6 +145,21 @@ export class ComparadorPreciosService {
       })
 
     } catch (error) {
+      console.error('Error detallado al cargar lista de precios:', error)
+      
+      // Verificar si es un error de red
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        return createErrorResponse('Error de conexión. Verifica tu conexión a internet y vuelve a intentar.')
+      }
+      
+      // Verificar si es un error de autenticación
+      if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as any).message
+        if (message.includes('Invalid API key') || message.includes('authentication')) {
+          return createErrorResponse('Error de autenticación con Google Gemini. Verifica la configuración de API Key.')
+        }
+      }
+      
       return createErrorResponse(handleServiceError(error, 'Error al cargar lista de precios'))
     }
   }
@@ -217,11 +257,21 @@ export class ComparadorPreciosService {
       })
 
     } catch (error) {
+      console.error('Error detallado al procesar lista con IA:', error)
+      
       // Actualizar estado de error
       await this.supabaseExtended
         .from('listas_precio')
         .update({ estado_procesamiento: EstadoProcesamiento.ERROR })
         .eq('id', listaId)
+
+      // Verificar si es un error específico de Gemini
+      if (error && typeof error === 'object' && 'message' in error) {
+        const message = (error as any).message
+        if (message.includes('Gemini API')) {
+          return createErrorResponse(`Error al procesar con Google Gemini: ${message}`)
+        }
+      }
 
       return createErrorResponse(handleServiceError(error, 'Error al procesar lista con IA'))
     }
@@ -290,7 +340,8 @@ export class ComparadorPreciosService {
       const base64Data = await this.convertirArchivoABase64(archivo)
       const mimeType = this.getMimeType(formato)
       
-      const model = this.genAI.getGenerativeModel({
+      const genAI = this.ensureGeminiConfigured()
+      const model = genAI.getGenerativeModel({
         model: modelo,
         generationConfig: {
           temperature: 0.1,
@@ -329,23 +380,10 @@ export class ComparadorPreciosService {
     modelo: ModeloIA,
     moneda: 'USD' | 'BS' = 'BS'
   ): Promise<{ productos: ProductoLista[], tokens: number }> {
-    try {
-      // Intentar convertir PDF a texto usando una librería cliente
-      // Si falla, retornar error descriptivo para que el usuario convierta a imagen
-      
-      // Por ahora, sugerir conversión manual
-      throw new Error(`
-        PDF detectado: Para mejores resultados, por favor:
-        1. Convierte el PDF a imagen (PNG/JPG) usando una herramienta online
-        2. O guarda como Excel/CSV si es posible
-        3. Luego sube el archivo convertido
-        
-        Próximamente agregaremos soporte directo para PDFs.
-      `)
-      
-    } catch (error) {
-      throw error // Re-lanzar el error para que llegue al usuario
-    }
+    // Para PDFs, lanzamos un error especial que será manejado en la UI
+    const error = new Error('PDF_CONVERSION_NEEDED')
+    ;(error as any).isPDFConversionError = true
+    throw error
   }
 
   private async procesarArchivoDirecto(
@@ -454,7 +492,8 @@ IMPORTANTE:
     formato: string
   ): Promise<{ contenido: string, tokens: number }> {
     try {
-      const model = this.genAI.getGenerativeModel({ 
+      const genAI = this.ensureGeminiConfigured()
+      const model = genAI.getGenerativeModel({ 
         model: modelo,
         generationConfig: {
           temperature: 0.1,
@@ -680,6 +719,10 @@ ${contenido}
     try {
       const { meilisearchService } = await import('./meilisearchService')
       
+      if (!meilisearchService.isAvailable()) {
+        return this.encontrarMejorMatchFallback(productoLista, companyId)
+      }
+      
       // Convertir formato de base de datos a formato de aplicación
       const productoListaFormateado = {
         id: productoLista.id,
@@ -780,6 +823,8 @@ ${contenido}
     filtros?: { estado?: EstadoProcesamiento, proveedor?: string }
   ): Promise<{ data: ListaPrecio[] | null, error: unknown }> {
     try {
+      console.log('ComparadorPreciosService.getListas - companyId:', companyId)
+      
       let query = this.supabaseExtended
         .from('listas_precio')
         .select('*')
@@ -795,6 +840,12 @@ ${contenido}
       }
 
       const { data, error } = await query
+      
+      console.log('ComparadorPreciosService.getListas - resultado:', { 
+        data: data?.length || 0, 
+        error: error?.message,
+        registros: data 
+      })
 
       if (error) {
         return createErrorResponse(handleServiceError(error, 'Error al obtener listas'))
@@ -802,6 +853,7 @@ ${contenido}
 
       return createSuccessResponse(data as ListaPrecio[])
     } catch (error) {
+      console.error('ComparadorPreciosService.getListas - error:', error)
       return createErrorResponse(handleServiceError(error, 'Error al obtener listas de precios'))
     }
   }
@@ -837,6 +889,78 @@ ${contenido}
     }
   }
 
+  // ====== MÉTODOS DE MANTENIMIENTO ======
+
+  async limpiarRegistrosHuerfanos(
+    companyId: string
+  ): Promise<{ data: { eliminados: number } | null, error: unknown }> {
+    try {
+      assertValid(validate.companyId(companyId), 'ID de compañía')
+
+      // Obtener todas las listas de la compañía
+      const { data: listas, error: listasError } = await this.supabaseExtended
+        .from('listas_precio')
+        .select('id, archivo_original')
+        .eq('company_id', companyId)
+
+      if (listasError) {
+        return createErrorResponse(handleServiceError(listasError, 'Error al obtener listas'))
+      }
+
+      if (!listas || listas.length === 0) {
+        return createSuccessResponse({ eliminados: 0 })
+      }
+
+      const registrosAEliminar: string[] = []
+
+      // Verificar cada lista si su archivo existe en storage
+      for (const lista of listas) {
+        if (!lista.archivo_original) {
+          // Lista sin archivo original, marcar para eliminar
+          registrosAEliminar.push(lista.id)
+          continue
+        }
+
+        try {
+          // Intentar acceder al archivo en storage
+          const { error: downloadError } = await this.supabase.storage
+            .from('listas-precios')
+            .download(lista.archivo_original)
+
+          if (downloadError) {
+            // Si no se puede descargar, el archivo no existe
+            registrosAEliminar.push(lista.id)
+          }
+        } catch {
+          // Error al acceder, marcar para eliminar
+          registrosAEliminar.push(lista.id)
+        }
+      }
+
+      console.log(`Encontrados ${registrosAEliminar.length} registros huérfanos para eliminar`)
+
+      // Eliminar registros huérfanos (cascade eliminará productos relacionados)
+      let eliminados = 0
+      if (registrosAEliminar.length > 0) {
+        const { error: deleteError } = await this.supabaseExtended
+          .from('listas_precio')
+          .delete()
+          .in('id', registrosAEliminar)
+
+        if (deleteError) {
+          return createErrorResponse(handleServiceError(deleteError, 'Error al eliminar registros huérfanos'))
+        }
+
+        eliminados = registrosAEliminar.length
+      }
+
+      return createSuccessResponse({ eliminados })
+
+    } catch (error) {
+      return createErrorResponse(handleServiceError(error, 'Error al limpiar registros huérfanos'))
+    }
+  }
+
   // ====== MÉTODOS DE COMPARACIÓN ======
 
   async compararListas(
@@ -863,7 +987,7 @@ ${contenido}
         return createErrorResponse(handleServiceError(comparacionError, 'Error al crear comparación'))
       }
 
-      // Obtener productos matcheados de todas las listas
+      // Obtener TODOS los productos de las listas (sin filtrar por matching_id)
       const { data: productos, error: productosError } = await this.supabaseExtended
         .from('productos_lista')
         .select(`
@@ -871,113 +995,259 @@ ${contenido}
           lista_precio:listas_precio(*)
         `)
         .in('lista_precio_id', listasIds)
-        .not('matching_id', 'is', null)
 
-      if (productosError) {
+      if (productosError || !productos) {
         return createErrorResponse(handleServiceError(productosError, 'Error al obtener productos'))
       }
 
-      // Agrupar productos por matching_id
-      const productosAgrupados = new Map<string, (ProductoLista & { lista_precio: ListaPrecio })[]>()
-      productos?.forEach(producto => {
-        const matchingId = producto.matching_id
-        if (!productosAgrupados.has(matchingId)) {
-          productosAgrupados.set(matchingId, [])
+      // Agrupar productos por lista
+      const productosPorLista = new Map<string, typeof productos>()
+      for (const producto of productos) {
+        const listaId = producto.lista_precio_id
+        if (!productosPorLista.has(listaId)) {
+          productosPorLista.set(listaId, [])
         }
-        productosAgrupados.get(matchingId)!.push(producto)
-      })
+        productosPorLista.get(listaId)?.push(producto)
+      }
 
       const resultados: ResultadoComparacion[] = []
+      const productosComparados = new Set<string>()
       let totalProductos = 0
       let productosMatcheados = 0
 
-      // Procesar cada grupo de productos
-      for (const [matchingId, grupoProductos] of productosAgrupados) {
-        if (grupoProductos.length < 2) continue // Necesitamos al menos 2 precios para comparar
+      // Tomar la primera lista como base
+      const [primeraListaId] = listasIds
+      const productosBase = productosPorLista.get(primeraListaId) || []
+
+      // Intentar cargar Meilisearch si está disponible
+      let meilisearchService: typeof import('./meilisearchService').meilisearchService | null = null
+      try {
+        const mod = await import('./meilisearchService')
+        if (mod.meilisearchService.isAvailable()) {
+          meilisearchService = mod.meilisearchService
+        } else {
+          console.warn('Meilisearch no está configurado, usando solo comparación con IA')
+        }
+      } catch (error) {
+        console.warn('Meilisearch no disponible, usando comparación con IA:', error)
+      }
+
+      // Generar modelo de IA
+      const genAI = this.ensureGeminiConfigured()
+      const model = genAI.getGenerativeModel({
+        model: ModeloIA.GEMINI_15_FLASH,
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 100,
+        }
+      })
+
+      for (const productoBase of productosBase) {
+        if (productosComparados.has(productoBase.id)) continue
 
         totalProductos++
-        productosMatcheados++
-
-        // Obtener información del producto maestro
-        const { data: productoMaestro } = await this.supabaseExtended
-          .from('productos_maestro')
-          .select('*')
-          .eq('id', matchingId)
-          .single()
-
-        // Normalizar precios a USD
-        const preciosNormalizados = grupoProductos.map(producto => {
-          let precioUSD = producto.precioUnitario
-          
-          if (producto.moneda === 'BS' && producto.lista_precio?.tasaCambio) {
-            precioUSD = producto.precioUnitario / producto.lista_precio.tasaCambio
-          }
-
-          return {
-            proveedorId: producto.lista_precio?.proveedorId || '',
-            proveedorNombre: producto.lista_precio?.proveedorNombre || '',
-            listaPrecioId: producto.listaPrecioId,
-            productoListaId: producto.id,
-            precio: producto.precioUnitario,
-            moneda: producto.moneda,
-            precioUSD,
-            fechaLista: producto.lista_precio?.fechaLista,
-            confianzaMatch: 85 // Calcular basado en similitud real
-          }
+        const matches: Array<{producto: typeof productoBase, score: number, proveedor: string}> = []
+        
+        // El producto base siempre se incluye
+        matches.push({ 
+          producto: productoBase, 
+          score: 1,
+          proveedor: productoBase.lista_precio?.proveedor_nombre || 'Proveedor 1'
         })
 
-        // Encontrar mejor precio
-        const mejorPrecio = preciosNormalizados.reduce((mejor, actual) => 
-          actual.precioUSD < mejor.precioUSD ? actual : mejor
-        )
+        // Buscar productos similares en las otras listas
+        for (const listaId of listasIds.slice(1)) {
+          const productosLista = productosPorLista.get(listaId) || []
+          let mejorMatch: typeof productoBase | null = null
+          let mejorScore = 0
 
-        // Calcular diferencia porcentual
-        const precioMaximo = Math.max(...preciosNormalizados.map(p => p.precioUSD))
-        const precioMinimo = Math.min(...preciosNormalizados.map(p => p.precioUSD))
-        const diferenciaPorcentual = precioMaximo > 0 ? 
-          ((precioMaximo - precioMinimo) / precioMaximo) * 100 : 0
+          // Primero intentar con Meilisearch si está disponible
+          if (meilisearchService) {
+            // Convertir el producto base al formato esperado
+            const productoListaFormato: ProductoLista = {
+              id: productoBase.id,
+              listaPrecioId: productoBase.lista_precio_id,
+              codigoOriginal: productoBase.codigo_original,
+              nombreOriginal: productoBase.nombre_original,
+              nombreNormalizado: productoBase.nombre_normalizado,
+              presentacion: productoBase.presentacion,
+              unidadMedida: productoBase.unidad_medida,
+              precioUnitario: productoBase.precio_unitario,
+              precioMonedaOriginal: productoBase.precio_moneda_original,
+              moneda: productoBase.moneda,
+              categoria: productoBase.categoria,
+              marca: productoBase.marca,
+              observaciones: productoBase.observaciones,
+              confianzaExtraccion: productoBase.confianza_extraccion,
+              matchingId: productoBase.matching_id
+            }
+            
+            const { data: matchMeili } = await meilisearchService.encontrarMejorMatch(
+              companyId,
+              productoListaFormato,
+              0.7
+            )
+            
+            if (matchMeili) {
+              // Buscar el producto en la lista actual que coincida con el match encontrado
+              mejorMatch = productosLista.find(p => 
+                (p.codigo_original && matchMeili.codigo && p.codigo_original.toLowerCase() === matchMeili.codigo.toLowerCase()) ||
+                (p.nombre_normalizado && this.normalizarNombre(matchMeili.nombre) === p.nombre_normalizado)
+              ) || null
+              
+              if (mejorMatch) {
+                mejorScore = 0.9
+              }
+            }
+          }
 
-        // Detectar alertas de precio
-        let alertaPrecio = undefined
-        if (diferenciaPorcentual > 50) { // Más del 50% de diferencia
-          alertaPrecio = 'subida_anormal'
+          // Si no hay match con Meilisearch, usar IA para comparar
+          if (!mejorMatch) {
+            for (const productoComparar of productosLista) {
+              // Evitar comparar productos ya procesados
+              if (productosComparados.has(productoComparar.id)) continue
+
+              // Usar Gemini para determinar si son el mismo producto
+              const prompt = `Compara estos dos productos y determina si son el mismo producto (pueden tener nombres ligeramente diferentes).
+              
+Producto 1: ${productoBase.nombre_original} ${productoBase.presentacion || ''}
+Producto 2: ${productoComparar.nombre_original} ${productoComparar.presentacion || ''}
+
+Responde SOLO con un número entre 0 y 1 indicando la probabilidad de que sean el mismo producto (1 = definitivamente el mismo, 0 = completamente diferentes).`
+
+              try {
+                const resultado = await model.generateContent(prompt)
+                const respuesta = resultado.response.text().trim()
+                const score = parseFloat(respuesta)
+                
+                if (!isNaN(score) && score > mejorScore && score >= 0.7) {
+                  mejorScore = score
+                  mejorMatch = productoComparar
+                }
+              } catch (error) {
+                console.error('Error comparando con IA:', error)
+              }
+            }
+          }
+
+          if (mejorMatch) {
+            matches.push({ 
+              producto: mejorMatch, 
+              score: mejorScore,
+              proveedor: mejorMatch.lista_precio?.proveedor_nombre || `Proveedor ${listasIds.indexOf(listaId) + 1}`
+            })
+            productosComparados.add(mejorMatch.id)
+          }
         }
 
-        const resultado: ResultadoComparacion = {
-          id: '', // Se asignará en BD
-          comparacionId: comparacion.id,
-          productoMaestroId: matchingId,
-          productoNombre: productoMaestro?.nombre || grupoProductos[0].nombreOriginal,
-          presentacion: productoMaestro?.presentacion || '',
-          precios: preciosNormalizados,
-          mejorPrecio: {
-            proveedorId: mejorPrecio.proveedorId,
-            proveedorNombre: mejorPrecio.proveedorNombre,
-            precio: mejorPrecio.precio,
-            moneda: mejorPrecio.moneda
-          },
-          diferenciaPorcentual,
-          alertaPrecio: alertaPrecio as 'subida_anormal' | 'bajada_anormal' | undefined
+        // Si encontramos matches en múltiples listas, crear resultado de comparación
+        if (matches.length > 1) {
+          productosMatcheados++
+
+          // Crear o actualizar producto maestro basado en el producto base
+          const { data: productoMaestro } = await this.supabaseExtended
+            .from('productos_maestro')
+            .upsert({
+              company_id: companyId,
+              codigo: productoBase.codigo_original || `AUTO-${Date.now()}-${totalProductos}`,
+              nombre: productoBase.nombre_normalizado || productoBase.nombre_original,
+              nombres_busqueda: matches.map(m => m.producto.nombre_original),
+              presentacion: productoBase.presentacion || '',
+              unidad_medida: productoBase.unidad_medida || 'UNIDAD',
+              categoria: productoBase.categoria || 'GENERAL',
+              marca: productoBase.marca || '',
+              activo: true
+            })
+            .select()
+            .single()
+
+          if (productoMaestro) {
+            // Actualizar matching_id en los productos
+            for (const match of matches) {
+              await this.supabaseExtended
+                .from('productos_lista')
+                .update({ matching_id: productoMaestro.id })
+                .eq('id', match.producto.id)
+            }
+
+            // Normalizar precios a USD
+            const preciosNormalizados = matches.map(match => {
+              const producto = match.producto
+              const precio = producto.precio_unitario
+              const tasa = producto.lista_precio?.tasa_cambio || 1
+              const precioUSD = producto.moneda === 'BS' ? precio / tasa : precio
+              
+              return {
+                proveedorId: producto.lista_precio?.proveedor_id || '',
+                proveedorNombre: match.proveedor,
+                listaPrecioId: producto.lista_precio_id,
+                productoListaId: producto.id,
+                precio: producto.precio_unitario,
+                moneda: producto.moneda,
+                precioUSD,
+                fechaLista: producto.lista_precio?.fecha_lista,
+                confianzaMatch: Math.round(match.score * 100)
+              }
+            })
+
+            // Encontrar mejor precio
+            const mejorPrecio = preciosNormalizados.reduce((mejor, actual) => 
+              actual.precioUSD < mejor.precioUSD ? actual : mejor
+            )
+
+            // Calcular diferencia porcentual
+            const precioMaximo = Math.max(...preciosNormalizados.map(p => p.precioUSD))
+            const precioMinimo = Math.min(...preciosNormalizados.map(p => p.precioUSD))
+            const diferenciaPorcentual = precioMaximo > 0 ? 
+              ((precioMaximo - precioMinimo) / precioMaximo) * 100 : 0
+
+            // Detectar alertas de precio
+            let alertaPrecio: 'subida_anormal' | 'bajada_anormal' | undefined = undefined
+            if (diferenciaPorcentual > 50) {
+              alertaPrecio = 'subida_anormal'
+            }
+
+            const resultado: ResultadoComparacion = {
+              id: '', // Se asignará en BD
+              comparacionId: comparacion.id,
+              productoMaestroId: productoMaestro.id,
+              productoNombre: productoMaestro.nombre,
+              presentacion: productoMaestro.presentacion,
+              precios: preciosNormalizados,
+              mejorPrecio: {
+                proveedorId: mejorPrecio.proveedorId,
+                proveedorNombre: mejorPrecio.proveedorNombre,
+                precio: mejorPrecio.precio,
+                moneda: mejorPrecio.moneda as 'USD' | 'BS'
+              },
+              diferenciaPorcentual,
+              alertaPrecio
+            }
+
+            resultados.push(resultado)
+          }
         }
 
-        resultados.push(resultado)
+        productosComparados.add(productoBase.id)
       }
 
       // Guardar resultados
-      const resultadosParaInsertar = resultados.map(resultado => ({
-        comparacion_id: resultado.comparacionId,
-        producto_maestro_id: resultado.productoMaestroId,
-        producto_nombre: resultado.productoNombre,
-        presentacion: resultado.presentacion,
-        precios: resultado.precios,
-        mejor_precio: resultado.mejorPrecio,
-        diferencia_porcentual: resultado.diferenciaPorcentual,
-        alerta_precio: resultado.alertaPrecio
-      }))
+      if (resultados.length > 0) {
+        const resultadosParaInsertar = resultados.map(resultado => ({
+          comparacion_id: resultado.comparacionId,
+          producto_maestro_id: resultado.productoMaestroId,
+          producto_nombre: resultado.productoNombre,
+          presentacion: resultado.presentacion,
+          precios: resultado.precios,
+          mejor_precio: resultado.mejorPrecio,
+          diferencia_porcentual: resultado.diferenciaPorcentual,
+          alerta_precio: resultado.alertaPrecio
+        }))
 
-      await this.supabaseExtended
-        .from('resultados_comparacion')
-        .insert(resultadosParaInsertar)
+        await this.supabaseExtended
+          .from('resultados_comparacion')
+          .insert(resultadosParaInsertar)
+      }
 
       // Calcular estadísticas
       const estadisticas = this.calcularEstadisticas(resultados)
