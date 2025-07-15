@@ -1,11 +1,12 @@
 // src/components/layout/MainLayout.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { LoginForm } from '@/components/auth/LoginForm'
 import NotificationCenter from '@/components/notifications/NotificationCenter'
+import { settingsService } from '@/lib/services/settingsService'
 import { 
   HomeIcon, 
   BuildingOfficeIcon, 
@@ -59,7 +60,51 @@ const masterNavigation = [
 export function MainLayout({ children }: MainLayoutProps) {
   const { authUser, user, company, loading, signOut } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [appName, setAppName] = useState('Admin DSL')
   const pathname = usePathname()
+
+  // Cargar el nombre de la app desde la configuración
+  useEffect(() => {
+    const loadAppName = async () => {
+      try {
+        const { data } = await settingsService.getSetting('app_name')
+        if (data) {
+          setAppName(data as string)
+        }
+      } catch (error) {
+        console.error('Error loading app name:', error)
+        // Mantener el valor por defecto si falla
+      }
+    }
+
+    loadAppName()
+
+    // Actualizar el nombre cuando el usuario navega (especialmente útil después de cambiar configuraciones)
+    const intervalId = setInterval(loadAppName, 30000) // Verificar cada 30 segundos
+
+    return () => clearInterval(intervalId)
+  }, [])
+
+  // Función para forzar actualización del nombre (útil para otros componentes)
+  const refreshAppName = async () => {
+    try {
+      const { data } = await settingsService.getSetting('app_name')
+      if (data) {
+        setAppName(data as string)
+      }
+    } catch (error) {
+      console.error('Error refreshing app name:', error)
+    }
+  }
+
+  // Escuchar cambios en la ruta para actualizar el nombre si venimos de configuraciones
+  useEffect(() => {
+    if (pathname.includes('/admin/settings')) {
+      // Refrescar el nombre después de un pequeño delay para permitir que se guarden los cambios
+      const timeoutId = setTimeout(refreshAppName, 1000)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [pathname])
 
   // Mostrar loading mientras se verifica la autenticación
   if (loading) {
@@ -119,7 +164,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar para móvil */}
       <div className={`relative z-50 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-900/80" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
         <div className="fixed inset-0 flex">
           <div className="relative mr-16 flex w-full max-w-xs flex-1">
             <div className="absolute left-full top-0 flex w-16 justify-center pt-5">
@@ -127,9 +172,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <XMarkIcon className="h-6 w-6 text-white" />
               </button>
             </div>
-            <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-2">
+            <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 px-6 pb-2">
               <div className="flex h-16 shrink-0 items-center">
-                <h1 className="text-xl font-bold text-gray-900">Admin DSL</h1>
+                <h1 className="text-xl font-bold text-white">{appName}</h1>
               </div>
               <nav className="flex flex-1 flex-col">
                 <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -141,14 +186,18 @@ export function MainLayout({ children }: MainLayoutProps) {
                           <li key={item.name}>
                             <Link
                               href={item.href}
-                              className={`group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold ${
+                              className={`group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors duration-200 ${
                                 isActive
-                                  ? 'bg-gray-50 text-blue-600'
-                                  : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                                  ? 'bg-orange-500/20 text-white border border-orange-500/30'
+                                  : 'text-gray-300 hover:text-white hover:bg-white/10'
                               }`}
                               onClick={() => setSidebarOpen(false)}
                             >
-                              <item.icon className="h-6 w-6 shrink-0" />
+                              <item.icon className={`h-6 w-6 shrink-0 ${
+                                isActive 
+                                  ? 'text-orange-500' 
+                                  : 'text-gray-400 group-hover:text-orange-400'
+                              }`} />
                               {item.name}
                             </Link>
                           </li>
@@ -165,9 +214,9 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* Sidebar para desktop */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6">
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-800 bg-gradient-to-br from-slate-900 via-gray-900 to-zinc-900 px-6">
           <div className="flex h-16 shrink-0 items-center">
-            <h1 className="text-xl font-bold text-gray-900">Admin DSL</h1>
+            <h1 className="text-xl font-bold text-white">{appName}</h1>
           </div>
           <nav className="flex flex-1 flex-col">
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
@@ -179,13 +228,17 @@ export function MainLayout({ children }: MainLayoutProps) {
                       <li key={item.name}>
                         <Link
                           href={item.href}
-                          className={`group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold ${
+                          className={`group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors duration-200 ${
                             isActive
-                              ? 'bg-gray-50 text-blue-600'
-                              : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                              ? 'bg-orange-500/20 text-white border border-orange-500/30'
+                              : 'text-gray-300 hover:text-white hover:bg-white/10'
                           }`}
                         >
-                          <item.icon className="h-6 w-6 shrink-0" />
+                          <item.icon className={`h-6 w-6 shrink-0 ${
+                            isActive 
+                              ? 'text-orange-500' 
+                              : 'text-gray-400 group-hover:text-orange-400'
+                          }`} />
                           {item.name}
                         </Link>
                       </li>
@@ -204,7 +257,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-x-4 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-6 sm:px-6 lg:px-8">
           <button
             type="button"
-            className="-m-2.5 p-2.5 text-gray-700 lg:hidden"
+            className="-m-2.5 p-2.5 text-gray-700 hover:text-orange-500 lg:hidden transition-colors duration-200"
             onClick={() => setSidebarOpen(true)}
           >
             <Bars3Icon className="h-6 w-6" />

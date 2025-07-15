@@ -15,7 +15,7 @@ import { companyService } from '@/lib/services/adminServices'
 import { DepositoBancarioUI, BancoDepositoUI, FiltrosDepositos } from '@/types/depositos'
 import { Company } from '@/types/database'
 import { formatearFecha } from '@/utils/dateUtils'
-import { downloadDepositoPDF } from '@/utils/pdfDepositosBancarios'
+import { downloadDepositoPDF, previewDepositoPDF } from '@/utils/pdfDepositosBancarios'
 import { handleServiceError } from '@/utils/errorHandler'
 import { 
   MagnifyingGlassIcon,
@@ -25,7 +25,9 @@ import {
   DocumentTextIcon,
   FunnelIcon,
   UserIcon,
-  XMarkIcon
+  XMarkIcon,
+  TrashIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 
 interface Props {
@@ -41,6 +43,7 @@ export function ConsultaDepositos({ onError }: Props) {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalItems, setTotalItems] = useState(0)
   const [showFilters, setShowFilters] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   
   // Filtros
   const [filtros, setFiltros] = useState<FiltrosDepositos>({})
@@ -137,11 +140,46 @@ export function ConsultaDepositos({ onError }: Props) {
     return date.toISOString().split('T')[0]
   }
 
-  const generatePDF = async (depositoId: string) => {
+  const previewPDF = async (depositoId: string) => {
     try {
-      await downloadDepositoPDF(depositoId, depositosService.getReciboData.bind(depositosService))
+      await previewDepositoPDF(depositoId, depositosService.getReciboData.bind(depositosService))
     } catch (err) {
-      onError('Error al generar PDF: ' + handleServiceError(err, 'Error desconocido'))
+      onError('Error al mostrar vista previa: ' + handleServiceError(err, 'Error desconocido'))
+    }
+  }
+
+  const handleDelete = async (deposito: DepositoBancarioUI) => {
+    const numeroRecibo = deposito.numeroRecibo.toString().padStart(4, '0')
+    const confirm = window.confirm(
+      `¿Está seguro que desea eliminar el depósito #${numeroRecibo}?\n\n` +
+      `Banco: ${deposito.banco?.nombre}\n` +
+      `Monto: Bs. ${deposito.montoBs.toLocaleString()}\n` +
+      `Fecha: ${formatearFecha(deposito.fechaDeposito)}\n\n` +
+      `Esta acción no se puede deshacer.`
+    )
+
+    if (!confirm) return
+
+    setDeletingId(deposito.id)
+    onError('')
+
+    try {
+      const { error } = await depositosService.deleteDeposito(deposito.id)
+
+      if (error) {
+        onError('Error al eliminar depósito: ' + handleServiceError(error, 'Error desconocido'))
+        return
+      }
+
+      // Recargar la lista después de eliminar
+      await loadDepositos()
+      
+      // Mostrar mensaje de éxito
+      alert(`Depósito #${numeroRecibo} eliminado correctamente`)
+    } catch (err) {
+      onError('Error al eliminar depósito: ' + handleServiceError(err, 'Error desconocido'))
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -346,15 +384,30 @@ export function ConsultaDepositos({ onError }: Props) {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => generatePDF(deposito.id)}
-                        className="flex items-center"
-                      >
-                        <DocumentTextIcon className="h-4 w-4 mr-1" />
-                        PDF
-                      </Button>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => previewPDF(deposito.id)}
+                          className="flex items-center"
+                        >
+                          <EyeIcon className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDelete(deposito)}
+                          disabled={deletingId === deposito.id}
+                          className="flex items-center text-red-600 hover:text-red-700 hover:border-red-300"
+                        >
+                          {deletingId === deposito.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                          ) : (
+                            <TrashIcon className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}

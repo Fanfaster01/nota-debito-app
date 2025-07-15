@@ -15,7 +15,7 @@ import {
 } from '@/lib/services/depositosService'
 import { companyService } from '@/lib/services/adminServices'
 import { BancoDepositoUI, DepositoFormData, DepositoBancarioUI } from '@/types/depositos'
-import { downloadDepositoPDF } from '@/utils/pdfDepositosBancarios'
+import { previewDepositoPDF } from '@/utils/pdfDepositosBancarios'
 import { Company } from '@/types/database'
 import { 
   BanknotesIcon,
@@ -145,12 +145,12 @@ export function FormularioDeposito({ onSuccess, onError }: Props) {
         // Guardar el depósito para usar después
         depositoCreado = deposito
 
-        // Generar PDF automáticamente
+        // Mostrar vista previa del recibo automáticamente
         try {
-          await downloadDepositoPDF(deposito.id, depositosService.getReciboData.bind(depositosService))
+          await previewDepositoPDF(deposito.id, depositosService.getReciboData.bind(depositosService))
         } catch (pdfError: unknown) {
-          console.error('Error al generar PDF:', pdfError)
-          // No mostrar error de PDF, el depósito se creó exitosamente
+          console.error('Error al mostrar vista previa:', pdfError)
+          // No mostrar error de vista previa, el depósito se creó exitosamente
         }
 
         // Retornar los datos del formulario para compatibilidad de tipos

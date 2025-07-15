@@ -299,18 +299,29 @@ export class DepositosService {
             id,
             name,
             rif
-          ),
-          users_view (
-            id,
-            full_name,
-            email
           )
         `)
         .single()
 
       if (error) throw error
 
-      return { data: this.mapDepositoFromDB(data), error: null }
+      let deposito = this.mapDepositoFromDB(data)
+
+      // Obtener información del usuario mediante consulta separada
+      const { data: usuario, error: userError } = await this.supabase
+        .from('users')
+        .select('id, full_name, email')
+        .eq('id', deposito.userId)
+        .single()
+
+      if (!userError && usuario) {
+        deposito = {
+          ...deposito,
+          usuario
+        }
+      }
+
+      return { data: deposito, error: null }
     } catch (error) {
       return { data: null, error: this.handleError(error, 'createDeposito') }
     }
@@ -351,11 +362,18 @@ export class DepositosService {
         .eq('id', deposito.userId)
         .single()
 
-      if (!userError && usuario) {
-        deposito = {
-          ...deposito,
-          usuario
-        }
+      if (userError) {
+        console.error('Error al obtener usuario:', userError)
+        return { data: null, error: handleServiceError(userError, 'Error al obtener información del usuario') }
+      }
+
+      if (!usuario) {
+        return { data: null, error: handleServiceError(new Error('Usuario no encontrado'), 'Usuario no encontrado') }
+      }
+
+      deposito = {
+        ...deposito,
+        usuario
       }
 
       return { data: deposito, error: null }
@@ -374,8 +392,16 @@ export class DepositosService {
         return { data: null, error: handleServiceError(error || new Error('Depósito no encontrado'), 'Depósito no encontrado') }
       }
 
-      if (!deposito.banco || !deposito.company || !deposito.usuario) {
-        return { data: null, error: handleServiceError(new Error('Datos incompletos del depósito'), 'Datos incompletos') }
+      if (!deposito.banco) {
+        return { data: null, error: handleServiceError(new Error('Información del banco no encontrada'), 'Datos incompletos') }
+      }
+
+      if (!deposito.company) {
+        return { data: null, error: handleServiceError(new Error('Información de la empresa no encontrada'), 'Datos incompletos') }
+      }
+
+      if (!deposito.usuario) {
+        return { data: null, error: handleServiceError(new Error('Información del usuario no encontrada'), 'Datos incompletos') }
       }
 
       const reciboData: ReciboDepositoData = {
@@ -392,7 +418,7 @@ export class DepositosService {
         fechaDeposito: deposito.fechaDeposito,
         observaciones: deposito.observaciones,
         usuario: {
-          nombre: deposito.usuario.full_name
+          nombre: deposito.usuario.full_name || 'Usuario desconocido'
         }
       }
 
@@ -462,6 +488,25 @@ export class DepositosService {
       }
 
       return { data: resumen, error: null }
+    } catch (err) {
+      console.error('Error in depositos operation:', err)
+      return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
+    }
+  }
+
+  // Eliminar depósito
+  async deleteDeposito(depositoId: string): Promise<{ data: boolean | null, error: unknown }> {
+    try {
+      this.validateRequired(depositoId, 'ID del depósito')
+
+      const { error } = await this.supabase
+        .from('depositos_bancarios')
+        .delete()
+        .eq('id', depositoId)
+
+      if (error) return { data: null, error }
+
+      return { data: true, error: null }
     } catch (err) {
       console.error('Error in depositos operation:', err)
       return { data: null, error: handleServiceError(err, 'Error en operación de depósitos') }
