@@ -21,7 +21,8 @@ import {
   DocumentChartBarIcon,
   BuildingLibraryIcon,
   ReceiptPercentIcon,
-  ScaleIcon
+  ScaleIcon,
+  TagIcon
 } from '@heroicons/react/24/outline'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -33,6 +34,7 @@ interface MainLayoutProps {
 const navigation = [
   { name: 'Dashboard', href: '/', icon: HomeIcon },
   { name: 'Gestión de Cajas', href: '/cajas', icon: BanknotesIcon },
+  { name: 'Listas de Precios', href: '/listas-precios', icon: TagIcon },
 ]
 
 const adminNavigation = [

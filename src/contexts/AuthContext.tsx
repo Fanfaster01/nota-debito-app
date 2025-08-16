@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client'
 import { User, Company } from '@/types/database'
 import { userService } from '@/lib/services'
 import { setupSupabaseErrorInterceptor } from '@/utils/supabase/error-interceptor'
+import { usePathname } from 'next/navigation'
 
 interface AuthContextType {
   authUser: AuthUser | null
@@ -23,10 +24,13 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const isPublicRoute = pathname?.startsWith('/listas-precios')
+  
   const [authUser, setAuthUser] = useState<AuthUser | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [company, setCompany] = useState<Company | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!isPublicRoute) // No loading para rutas públicas
   const supabase = createClient()
 
   useEffect(() => {
@@ -37,6 +41,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Obtener sesión inicial
     const getInitialSession = async () => {
+      // Salir temprano para rutas públicas
+      if (isPublicRoute) {
+        console.log('[Auth] Ruta pública detectada, saltando verificación de sesión')
+        setAuthUser(null)
+        setUser(null)
+        setCompany(null)
+        setLoading(false)
+        return
+      }
+      
       console.log('[Auth] Iniciando verificación de sesión...')
       
       // Timeout de seguridad - si toma más de 10 segundos, continuar sin sesión
@@ -93,9 +107,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     getInitialSession()
 
-    // Escuchar cambios de autenticación
+    // Escuchar cambios de autenticación (solo para rutas privadas)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // Salir temprano para rutas públicas
+        if (isPublicRoute) {
+          return
+        }
+        
         console.log('[Auth] Auth state change:', event, session?.user?.email)
         
         if (event === 'SIGNED_OUT' || !session) {
@@ -125,7 +144,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     )
 
     return () => subscription.unsubscribe()
-  }, [])
+  }, [isPublicRoute])
 
   const createUserProfile = async (userId: string) => {
     try {
