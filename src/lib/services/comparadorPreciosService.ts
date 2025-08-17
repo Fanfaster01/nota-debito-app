@@ -45,7 +45,7 @@ export class ComparadorPreciosService {
   }
   
   // Configuración de IA
-  private readonly GEMINI_API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY
+  private readonly GEMINI_API_KEY = process.env.GEMINI_API_KEY // Sin NEXT_PUBLIC_ para seguridad
   private genAI: GoogleGenerativeAI | null = null
   private readonly isGeminiConfigured: boolean
   
@@ -64,7 +64,7 @@ export class ComparadorPreciosService {
 
   private ensureGeminiConfigured(): GoogleGenerativeAI {
     if (!this.GEMINI_API_KEY) {
-      throw new Error('Google Gemini API Key no está configurada. Configure NEXT_PUBLIC_GEMINI_API_KEY en las variables de entorno.')
+      throw new Error('Google Gemini API Key no está configurada. Configure GEMINI_API_KEY en las variables de entorno.')
     }
     
     if (!this.genAI) {

@@ -153,7 +153,7 @@ export function MeilisearchConfig() {
               <div className="bg-blue-100 rounded p-2 mt-2 font-mono text-xs">
                 <div>NEXT_PUBLIC_MEILISEARCH_URL=tu_url</div>
                 <div>NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY=tu_search_key</div>
-                <div>NEXT_PUBLIC_MEILISEARCH_ADMIN_API_KEY=tu_admin_key</div>
+                <div>MEILISEARCH_ADMIN_API_KEY=tu_admin_key (sin NEXT_PUBLIC_ por seguridad)</div>
               </div>
               <p>3. Reinicia la aplicación y configura el índice</p>
             </div>

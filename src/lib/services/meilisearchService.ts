@@ -42,9 +42,9 @@ export class MeilisearchService {
   private readonly isConfigured: boolean
 
   constructor() {
-    const host = process.env.NEXT_PUBLIC_MEILISEARCH_URL
-    const apiKey = process.env.NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY
-    const adminKey = process.env.NEXT_PUBLIC_MEILISEARCH_ADMIN_API_KEY
+    const host = process.env.NEXT_PUBLIC_MEILISEARCH_URL // URL pública es segura
+    const apiKey = process.env.NEXT_PUBLIC_MEILISEARCH_SEARCH_API_KEY // Search key es segura (solo lectura)
+    const adminKey = process.env.MEILISEARCH_ADMIN_API_KEY // Admin key sin NEXT_PUBLIC_ para seguridad
 
     this.isConfigured = !!(host && (apiKey || adminKey))
 
