@@ -6,6 +6,24 @@
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/victoriana-department/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/victoriana-departments/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/victoriana-groups/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/victoriana-prices/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/listas-precios/victoriana/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/listas-precios/bunker/**/*.ts": {
+      "maxDuration": 60
     }
   },
   "headers": [

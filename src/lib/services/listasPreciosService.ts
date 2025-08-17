@@ -38,8 +38,8 @@ const bunkerConfig = {
     min: 0,
     idleTimeoutMillis: 30000
   },
-  connectionTimeout: 30000,
-  requestTimeout: 30000
+  connectionTimeout: 60000, // Aumentado a 60 segundos
+  requestTimeout: 60000 // Aumentado a 60 segundos
 }
 
 // Configuración para La Victoriana
@@ -59,8 +59,8 @@ const victorianaConfig = {
     min: 0,
     idleTimeoutMillis: 30000
   },
-  connectionTimeout: 30000,
-  requestTimeout: 30000
+  connectionTimeout: 60000, // Aumentado a 60 segundos
+  requestTimeout: 60000 // Aumentado a 60 segundos
 }
 
 // Pool de conexiones
