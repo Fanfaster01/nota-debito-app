@@ -1,30 +1,33 @@
 const sql = require('mssql')
 
 /**
- * Variables de entorno requeridas:
+ * Variables de entorno requeridas (SEGURAS - sin NEXT_PUBLIC_):
  * 
  * Para Bunker Restaurant:
- * - NEXT_PUBLIC_BUNKER_DB_USER: Usuario de la base de datos
- * - NEXT_PUBLIC_BUNKER_DB_PASSWORD: Contraseña de la base de datos
- * - NEXT_PUBLIC_BUNKER_DB_HOST: Host/IP de la base de datos
- * - NEXT_PUBLIC_BUNKER_DB_NAME: Nombre de la base de datos (default: XETUXPOS)
- * - NEXT_PUBLIC_BUNKER_DB_PORT: Puerto de la base de datos (default: 1433)
+ * - BUNKER_DB_USER: Usuario de la base de datos
+ * - BUNKER_DB_PASSWORD: Contraseña de la base de datos
+ * - BUNKER_DB_HOST: Host/IP de la base de datos
+ * - BUNKER_DB_NAME: Nombre de la base de datos (default: XETUXPOS)
+ * - BUNKER_DB_PORT: Puerto de la base de datos (default: 1433)
  * 
  * Para La Victoriana:
- * - NEXT_PUBLIC_VICTORIANA_DB_USER: Usuario de la base de datos
- * - NEXT_PUBLIC_VICTORIANA_DB_PASSWORD: Contraseña de la base de datos
- * - NEXT_PUBLIC_VICTORIANA_DB_HOST: Host/IP de la base de datos
- * - NEXT_PUBLIC_VICTORIANA_DB_NAME: Nombre de la base de datos (default: VAD10)
- * - NEXT_PUBLIC_VICTORIANA_DB_PORT: Puerto de la base de datos (default: 14333)
+ * - VICTORIANA_DB_USER: Usuario de la base de datos
+ * - VICTORIANA_DB_PASSWORD: Contraseña de la base de datos
+ * - VICTORIANA_DB_HOST: Host/IP de la base de datos
+ * - VICTORIANA_DB_NAME: Nombre de la base de datos (default: VAD10)
+ * - VICTORIANA_DB_PORT: Puerto de la base de datos (default: 14333)
+ * 
+ * IMPORTANTE: Estas variables NO deben tener el prefijo NEXT_PUBLIC_ 
+ * para mantener la seguridad de las credenciales de base de datos.
  */
 
 // Configuración para Bunker Restaurant
 const bunkerConfig = {
-  user: process.env.NEXT_PUBLIC_BUNKER_DB_USER,
-  password: process.env.NEXT_PUBLIC_BUNKER_DB_PASSWORD,
-  server: process.env.NEXT_PUBLIC_BUNKER_DB_HOST,
-  database: process.env.NEXT_PUBLIC_BUNKER_DB_NAME || 'XETUXPOS',
-  port: parseInt(process.env.NEXT_PUBLIC_BUNKER_DB_PORT || '1433'),
+  user: process.env.BUNKER_DB_USER,
+  password: process.env.BUNKER_DB_PASSWORD,
+  server: process.env.BUNKER_DB_HOST,
+  database: process.env.BUNKER_DB_NAME || 'XETUXPOS',
+  port: parseInt(process.env.BUNKER_DB_PORT || '1433'),
   options: {
     trustServerCertificate: true,
     encrypt: false,
@@ -41,11 +44,11 @@ const bunkerConfig = {
 
 // Configuración para La Victoriana
 const victorianaConfig = {
-  user: process.env.NEXT_PUBLIC_VICTORIANA_DB_USER,
-  password: process.env.NEXT_PUBLIC_VICTORIANA_DB_PASSWORD,
-  server: process.env.NEXT_PUBLIC_VICTORIANA_DB_HOST,
-  database: process.env.NEXT_PUBLIC_VICTORIANA_DB_NAME || 'VAD10',
-  port: parseInt(process.env.NEXT_PUBLIC_VICTORIANA_DB_PORT || '14333'),
+  user: process.env.VICTORIANA_DB_USER,
+  password: process.env.VICTORIANA_DB_PASSWORD,
+  server: process.env.VICTORIANA_DB_HOST,
+  database: process.env.VICTORIANA_DB_NAME || 'VAD10',
+  port: parseInt(process.env.VICTORIANA_DB_PORT || '14333'),
   options: {
     trustServerCertificate: true,
     encrypt: false,
@@ -69,7 +72,7 @@ export async function getBunkerConnection() {
   try {
     // Validar variables de entorno críticas
     if (!bunkerConfig.user || !bunkerConfig.password || !bunkerConfig.server) {
-      throw new Error('Missing required Bunker database environment variables. Please check NEXT_PUBLIC_BUNKER_DB_USER, NEXT_PUBLIC_BUNKER_DB_PASSWORD, and NEXT_PUBLIC_BUNKER_DB_HOST')
+      throw new Error('Missing required Bunker database environment variables. Please check BUNKER_DB_USER, BUNKER_DB_PASSWORD, and BUNKER_DB_HOST')
     }
     
     if (!bunkerPool) {
@@ -138,7 +141,7 @@ export async function getVictorianaConnection() {
   try {
     // Validar variables de entorno críticas
     if (!victorianaConfig.user || !victorianaConfig.password || !victorianaConfig.server) {
-      throw new Error('Missing required La Victoriana database environment variables. Please check NEXT_PUBLIC_VICTORIANA_DB_USER, NEXT_PUBLIC_VICTORIANA_DB_PASSWORD, and NEXT_PUBLIC_VICTORIANA_DB_HOST')
+      throw new Error('Missing required La Victoriana database environment variables. Please check VICTORIANA_DB_USER, VICTORIANA_DB_PASSWORD, and VICTORIANA_DB_HOST')
     }
     
     if (!victorianaPool) {
